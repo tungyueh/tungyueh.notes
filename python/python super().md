@@ -5,10 +5,12 @@
   * class type(name, bases, dict)
   * 傳 objecy 給 type 會回傳 object 的型態
   * 傳 name, bases, dict 會回傳一個 type object，等於宣告 class 的意思，下面的兩段 code 意思一樣
+  
   ``` python
   class X:
       a = 1
   ```
+  
   ``` python
   X = type('X', (object,), dict(a=1))
   ```
@@ -23,11 +25,13 @@ class C(B):
 
 ### Method Resolution Order(MRO)
 * super() 本質上是根據 MRO 找出下一個 class
+
 ``` python
 def super(cls, inst):
     mro = inst.__class__.mro()
     return mro[mro.index(cls) + 1]
 ```
+
 ``` python
 class A(object):
     pass
@@ -45,6 +49,7 @@ print b.__class__.mro().index(A)
 print b.__class__.mro().index(B)
 # 0
 ```
+
 * MRO 用 C3 linearization 來決定的
     * base 一定在 derived 後面
     * 若有多個 base 則順序不變
@@ -54,6 +59,7 @@ print b.__class__.mro().index(B)
     * head 不 OK 就換下個 list
     * head OK 代表 head 不存在任何 list 的 tail
 * Diamond inheritance
+
 ``` python
 class Base(object):
     def __init__(self):
@@ -124,9 +130,11 @@ class LoggingDict(dict):
         logging.info('Settingto %r' % (key, value))
         super().__setitem__(key, value)
 ```
+
 * 這個 class 有跟 dict 一樣的功能，因為是繼承 dict 的 class
 * 但是將 __setitem__ 做些改動，會先 log 在做原本 dict 的 __setitem__
 * 用 super 去使用 dict 的 __setitem__ 的好處是可以用推論的找出要用誰的 __setitem__ 如果用 dict().__setitem__ 的方式，若想改變繼承的object 則需要將程式碼做改動
+
 ``` python
 from collections import Counter, OrderedDict
 
@@ -140,6 +148,7 @@ class OrderedCounter(Counter, OrderedDict):
 
 oc = OrderedCounter('abracadabra')
 ```
+
 * OrderedCounter(OrderedDict([('a', 5), ('b', 2), ('r', 2), ('c', 1), ('d', 1)]))
 * OrderedCounter.__mro__: (<class 'OrderedCounter'>, <class 'collections.Counter'>, <class 'collections.OrderedDict'>, <class 'dict'>, <class 'object'>)
 * __setitem__ -> <class 'collections.OrderedDict'>
@@ -147,6 +156,7 @@ oc = OrderedCounter('abracadabra')
 
 ### My test
 * 覺得為什麼 super 第一個參數都要放自己 所以來嘗試不放自己會怎麼樣
+
 ``` python
 class A(object):
     def __init__(self):
@@ -176,6 +186,7 @@ print d.__class__.__mro_
 # leave B
 # (<class '__main__.D'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.A'>, <type 'object'>)
 ```
+
 * 證實 super 只是 MRO 順序的下一個 class，所以我在 B init 放 super(C, self).__init__() 就會找 Ｃ 的下一個 Ａ 使用 Ａ的 __init__() 而跳過 Ｃ
 
 
