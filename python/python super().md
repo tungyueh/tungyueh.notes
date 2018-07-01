@@ -12,6 +12,7 @@
   ``` python
   X = type('X', (object,), dict(a=1))
   ```
+
 ### Usage
 ``` python
 class C(B):
@@ -19,6 +20,7 @@ class C(B):
         super().method(arg)  # This does the same thing as:
                              # super(C, self).method(arg)
 ```
+
 ### Method Resolution Order(MRO)
 * super() 本質上是根據 MRO 找出下一個 class
 ``` python
@@ -26,7 +28,6 @@ def super(cls, inst):
     mro = inst.__class__.mro()
     return mro[mro.index(cls) + 1]
 ```
-
 ``` python
 class A(object):
     pass
@@ -52,7 +53,6 @@ print b.__class__.mro().index(B)
     * 若 head OK 就拿出來並刪掉後面所有存在的
     * head 不 OK 就換下個 list
     * head OK 代表 head 不存在任何 list 的 tail
-
 * Diamond inheritance
 ``` python
 class Base(object):
@@ -116,6 +116,7 @@ print x.value  # 35
 ```
 因為 MRO 順序是 TimesFive, PlusTwo, MyBaseClass
 所以 GoodWay 呼叫 super 則是 TimesFive, TimesFive 又呼叫 super 則是 PlusTwo, PlusTwo 又再一次呼叫 MyBaseClass, 所以將 value 初始化後就先加二再乘五。
+
 ### Pratical Use Cases
 ``` python
 class LoggingDict(dict):
