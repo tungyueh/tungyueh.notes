@@ -1,4 +1,4 @@
-# Python super()
+## Python super()
 * super() 可以用來呼叫 parent 或 sibling class 的 function
 * super([type[, object-or-type]])
   * class type(object)
@@ -12,16 +12,16 @@
   ``` python
   X = type('X', (object,), dict(a=1))
   ```
-## Usage
+### Usage
 ``` python
 class C(B):
     def method(self, arg):
         super().method(arg)  # This does the same thing as:
                              # super(C, self).method(arg)
 ```
-## Method Resolution Order(MRO)
+### Method Resolution Order(MRO)
 * super() 本質上是根據 MRO 找出下一個 class
-```python
+``` python
 def super(cls, inst):
     mro = inst.__class__.mro()
     return mro[mro.index(cls) + 1]
@@ -92,7 +92,7 @@ print C.__mro__
 # (<class '__main__.C'>, <class '__main__.A'>, <class '__main__.B'>, <class '__main__.Base'>, <type 'object'>)
 ```
 
-## Another example in effective python item 25
+### Another example in effective python item 25
 ``` python 
 class MyBaseClass(object):
     def __init__(self, x):
@@ -115,7 +115,7 @@ print x.value  # 35
 ```
 因為 MRO 順序是 TimesFive, PlusTwo, MyBaseClass
 所以 GoodWay 呼叫 super 則是 TimesFive, TimesFive 又呼叫 super 則是 PlusTwo, PlusTwo 又再一次呼叫 MyBaseClass, 所以將 value 初始化後就先加二再乘五。
-## Pratical Use Cases
+### Pratical Use Cases
 ``` python
 class LoggingDict(dict):
     def __setitem__(self, key, value):
@@ -143,7 +143,7 @@ oc = OrderedCounter('abracadabra')
 * __setitem__ -> <class 'collections.OrderedDict'>
 * __getitem__ -> <class 'dict'>
 
-## My test
+### My test
 * 覺得為什麼 super 第一個參數都要放自己 所以來嘗試不放自己會怎麼樣
 ``` python
 class A(object):
@@ -167,20 +167,17 @@ class D(B, C):
     pass
 d = D()
 print d.__class__.__mro_
-```
-
-```
-output:
-enter B
-enter A
-leave A
-leave B
-(<class '__main__.D'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.A'>, <type 'object'>)
+# output:
+# enter B
+# enter A
+# leave A
+# leave B
+# (<class '__main__.D'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.A'>, <type 'object'>)
 ```
 * 證實 super 只是 MRO 順序的下一個 class，所以我在 B init 放 super(C, self).__init__() 就會找 Ｃ 的下一個 Ａ 使用 Ａ的 __init__() 而跳過 Ｃ
 
 
-## Reference
+### Reference
 [The Python Standard Library Built-in Functions super()](https://docs.python.org/3/library/functions.html#super)
 
 [理解 Python super](https://laike9m.com/blog/li-jie-python-super,70/)
