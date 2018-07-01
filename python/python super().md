@@ -26,6 +26,7 @@ def super(cls, inst):
     mro = inst.__class__.mro()
     return mro[mro.index(cls) + 1]
 ```
+
 ``` python
 class A(object):
     pass
