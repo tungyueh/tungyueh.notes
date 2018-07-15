@@ -17,6 +17,7 @@ class InventoryItem:
         return self.unit_price * self.quantity_on_hand
 ```
 * 會自動產生 \_\_init\_\_
+
 ``` python
 def __init__(self, name: str, unit_price: float, quantity_on_hand: int = 0) -> None:
     self.name = name
