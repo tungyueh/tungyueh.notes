@@ -5,6 +5,7 @@
 * 自動產生特殊 function 可以節省撰寫這些 function 的時間
 * decorate class 會自動產生 \_\_init\_\_, \_\_repr\_\_, \_\_eq\_\_ 特殊 function 加入到目前的 class
 * Example
+
 ``` python
 @dataclass
 class InventoryItem:
@@ -35,6 +36,7 @@ def __init__(self, name: str, unit_price: float, quantity_on_hand: int = 0) -> N
 * string 裡面用 {} 表示要將這個 format
 * 要 format 的變數可以用 !r, !s, !a 或者 : format specifier 來做的格式
 * Exmaple
+
 ``` python
 >>> name = "Fred"
 >>> f"He said his name is {name!r}."
@@ -53,6 +55,7 @@ def __init__(self, name: str, unit_price: float, quantity_on_hand: int = 0) -> N
 ## What’s New In Python 3.4
 ### enum
 * 讓用特定數字或字串代表某些意義的情況，可以換用 enum 讓可讀性提高
+
 ``` python
 from enum import Enum
 class Color(Enum):
@@ -93,6 +96,7 @@ except IOError as err:
 
 * New exception: BlockingIOError, ChildProcessError, ConnectionError, FileExistsError, FileNotFoundError, InterruptedError, IsADirectoryError, NotADirectoryError, PermissionError, ProcessLookupError, TimeoutError
 * 使用新 exception 可以讓 code 可讀性變高，行數減少
+
 ``` python
 try:
     with open("document.txt") as f:
@@ -106,6 +110,7 @@ except PermissionError:
 ### Syntax for Delegating to a Subgenerator
 * ```yield from```: 可以直接 yield from 後面的 generator 的值
 * 通常使用在需要使用 send() throw() 的 generator，讓 code 可以重複利用
+
 ``` python
 def accumulate():
     tally = 0
@@ -146,11 +151,14 @@ tallies # [6, 10]
 ## What’s New In Python 3.0
 ### Function argument and return value annotations
 * 對於參數或回傳值給予型態建議
+
 ``` python
 def foo(a: 'x', b: 5 + 6, c: list) -> max(2, 9):
   pass
 ```
+
 * object 型態記錄在 \_\_annotations\_\_
+
 ``` python
 >>> print(foo.__annotations__)
 {'a': 'x', 'b': 11, 'c': <class 'list'>, 'return': 9}
@@ -158,6 +166,7 @@ def foo(a: 'x', b: 5 + 6, c: list) -> max(2, 9):
 
 ### Keyword-only arguments
 * 在 \*arg 後面的 keyword argument 一定要給 key
+
 ``` python
 >>> def compare(a, b, *, key=None):
 ...   pass
