@@ -75,6 +75,7 @@ class Color(Enum):
 ## Reworking the OS and IO exception hierarchy
 * OSError, IOError, EnvironmentError, WindowsError, mmap.error, socket.error or select.error 都變成 OSError
 * 舊有的 code 遇到 IOError 需要判斷 errno 才能知道是哪種 exception
+
 ``` python
 from errno import ENOENT, EACCES, EPERM
 
