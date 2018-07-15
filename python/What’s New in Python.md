@@ -24,6 +24,7 @@ def __init__(self, name: str, unit_price: float, quantity_on_hand: int = 0) -> N
     self.quantity_on_hand = quantity_on_hand
 
 ```
+
 * ref: https://docs.python.org/release/3.7.0/library/dataclasses.html#dataclasses.dataclass
 
 ## What’s New In Python 3.6
@@ -41,6 +42,7 @@ def __init__(self, name: str, unit_price: float, quantity_on_hand: int = 0) -> N
 >>> f"{today:%B %d, %Y}"  # using date format specifier
 'January 27, 2017'
 ```
+
 * ref: https://docs.python.org/release/3.7.0/reference/lexical_analysis.html#formatted-string-literals
 
 ## What’s New In Python 3.5
@@ -57,6 +59,7 @@ class Color(Enum):
   GREEN = 2
   BLUE = 3
 ```
+
 * Color.RED type 是 ```<enum 'Color'>```
 * Color.RED 不等於 1，若想要讓 Color.RED 可以當成 1 使用 class 需要繼承 IntEnum
 * ref: https://docs.python.org/release/3.7.0/library/enum.html#module-enum
@@ -85,6 +88,7 @@ except IOError as err:
     else:
         raise
 ```
+
 * New exception: BlockingIOError, ChildProcessError, ConnectionError, FileExistsError, FileNotFoundError, InterruptedError, IsADirectoryError, NotADirectoryError, PermissionError, ProcessLookupError, TimeoutError
 * 使用新 exception 可以讓 code 可讀性變高，行數減少
 ``` python
@@ -96,6 +100,7 @@ except FileNotFoundError:
 except PermissionError:
     print("You are not allowed to read document.txt")
 ```
+
 ### Syntax for Delegating to a Subgenerator
 * ```yield from```: 可以直接 yield from 後面的 generator 的值
 * 通常使用在需要使用 send() throw() 的 generator，讓 code 可以重複利用
@@ -126,6 +131,7 @@ for i in range(5):
 acc.send(None)  # Finish the second tally
 tallies # [6, 10]
 ```
+
 * accumulate 會將 yield 的值加總然後遇到 None 回傳
 * gather_tallies 將結果存在 list 上面
 * acc.send(i) 將 i 的值 assign 給 tally
@@ -147,6 +153,7 @@ def foo(a: 'x', b: 5 + 6, c: list) -> max(2, 9):
 >>> print(foo.__annotations__)
 {'a': 'x', 'b': 11, 'c': <class 'list'>, 'return': 9}
 ```
+
 ### Keyword-only arguments
 * 在 \*arg 後面的 keyword argument 一定要給 key
 ``` python
@@ -155,6 +162,7 @@ def foo(a: 'x', b: 5 + 6, c: list) -> max(2, 9):
 >>> compare(1,2,3)
 TypeError: compare() takes 2 positional arguments but 3 were given
 ```
+
 ### nonlocal
 * 直接存取 outer scope 的變數
 ### Extended Iterable Unpacking
