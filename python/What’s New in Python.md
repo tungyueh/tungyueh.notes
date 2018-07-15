@@ -67,9 +67,11 @@ class Color(Enum):
 * Color.RED type 是 ```<enum 'Color'>```
 * Color.RED 不等於 1，若想要讓 Color.RED 可以當成 1 使用 class 需要繼承 IntEnum
 * ref: https://docs.python.org/release/3.7.0/library/enum.html#module-enum
+
 ### pathlib
 * 相較於單純的 string，pathlib 針對不同系統提供各種易懂的 function
 * ref: https://docs.python.org/release/3.7.0/library/pathlib.html#module-pathlib
+
 ### tracemalloc
 * debug tool for memory usage
 * ref: https://docs.python.org/release/3.7.0/library/tracemalloc.html#module-tracemalloc
@@ -176,6 +178,7 @@ TypeError: compare() takes 2 positional arguments but 3 were given
 
 ### nonlocal
 * 直接存取 outer scope 的變數
+
 ### Extended Iterable Unpacking
 * ```(a, *rest, b) = range(5)```
 
