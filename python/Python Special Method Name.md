@@ -61,7 +61,6 @@ this is C class overload __repr__
 *  `object.__iter__(self)`: return 可以走過 container 中所有 object 的 iterator
 *  `object.__reversed__(self)`: Called by `reversed()` built-in to implement reverse iteration
 *  `object.__contains__(self, item)`: Called to implement membership test operators `in` or `not in`. 假設沒有定義 `__contains__` 會使用 `__iter__` 把所有 object iterate 出來看看已沒有一樣，假設連 `__iter__` 都沒有定義就會使用 `__getitem__` 把所有正數丟 index 後如果沒有 IndexError 就回傳 True
-*  object.\_\_next\_\_(self): return container 中下一個 object
 
 ## Reference
 [data model](https://docs.python.org/3.7/reference/datamodel.html#data-model)
