@@ -6,3 +6,4 @@
   * [Python Special Method Name](https://tungyueh.github.io/python/Python%20Special%20Method%20Name)
   
 * [Reading Notes](https://tungyueh.github.io/reading_notes/)
+  * [Code Complete Note](https://tungyueh.github.io/reading_notes/code%20complete%20note)
