@@ -129,6 +129,38 @@ Deep nesting 會使人難以理解所以我們需要 refactor code 讓邏輯清�
 利用不同的方式找出 defect，在越早的開發階段發現問題可以花越少時間處理，造成的傷害也會越少。
 
 ### Chapter 21: Collaborative Construction
+由於給個開發者都會有各自的盲點，藉由合作的方式來產出 code 會減少軟體的缺陷，所以雖然開發時間會比較慢但維護時間會減少很多。人類比起單純測試可以觀察到不清楚的錯誤訊息、不適合的註解、hard-coded variable、重複出現的 code pattern，另外由於開發者會知道自己的 code 會被 review 所以開發時就會產出比較高品質的 code。團隊中採用合作的方式可以讓成員對所有 code 都有一定的熟悉度減少團隊成員離開的衝擊，修正缺陷的速度也會變快因為團隊成員都可以來修正而不用等到特定的人來處理，另外有經驗的開發者可以傳承經驗讓整個團隊成員可以快速提升實力。
+
+Pair programming 是指一個人實際寫程式而另外一個人思考程式正確性、搶先一步預想接下來會如何寫程式、評估 design 好壞跟如何測試。pair programming 強迫在需要寫出 quick and dirty code 時候還是要提高 code quality。
+
+Formal Inspection 是一種特定的 review 方式，比起一般的 review 方式 formal inspection 有下列幾種特徵
+1. reviewer 會有 checklist 來專注在過去曾發生的問題上 
+2. inspection 專注於找出缺陷而不是修正方法 
+3. reviewer 先準備好發現的問題後去 inspection meeting 
+4. 有不同的角色 
+5. moderator 不是作者 
+6. moderator 有接受過 moderating inspection 的訓練 
+7. inspection meeting 只有在所有參與者準備好才會舉行 
+8. 每一次的 inspection 都會收集資料用來讓未來的 inspection 進步 
+9. 管理者不會參與 inspection meeting
+Inspection 有下列以下角色 
+1. Moderator: 確保 review 有以足夠快但又能找出大部分的缺陷的的速度執行，需要能知道細節但不需要針對 design 或 code 有專精的研究，主要負責把 review,  inspection checklist, 舉辦 meeting, 報告 inspection result, 追蹤會議的 action item
+2.  Author: 實際產出 design 或 code 的人在 inspection 中比較屬於次要的角色，需要確保 design 或 code 不需要過多的解釋就可以被 review
+3. Reviewer: 任何對 design 或 code 又興趣的人，主要目的是找出缺陷
+4. Scribe: 在 meeting 中記錄找到的錯誤跟 action item 不能是 author 也不能是 moderator
+5. Management: 不應該參加 inspection review 因為如意讓技術的問題演變成政治的問題。管理者應該只檢視成果而不是過程。
+
+通常 inspection 至少要三人最多六人是較合適的，因為至少要 moderator, author, reviewer 所以需要三人，研究發現更多的 reviewer 也不會找出更多的缺陷所以差不多最多六人。
+
+Inspection 有著不同的階段 
+1. Planning: author 將完成的 design 或 code 交給 moderator，moderator 準備 meeting 跟把 code 以及 checklist 交給 reviewer
+2. Overview: 如果 review 對於 code 不熟悉可以請 author 講解必須的知識但不能講解 design 或 code
+3. Preparation: reviewer 根據 checklist 檢查 code，或檢查 code 是否有符合需求
+4. Inspection Meeting: reviewer 提出發現到的問題讓大家討論是否真的為一個問題，一但確認是個問題後不再繼續討論解法
+5. Inspection Report: moderator 產生 report 包含所有的問題，根據問題的 checklist 確保所有問題都會被修正並可以幫助下次 inspection 專注於這些問題， 還可以記錄找到的問題跟花費的時間關係觀察效率如何決定 inspection 存廢與否
+6. Rework: author 收到 moderator 的問題清單加以修正
+7. Follow-Up: Moderator 查看問題清單是否都有被修正完成
+8. Third-Hour Meeting: 因為 inspection meeting 不允許討論解法但有時候有人還是想要討論解法，可以舉行不正式的 meeting 來討論。
 
 ### Chapter 22: Developer Testing
 
