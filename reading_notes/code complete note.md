@@ -163,6 +163,35 @@ Inspection 有著不同的階段
 8. Third-Hour Meeting: 因為 inspection meeting 不允許討論解法但有時候有人還是想要討論解法，可以舉行不正式的 meeting 來討論。
 
 ### Chapter 22: Developer Testing
+測試可以增加軟體品質的一種主流的做法，測試會有開發者或者專門測試的人來進行，測試方法則有 Unit testing 針對 class, routine 進行測試，Component testing 也是針對 class, routine 進行測試但規模通常是多個開發者所開發的，Integration testing 測試組合起來的 class 是否成功運作慢慢的擴展到整個系統，Regression testing 重複測試之前已經測試成功過的 test case 找出確保開發過程中不會把已開發的功能弄壞，System testing 使E用最終的 configuration 搭配軟體跟硬體的環境，針對安全性、效能、使用資源、timing issue 各種之前在較低層級測試所無法發現的問題。測試通常分為 black-box 跟 white-box testing，black-box 只對測試內容一無所知而 white-box 則是相反。
+
+測試在軟體開發項目中與其他項目最為不同也因此開發者都較難接受測試這個項目納入開發流程，主要原因有下面幾點
+1. 測試目標是要找出錯誤但開發目標是要沒有錯誤
+2. 就算測試了也無法證明已經沒有任何錯誤了
+3. 測試本身無法增加軟體品質，如果以錯誤結果當成衡量軟體品質的指標時，如果找出越多錯誤不就反而代表軟體品質越低落，但根本在於不斷增加測試項目並不會改善軟體品質而是要從改善開發著手
+4. 測試需要假設會從 code 找到錯誤但開發者通常都會覺得自己開發完的 code 不會有任何錯誤，但開發者應該要希望自己找到錯誤而不是由其他人找到。對於測試的結果可以在開發過程中衡量軟體的品質也可以找出常見的錯誤來提醒之後開發需要特別注意的地方。開發過程中需要對 unit 做好測試在組合起來，不然等到組合起來發現錯誤就很難 debug。
+
+開發者的測試建議有下列幾點
+1. 為每個需求都進行測試確保需求都有被實作，連 security, storage, installation procedure 也是可以規劃測試
+2. 設計階段規劃好測試項目確保設計有被實作
+3. 使用 basic testing 增加測試項目接這用 data-flow testing 補齊缺少的測試，只少要把每行 code 都測試過一遍。
+
+要先寫好測試還是實作完再寫測試比較好? 提倡先寫測試的人以下幾點原因
+1. 先寫好測試並不會增加工作量
+2. 寫測試的時候可以發現預計實作方法的缺陷提早改正
+3. 先寫測試強迫開發者思考需求或設計是否有缺陷也會產出品質更好的 code
+4. 因為糟糕的需求難以些出測試，所以先寫測試就會提早發現。
+
+開發者的測試有其極限，開發者通常只會測試正常的運作而不會測試各種會讓 code 壞掉的測試項目，開發者對於 code coverage 過度樂觀，開發者會跳過複雜的測試項目。
+
+如果將所有可能的測試項目都測試過一遍就可以證明軟體的正確性但現實上所有的可能測試項目會有超級多種組合使測試幾乎永遠不可能跑完，但所有可能的測試項目中都會存在多餘的測試項目藉由削減這些測試可以減少需要測試的項目。規劃測試需要一步一步的進行，先使用 structured basic testing 測試程式中的每一個 statement，接著使用 data-flow testing 藉由觀察 data 的定義-使用方式找出 basic testing 缺少的 test case。Equivalence Partitioning 將可以產生同一種錯誤的 test case 只留下一個減少測試所需要的項目。Boundary Analysis 測試關於 condition 邊界的地方減少 off-by-one error。Bad data 可以用來測試不合理的情況看看程式有沒有正確處理。Good data 也需要被測試使用 minimum or maximum configuration 來測試程式。
+
+改善測試的方法有下列幾點
+1. project 初期就規劃好測試，把測試的重要性看的與與其他階段一樣，如此一來也會分配時間給測試
+2. Regression testing 讓舊有功能不會受到新加入的功能影響
+3. Automated testing 管理 regression testing 的結果，因為靠人工跑 regression testing 會容易忽略錯誤，透過自動化可以讓 test 跑的比較頻繁容易早點看出是哪邊新的 code 導致 test 壞掉。
+
+保存重複測試的結果用來衡量 project 的進步與否。
 
 ### Chapter 23: Debugging
 
