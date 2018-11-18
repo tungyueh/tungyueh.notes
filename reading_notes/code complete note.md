@@ -218,6 +218,34 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 
 ### Chapter 24: Refactoring
 
+現代軟體常常需要變動以應付源源不絕與不斷變動的需求，因此軟體本身需要不斷演化以適應新的需求。演化過程中我們需要確保是以進步的方式做演化而不是退化，當需求變動必須讓軟體演化時可以把這當成一個機會讓軟體對於未來類似的改動可以更容易。
+
+改進軟體內部品質讓 code 更容易讀懂跟改動但又不改變原有的行為稱為 refactoring，當 code 難以維護或者一開始就沒有寫好就需要 refactoring，下面有幾點可以看出需要做 refactoring 的特徵。
+* Code is duplicated: 重複的 code 會使之後需要同時改動，也違反了 Don't Repeat Yourself 原則跟 複製與貼上就是設計錯誤
+* A routine is too long: routine 長過一個螢幕可以顯示的範圍就是需要改動，可以藉由模組化來縮短 routine
+* A loop is too long or too deeply nested: 過深的縮排可以換成 routine 來減少縮排
+* Class has poor cohesion: class 中有太多不相關的東西就需要分離成更多 class
+* A class interface dose not provider consistent level of abstraction: 不斷變動過程可能會讓 class interface 不一致
+* A parameter list has too many parameters:  架構良好的程式通常有很小小但定義良好的 routine，所以 routine 有太多的 parameter 就是個警訊
+* Changes within a class tend to be compartmentalized: 當發現改動一部分的 class 卻不需要改動另一部分的 class 表示這個 class 還可以被分割成不同的 class
+* Changes require parallel modifications to multiple classes: 當發現常常需要改動同一批 class 的時候，或許可以嘗試 rearrange class 讓改動只需要動一個 class 就好
+* Inheritance hierarchies have to modified in parallel: 改動 subclass 卻常常需要動到 parent class
+* Case statement have to modified in parallel: 常常需要同時改動類似的 case statement 可以思考用 inheritance 是否更好
+* Related data items that are used together are not organized into class: 常常需要改動相同 data items，可以考慮用 class 封裝起來操作
+* A routine used more features of another class than of it own class: 當 routine 更常使用其他 class 的 feature 可以考慮把 routine 搬到那個 class
+* A primitive data type is overloaded: 使用 primitive data type 代表現實世界的東西時候，可以用 class 來代表並獲得 type checking 的幫助
+* A class doesn't do very much: 當 class 責任不夠大可以考慮合併到其他 class
+* A chain of routines passes tramp data: 當發現 routine 只是把收到的資料轉送給另一個 routine 可以問問自己是否有符合 routine 的 abstraction，如果沒有想其他發法讓 routine interface 更 consistent
+* A middleman object isn't do anything: 如果發現 class 只是轉送 parameter 給其他 class 的 routine，可以考慮刪除這個 middleman
+* One class is overly intimate with another: 當發現 class 對於其他 class 知道的太多就違反 encapsulation 的原則，會讓 code 難以管理跟改動造成更大的漣漪
+* A routine has a poor name: 如果發現 routine name 難以理解就要馬上修正，因為越晚修正越難處理
+* Data member are public: public data member 通常都是不好的作法，模糊了 interface 跟 implementation 的界線。不僅違反 encapsulation 更讓以後改動的彈性降低
+* A subclass use only a small percentage of its parents' routines: 當 subclass 只是想要用 parent class 的 routine 就會有這種情形發生，建議可以將 subclass relationship 從 is-a relationship 轉成 has-a relationship
+* Comment are used to explain difficult code: 遇到 bad code 就重寫它不要再註解解釋
+* Global variables are used: 可以重新想想是否有其他方式可以不用使用 global variable，隨著 refactoring 或許對 code 有更高熟悉度可以想出不用 global variable 的方法
+* A routine uses setup code before a routine call or takedown code after a routine call: 當呼叫 routine 之前需要 setup 一堆 code 或呼叫之後需要 takedown 一堆 code 但 routine 卻不用給任何參數就是個徵兆，可以改寫成傳參數給 routine 取代 setup 一堆 code
+* A program contains code that seems like it might be needed someday: 這些 code 在未來常常不會用到，其他人看到會以為是有經過測試過或者被試用過而造成誤導。
+
 ### Chapter 25: Code-Tuning Strategies
 
 ### Chapter 26: Code-Tuning Techniques
