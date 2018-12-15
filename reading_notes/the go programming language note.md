@@ -640,6 +640,7 @@ fmt.Printf("%s\n", data)
 
 ### Reference
 https://golang.org/
+
 https://gobyexample.com/
 
 https://www.amazon.com/Programming-Language-Addison-Wesley-Professional-Computing/dp/0134190440
