@@ -1,4 +1,4 @@
-# # The Go Programming Language by Alan A. A. Donovan, Brian W. Kernighan  
+# The Go Programming Language by Alan A. A. Donovan, Brian W. Kernighan  
 ![image alt](https://d1q6f0aelx0por.cloudfront.net/product-logos/81630ec2-d253-4eb2-b36c-eb54072cb8d6-golang.png)
 
 ## Preface
