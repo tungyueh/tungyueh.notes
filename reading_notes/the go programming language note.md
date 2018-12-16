@@ -339,7 +339,7 @@ fmt.Println(imag(x*y)) // "10"
 * untyped constant 可以不需要 convertion
     * untyped constant assign 給 var 時候會自動做型態轉換
 
-## Chapter 4 Composite Types
+## Chapter 4: Composite Types
 * Arrays and structs
     * Aggregate type: value 記憶體都是相連的
     * Fixed size
@@ -636,6 +636,158 @@ fmt.Printf("%s\n", data)
     ```
 * template fixed at compiler time
 * `template.Must` 提供 error handling
+
+## Chapter 5: Functions
+* function 將一連串的 statements 包裝成一個單位
+* function 允許讓複雜問題切割成小問題
+* function 隱藏內部的細節
+
+### 5.1 Function Declarations
+* Declarations
+    ```
+    func name(parameterlist) (resultlist) {
+        body
+    }
+    ```
+    * a name
+    * a list of parameters
+    * an optional list of results
+        * function return value type
+        * 如果只有 return 一個變數或不 return 則 () 可以省略
+        * result 也可以有名字，使用 type 的 zero value 初始化: `func sub(x, y int) (z int) { z = x - y; return }`
+        * 一定要有 return 除非確定跑不到 function 底部
+    * a body
+* Type of a function: 有相同的 parameter list 跟 result list 則 function 為相同型態
+* Parameters
+    * local variable 
+    * initial value given by caller arguments
+    * Arguments passed by value: 複製一份給 function parameter，修改無法影響 caller 給的 argument
+    * 若想要修改 caller 給的 argument 則需要傳 address 讓 function 可以用 indirect 的方式修改
+* function 沒有 body 代表是用其他語言寫的
+
+### 5.2 Recursion
+* Go use variable-size stacks
+* Do not worry stack overflow
+
+### 5.3 Multiple Return Values
+* go standard library 通常使用第一個回傳值當計算結果第二個當錯誤訊息
+* 用 blank identifier 忽略錯誤: `links, _ = findLinks(url)`
+* 通常不會直接使用多個回傳值當成 argument 傳給 function，只會用在 debug 而已: `log.Println(findLinks(url))`
+* 使用多個回傳值的 function name 很重要，要很容易讓讓人看得出來這個 function 是回傳多個結果
+* bare return: function 有 named result 可以直接寫 return，function 會自動補齊該 return 的東西
+    * reduce code duplication
+    * 很少會讓 code 更容易讀，所以需要謹慎的使用
+
+### 5.4 Errors
+* 通常在最後一個回傳值表達成功與否的狀態
+    * ok: boolean 失敗原因只有一種
+    * error: 多種不同原因造成的失敗
+* built-in type error is interface type
+    * nil 代表成功
+    * non-nil 代表失敗
+    * non-nil error 有 error message
+* 通常只要失敗其他結果需要忽略
+* go 不使用 exception 代表失敗
+    * go 使用 exception 回報沒有預期到的錯誤
+    * exception 需要 control flow 去處理 error 讓事情複雜化
+    * exception 讓 end user 收到不想要的結果
+    * excpetion 雖然有 full stack trace 但是難以找到哪邊出錯
+* go 使用 `if` 跟 `return` 去處理錯誤，強迫寫程式的人面對 error handling 的邏輯
+
+#### 5.4.1 Error-Handling Strategies
+* Caller 需要負責處理 function 回傳的錯誤
+* Propagate the error: 將 error 加上必要資訊後回傳
+    * `fmt.Errorf`: format error message and return new error value
+    * Prefix 描述問題的文字，讓人容易理解問題出在哪邊
+    * error message 通常都是 chain 在一起所以不要換行跟大寫
+* Retry: 針對短暫出現的 error 或者 retry 會成功的 error
+* Stop program: 當 error 嚴重到無法繼續進行
+    * 通常在 main package 使用
+    * 暫停程式: `os.exit(0)` or `log.Fatalf('shut down...')`
+* Log the error and continue
+
+#### 5.4.2 End of File (EOF)
+* io package 保證所有 EOF 都會回傳 `io.EOF`
+
+### 5.5 Function Values
+* first-class value
+    * 像是其他 value 一樣
+    * function value 有 type
+    * 可以被 assign 到變數
+    * 當參數傳給 function
+    * 可以回傳 function
+* zero value is nil
+* function value 只能跟 nil 比較，function 彼此不能比較
+
+### 5.6 Anonymous Functions
+* 有名字的 function 只能宣告在 package level
+* 使用 function literal 在任何 expression 製造出一個沒有名字的 function
+`strings.Map(func(r rune) rune { return r + 1 }, "HAL9000"`
+* anonymous function 可以讀取在 scope 裡面的變數
+* closure: 使用 inner function 可以讓 function 有 state
+* anonymous function 需要使用 recursion 的時候要先宣告在 assign
+
+#### 5.6.1 Cavet: Capturing Iteration Variables
+* loop variable 是 share address 所以之後 anonymous function 去找 loop variable 時候那個 address 已經換成別的 value 了
+
+### 5.7 Variadic Function
+* 可以給不同數量 arguments 的 function
+``` go
+func sum(vals ...int) int {
+    total := 0
+    for _, val := range vals {
+        total += val
+    }
+    return total
+}
+```
+* 在最後一個 parameter 的 type 前面加上 `...` 代表可以接受不同數量的 arguments
+* vals type is []int slice
+* caller 先 allocate array 後把 argument 搬進去，接著傳整個 slice 給 function
+* 如果 argument 已經都在 slice 裡面就在名稱後面加上 `...`
+    ``` go
+    values := []int{1, 2, 3, 4}
+    fmt.Println(sum(values...)) // "10"
+    ```
+* 雖然 variadic function 跟 slice 很像但是是不同 type
+* 通常使用在 string formatting
+
+### 5.8 Deffered Function Calls
+* 處理遇到錯誤時候需要 clean up 的問題
+* function 或 method 前面加上 `defer`
+* 當執行到 statement 去 evaluated
+* 實際執行是在有 defer 的 function 結束時候
+* defer 通常使用在有互相對應的 operation 像是 open 跟 close
+* 可以用來 debug function
+    ``` go
+    func bigSlowOperation() {
+        defer trace("bigSlowOperation")() // don't forget the extra parentheses
+        // ...lots of work...
+        time.Sleep(10 * time.Second) // simulate slow operation by sleeping
+    }
+    func trace(msg string) func() {
+        start := time.Now()
+        log.Printf("enter %s", msg)
+        return func() { log.Printf("exit %s (%s)", msg, time.Since(start)) }
+    }
+    ```
+    * 紀錄 function 開始與結束時間
+
+### 5.9 Panic
+* 在 runtime 發現的錯誤使用 panic 來讓程式盡早失敗
+* panic 發生後，執行中止，呼叫所有 deferred function，程式 crash 並寫下 log message
+* panic 用來代表認為絕對不可能發生的情形
+* 檢查 function 需要的 precondition 讓錯誤盡早發生
+* 能預期的錯誤應該要用 error 來優雅的處理
+* built-in function 前面是 Must 代表只要一有錯誤就噴 panic 出來
+* panic 發生後 deferred function 反序執行
+
+### 5.10 Recover
+* 遇到 panic 就直接放棄是很合理的選擇但有時候還有機會 recover 
+* 只能在 defer 裡面呼叫 recover()，其他地方呼叫只會回傳 nil
+* recover 中止 panic 狀態並且回傳 panic value
+* recover 後的 package variable 沒有很好的文件跟規範
+* 不應該 recover 別的 package 的 panic
     
 
 ### Reference
