@@ -788,13 +788,511 @@ func sum(vals ...int) int {
 * recover 中止 panic 狀態並且回傳 panic value
 * recover 後的 package variable 沒有很好的文件跟規範
 * 不應該 recover 別的 package 的 panic
+## Chapter 6: Methods
+* Object-oriented program: 使用 method 來表達跟操作 data structure 讓使用者不用直接讀取內部的細節
+    * encapsulation
+    * composition
+* object: 就是有 method 的 value 或 variable
+* method: 特定型態的 function
+
+### 6.1 Method Declarations
+* 在 function name 前面加上 parameter 跟 parameter type
+    ``` go
+    package geometry
+    
+    import "math"
+    
+    type Point struct{ X, Y float64 }
+    
+    // traditional function
+    func Distance(p, q Point) float64 {
+        return math.Hypot(q.X-p.X, q.Y-p.Y)
+    }
+    
+    // same thing, but as a method of the Point type
+    func (p Point) Distance(q Point) float64 {
+        return math.Hypot(q.X-p.X, q.Y-p.Y)
+    }
+    ```
+    * 宣告兩個 `Distance` function 並不衝突，因為第一個是 package-level function 第二個是 `Point` 的 method
+    * `p` 是 method receiver: 因為以前把呼叫 method 當成送訊息給 object
+    * 不使用 `this` 或 `self` 代表 receiver 而是用 name
+    * 因為 receiver name 會很常被用到，所以盡量選擇短的名字並且所有 methods 保持一致
+    * 通常使用 type 的第一個字母，像是用 `p` 當成 `Point` 的 receiver name
+* 呼叫 method 的時候 receiver argument 會在 method name 之前
+    ``` go
+    p := Point{1, 2}
+    q := Point{4, 6}
+    fmt.Println(Distance(p, q)) // "5", function call
+    fmt.Println(p.Distance(q))  // "5", method call
+    ```
+    * `p.Distance` 稱為 selector，因為挑選適當的 `Distance` method 給 receiver p
+    * `p.X` 也是用 selector 來找出 struct 的 field
+    * struct field 不能跟 method name 同名，不然會有 compile error: `prog.go:14:6: type Point has both field and method named Y`
+* 每種 type 都有自己的 name space 所以不同 type 可以用相同的 method
+    ``` go
+    // A Path is a journey connecting the points with straight lines.
+    type Path []Point
+
+    // Distance returns the distance traveled along the path.
+    func (path Path) Distance() float64 {
+	    sum := 0.0
+	    for i := range path {
+		    if i > 0 {
+			    sum += path[i-1].Distance(path[i])
+		    }
+	    }
+	    return sum
+    }
+    ```
+    * `type Path` 表示一連串的線段
+    * `Distance`: `Path` 的總長度
+    * 因為 `Path` 的 type 與 `Point` 的 type 不一樣所以可以 define `Distance`
+* 相同型態的 method 需要不同的 name，但是不同型態可以使用相同的 method name
+* 好處是可以讓 method name 比較短也不用寫出 package name
+    ``` go
+    perim := geometry.Path{{1, 1}, {5, 1}, {5, 4}, {1, 1}}
+	fmt.Println(geometry.PathDistance(perim)) // "12", standalone function
+	fmt.Println(perim.Distance())             // "12", method of geometry.Path
+    ```
+    
+### 6.2 Methods with a Pointer Receiver
+* 使用 pointer 傳 variable 的 address 給 method 避免複製每一個 argument value 或者需要 update variable 的時候
+    ``` go 
+    func (p *Point) ScaleBy(factor float64) {
+        p.X *= factor
+        p.Y *= factor
+    }
+    ```
+* 通常如果 method 有 pointer receiver 則該 type 的所有 method 都應該要有 pointer receiver
+* receiver argument 與 receiver parameter 有相同型態
+    ``` go 
+    Point{1, 2}.Distance(q) //  Point
+    pptr.ScaleBy(2)         // *Point
+    ```
+* receiver argument is variable of type `T`， receiver paramter has type `*T`
+    ``` go
+    p.ScaleBy(2) // implicit (&p)
+    ```
+* receiver argument has type `*T` and receiver parameter has type `T`
+    ``` go
+    pptr.Distance(q) // implicit (*pptr)
+    ```
+* 如果所有 method 都有 reciver type `T` 就可以放心複製 instance of that type
+
+#### 6.2.1 Nil Is a Valid Receiver Value
+* 有些 method 可以使用 `nil` 當 receiver, 特別是 `nil` 可以有意義的代表該型態的 zero value
+``` go 
+// An IntList is a linked list of integers.
+// A nil *IntList represents the empty list.
+type IntList struct {
+    Value int
+    Tail  *IntList
+}
+
+// Sum returns the sum of the list elements.
+func (list *IntList) Sum() int {
+    if list == nil {
+        return 0
+    }
+    return list.Value + list.Tail.Sum()
+}
+```
+* 使用 `nil` 當成 receiver value 是值得特別處理這個情形 
+``` go
+package url
+
+// Values maps a string key to a list of values.
+type Values map[string][]string
+
+// Get returns the first value associated with the given key,
+// or "" if there are none.
+func (v Values) Get(key string) string {
+	if vs := v[key]; len(vs) > 0 {
+		return vs[0]
+	}
+	return ""
+}
+
+// Add adds the value to key.
+// It appends to any existing values associated with key.
+func (v Values) Add(key, value string) {
+	v[key] = append(v[key], value)
+}
+```
+* multimap: value 是 slice of string
+* Get method 讀取 key 的第一個 value，如果沒有就回傳空字串
+* Add method: 把 value append 到提供的 key
+``` go
+m := url.Values{"lang": {"en"}} // direct construction
+m.Add("item", "1")
+m.Add("item", "2")
+fmt.Println(m.Get("lang")) // "en"
+fmt.Println(m.Get("q")) // ""
+fmt.Println(m.Get("item")) // "1" (first value)
+fmt.Println(m["item"]) // "[1 2]" (direct map access)
+
+m = nil
+fmt.Println(m.Get("item")) // ""
+m.Add("item", "3") // panic: assignment to entry in nil map
+```
+* `m = nil` 代表 m 是個 empty map
+* `Value(nil).Get("item")` 會回傳 empty string
+* `nil.Get("item")` 會 compile error: use of untyped nil，因為 nil 沒有型態不知道要用誰的 Get method
+
+### 6.3. Composing Types by Struct Embedding
+``` go
+import "image/color"
+
+type Point struct{ X, Y float64 }
+type ColoredPoint struct {
+	Point
+	Color color.RGBA
+}
+```
+* Embedded `Point` 讓 `ColoredPoint` 有 `X`, `Y` fields
+    ``` go
+    var cp ColoredPoint
+	cp.X = 1
+	fmt.Println(cp.Point.X) // "1"
+	cp.Point.Y = 2
+	fmt.Println(cp.Y) // "2"
+    ```
+* Embedded struct 的用法也可以套用在 method 上面
+    ``` go
+	red := color.RGBA{255, 0, 0, 255}
+	blue := color.RGBA{0, 0, 255, 255}
+	var p = ColoredPoint{Point{1, 1}, red}
+	var q = ColoredPoint{Point{5, 4}, blue}
+	fmt.Println(p.Distance(q.Point)) // "5"
+	p.ScaleBy(2)
+	q.ScaleBy(2)
+	fmt.Println(p.Distance(q.Point)) // "10"
+    ```
+    * `Point` 的 method 都被 promoted 到 `ColoredPoint`
+    * 讓複雜的型態可以分割成很多的簡單型態在組合起來，就是 OOP 中的 composition 概念
+* `ColoredPoint` 與 `Point` 不是 class 繼承的關係 (is-a relationship)
+    ``` go 
+    p.Distance(q) // compile error: cannot use q (ColoredPoint) as Point
+    ```
+    * Distance 接受的參數型態是 `Point` 而不是 `ColoredPoint`
+* `ColoredPoint` 與 `Point` 是 composition (has-a relationship)
+* Implementation details
+    ``` go
+    func (p ColoredPoint) Distance(q Point) float64 {
+	    return p.Point.Distance(q)
+    }
+    func (p *ColoredPoint) ScaleBy(factor float64) {
+	    p.Point.ScaleBy(factor)
+    }
+    ```
+    * compiler 產生 wrapper function 
+* Anonymous filed 可以是 pointer 指向一個 named type
+    ``` go
+    type ColoredPoint struct {
+    	*Point
+	    Color color.RGBA
+    }
+    
+    p := ColoredPoint{&Point{1, 1}, red}
+	q := ColoredPoint{&Point{5, 4}, blue}
+	fmt.Println(p.Distance(*q.Point)) // "5"
+	q.Point = p.Point                 // p and q now share the same Point
+	p.ScaleBy(2)
+	fmt.Println(*p.Point, *q.Point) // "{2 2} {2 2}"
+    ```
+    * method 會被 promote 成 pointed-to object
+    * 因為是 indirect 所以可以 share structure
+* struct 可以有多個 anonymous field
+    ``` go
+    type ColoredPoint struct {
+        Point
+        color.RGBA
+    }
+    ```
+    * 找 method 的順序
+        1. 直接宣告的 method
+        2. promote 一次的 method
+        3. promote 兩次的 method
+        4. 以此類推
+    * https://goplay.space/#BNVg0jTui2r
+* 宣告 method 一定要使用 named type 或者 point to named type 但是托 embedded 的福可以讓 unamed struct type 有 method
+    ``` go
+    var (
+        mu sync.Mutex // guards mapping
+        mapping = make(map[string]string)
+    )
+
+    func Lookup(key string) string {
+        mu.Lock()
+        v := mapping[key]
+        mu.Unlock()
+        return v
+    }
+    ```
+    * mu 跟 mapping 是分開的兩個變數
+    * mu 跟 mapping 都一定一起使用所以封裝再一起比較好
+    ``` go
+    var cache = struct {
+	    sync.Mutex
+	    mapping map[string]string
+    }{
+	    mapping: make(map[string]string),
+    }
+
+    func Lookup(key string) string {
+	    cache.Lock()
+	    v := cache.mapping[key]
+	    cache.Unlock()
+	    return v
+    }
+    ```
+    * cache 把 sync.Mutex 跟 mapping 合再一起變得更有意義的名字
+    * sync.Mutex field 是 embedded
+    * cache 有 Lock 跟 Unlock 這兩個 method 從 sync.Mutex promote 來的
+    * 不用特別宣告 cache 使用的 struct 就可以讓 cache 用 Lock 跟 Unlock method
+
+### 6.4. Method Values and Expressions
+* 通常都會在一個 expression 中同時 select 跟 call method
+* select 跟 call 可以分成兩步驟
+    ``` go
+    p := Point{1, 2}
+	q := Point{4, 6}
+	distanceFromP := p.Distance        // method value
+	fmt.Println(distanceFromP(q))      // "5"
+	var origin Point                   // {0, 0}
+	fmt.Println(distanceFromP(origin)) // "2.23606797749979", ;5
+
+	scaleP := p.ScaleBy // method value
+	scaleP(2)           // p becomes (2, 4)
+	scaleP(3)           //      then (6, 12)
+	scaleP(10)          //      then (60, 120)
+    ```
+    * selector `p.Distance` 產生 method value，是一個 function 綁定 method (Point.Distance) 跟 receiver value \(p\)
+    * Function 只需要 non-receiver arguments
+* method value 在 package API 需要傳入 function value 時候很好用
+    * Without method value
+    ``` go
+    type Rocket struct { /* ... */ }
+    func (r *Rocket) Launch() { /* ... */ }
+    r := new(Rocket)
+    time.AfterFunc(10 * time.Second, func() { r.Launch() })
+    ```
+    * Using method value
+    ``` go
+    time.AfterFunc(10 * time.Second, r.Launch)
+    ```
+* Method expression
+    ``` go
+    p := Point{1, 2}
+	q := Point{4, 6}
+	distance := Point.Distance   // method expression
+	fmt.Println(distance(p, q))  // "5"
+	fmt.Printf("%T\n", distance) // "func(Point, Point) float64"
+	scale := (*Point).ScaleBy
+	scale(&p, 2)
+	fmt.Println(p)            // "{2 4}"
+	fmt.Printf("%T\n", scale) // "func(*Point, float64)"
+    ```
+    * `T.f` or `(*T).f` yield  a function value
+    * 第一個 parameter 會被當成 receiver
+* Method expression 可以用在當需要從多個 method 中挑選特定 method 並且使用不同 receiver 去呼叫
+    ``` go
+    type Point struct{ X, Y float64 }
+
+    func (p Point) Add(q Point) Point { return Point{p.X + q.X, p.Y + q.Y} }
+    func (p Point) Sub(q Point) Point { return Point{p.X - q.X, p.Y - q.Y} }
+
+    type Path []Point
+
+    func (path Path) TranslateBy(offset Point, add bool) {
+        var op func(p, q Point) Point
+        if add {
+            op = Point.Add
+        } else {
+            op = Point.Sub
+        }
+        for i := range path {
+            // Call either path[i].Add(offset) or path[i].Sub(offset).
+            path[i] = op(path[i], offset)
+        }
+    }
+    ```
+    * `op` 代表 `Point` addition 或者 subtraction
+    * `Path.TranslateBy` 對於每個 point 做 operation
+
+### 6.5 Example: Bit Vector Type
+* Sets in GO: `map[T]bool`
+* 雖然用 map 很彈性但在特定問題使用特製的 representation 會更好
+    * Set elements 都是小的非負整數，常常會用到 union 跟 intersection
+    * 用 bit vector 比較理想
+* Bit vector
+    * slice of unsigned integer
+    * 每一個 bit 代表可能的 element
+    * 如果 i-th bit is set 則 set 包含 i
+    ``` go
+    // An IntSet is a set of small non-negative integers.
+    // Its zero value represents the empty set.
+    type IntSet struct {
+        words []uint64
+    }
+
+    // Has reports whether the set contains the non-negative value x.
+    func (s *IntSet) Has(x int) bool {
+        word, bit := x/64, uint(x%64)
+        return word < len(s.words) && s.words[word]&(1<<bit) != 0
+    }
+
+    // Add adds the non-negative value x to the set.
+    func (s *IntSet) Add(x int) {
+        word, bit := x/64, uint(x%64)
+        for word >= len(s.words) {
+            s.words = append(s.words, 0)
+        }
+        s.words[word] |= 1 << bit
+    }
+
+    // UnionWith sets s to the union of s and t.
+    func (s *IntSet) UnionWith(t *IntSet) {
+        for i, tword := range t.words {
+            if i < len(s.words) {
+                s.words[i] |= tword
+            } else {
+                s.words = append(s.words, tword)
+            }
+        }
+    }
+    ```
+    * 每一個 word 有 64 bits
+    * `x/64` 找出在第幾個 word
+    * `x%64` 找出在 word 的 bit index
+* Print an IntSet as a string
+    ``` go
+    // String returns the set as a string of the form "{1 2 3}".
+    func (s *IntSet) String() string {
+        var buf bytes.Buffer
+        buf.WriteByte('{')
+        for i, word := range s.words {
+            if word == 0 {
+                continue
+            }
+            for j := 0; j < 64; j++ {
+                if word&(1<<uint(j)) != 0 {
+                    if buf.Len() > len("{") {
+                        buf.WriteByte(' ')
+                    }
+                    fmt.Fprintf(&buf, "%d", 64*i+j)
+                }
+            }
+        }
+        buf.WriteByte('}')
+        return buf.String()
+    }
+    ```
+* Demonstrate IntSet in action
+    ``` go
+    var x, y IntSet
+    x.Add(1)
+    x.Add(144)
+    x.Add(9)
+    fmt.Println(x.String()) // "{1 9 144}"
+    y.Add(9)
+    y.Add(42)
+    fmt.Println(y.String()) // "{9 42}"
+    x.UnionWith(&y)
+    fmt.Println(x.String()) // "{1 9 42 144}"
+    fmt.Println(x.Has(9), x.Has(123)) // "true false"
+    ```
+    * 把 `String` 跟 `Has` 不需要使用 pointer type 宣告，只是為了一致性
+    ``` go
+    fmt.Println(&x) // "{1 9 42 144}"
+    fmt.Println(x.String()) // "{1 9 42 144}"
+    fmt.Println(x) // "{[4398046511618 0 65536]}"
+    ```
+    * 第一個印出 `*IntSet` Pointer，有 `String` method
+    * 第二個用 `String()` 所以 compiler 會隱性加上 & operation，所以也有 `String` method
+    * 第三個 IntSet value 沒有 `String` method 所以 `fmt.Println(x)` 會直接印出 struct 的 representation
     
 
+### 6.6 Encapsulation
+* 如果 object 的 variable 或者 method 無法被外部直接存取就稱為 encapsulated
+* 有時候也稱為 Information hiding
+* Go 只有一種方法可以控制 name 的 scope 就是大小寫
+    * 大寫開頭可以被其他 package 看到
+    * 小寫開頭只有該 package 看的到
+    * 相同原則也適用 struct 的 field 跟型態的 method
+    * 所以要 encapsulate object 就要用 struct
+    * IntSet 之所以要宣告成 struct 也是這個原因
+    ``` go
+    type IntSet struct {
+        words []uint64
+    }
+    ```
+    ``` go
+    type IntSet []uint64
+    ```
+    * package level 的 encapsulation
+* Encapsulation benefit
+    * client 不能直接修改 object 的 variable 所以可以 client 看比較少的 code 就可以理解 variable 可能的值
+    * 隱藏實作細節避免 client 依賴可能隨時變動的東西，讓設計者可以在原有設計界面上自由改變實作細節
+        * bytes.Buffer: 用來 accumulate short string
+        ``` go
+        type Buffer struct {
+            buf     []byte
+            initial [64]byte
+            /* ... */
+        }
+
+        // Grow expands the buffer's capacity, if necessary,
+        // to guarantee space for another n bytes. [...]
+        func (b *Buffer) Grow(n int) {
+            if b.buf == nil {
+                b.buf = b.initial[:0] // use preallocated space initially
+            }
+            if len(b.buf)+n > cap(b.buf) {
+                buf := make([]byte, b.Len(), 2*cap(b.buf)+n)
+                copy(buf, b.buf)
+                b.buf = buf
+            }
+        }
+        ```
+        * 增加小寫開頭的 initial 讓 client 無法察覺
+        * client 感覺到的只有效能提升
+    * 避免 client 直接干涉 object variable，只能透過 function 改變 object variable 讓設計者可以確保 object 內部的一致性
+* 單純讀取或修改型態的 internal value 稱為 getter 跟 setter
+    * 命名原則: 忽略 Get, Find, Lookup, Fetch 等等 prefix
+    ``` go
+    package log
+    type Logger struct {
+        flags int
+        prefix string
+        // ...
+    }
+    func (l *Logger) Flags() int
+    func (l *Logger) SetFlags(flag int)
+    func (l *Logger) Prefix() string
+    func (l *Logger) SetPrefix(prefix string)
+    ```
+* Go 沒有禁止 struct 的 field export
+    * export field 後如果後悔會造成 API 不相容
+    * export field 前要先考慮 code 複雜度是否容易維護
+* 把所有東西通通 encapsulate 起來不一定是好的
+    * `time.Duration` 只用 int64 宣告讓我們可以使用各種運算
+    ``` go
+    const day = 24 * time.Hour
+    fmt.Println(day.Seconds()) // "86400" 
+    ```
+    * `geometry.Path` 也沒有 encapsulate 讓 client 可以使用 slice literal syntax 來 iterate loop
+* 為什麼 `IntSet` 要 encapsulate 而 `geometry.Path` 不用
+    * `geometry.Path` 本質上就是一連串的 Point，未來應該不會需要增加新的 field
+    * `IntSet` 目前是用 `[]uint64` 作為內部表示但是也可以用 `[]uint` 來表示或者更多不同的東西來表示，而且可能增加新 feature 後需要新增 field 來紀錄 element 數量，所以 `IntSet` 需要 encapsulate
+* 本章節學習了如何使用 named type 的 method 但還需要 interface 搭配才能實現 object-oriented programming 的全貌
+
 ### Reference
-https://golang.org/
-
-https://gobyexample.com/
-
-https://www.amazon.com/Programming-Language-Addison-Wesley-Professional-Computing/dp/0134190440
+Golang website: https://golang.org/
+Go example: https://gobyexample.com/
+The Go Play Space: https://goplay.space/
+Book: https://www.amazon.com/Programming-Language-Addison-Wesley-Professional-Computing/dp/0134190440
+Book code example: https://github.com/adonovan/gopl.io/
 
 ###### tags: `go`
