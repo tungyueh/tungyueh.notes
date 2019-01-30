@@ -1288,6 +1288,910 @@ type ColoredPoint struct {
     * `IntSet` 目前是用 `[]uint64` 作為內部表示但是也可以用 `[]uint` 來表示或者更多不同的東西來表示，而且可能增加新 feature 後需要新增 field 來紀錄 element 數量，所以 `IntSet` 需要 encapsulate
 * 本章節學習了如何使用 named type 的 method 但還需要 interface 搭配才能實現 object-oriented programming 的全貌
 
+## Chapter 7: Interface
+* Interface type 代表 type 行為的 abstraction, 隱藏了實作細節讓我們可以更彈性的寫 function
+
+### 7.1 Interfaces as Contracts
+* concrete type: 定義了準確的 representation 跟操作
+* interface type: abstract type 只定義行為
+* `fmt.Printf` 跟 `fmt.Sprintf` 使用 `fmt.Fprintf` reuse code
+    ``` go
+    package fmt
+    
+    func Fprintf(w io.Writer, format string, args ...interface{}) (int, error)
+    
+    func Printf(format string, args ...interface{}) (int, error) {
+        return Fprintf(os.Stdout, format, args...)
+    }
+    
+    func Sprintf(format string, args ...interface{}) string {
+        var buf bytes.Buffer
+        Fprintf(&buf, format, args...)
+        return buf.String()
+    }
+    ```
+* io.Writer 定義 contract 讓 caller 要傳 concrete type  有 Write method 進來
+    ``` go
+    package io
+    // Writer is the interface that wraps the basic Write method.
+    type Writer interface {
+        // Write writes len(p) bytes from p to the underlying data stream.
+        // It returns the number of bytes written from p (0 <= n <= len(p))
+        // and any error encountered that caused the write to stop early.
+        // Write must return a non-nil error if it returns n < len(p).
+        // Write must not modify the slice data, even temporarily.
+        //
+        // Implementations must not retain p.
+        Write(p []byte) (n int, err error)
+    }
+    ```
+* Substitutability:`fmt.Fprintf`  不會預設要寫到檔案還是記憶體,只要有 Write method 就可以, 讓 `fmt.Fprintf` 可以自由傳入符合 interface 的變數
+
+### 7.2 Interface Types
+* Interface type 定義 concrete type 應該具有的 method
+    * `io.Writer` 定義所有可以被 write 的 bytes
+    * `io.Reader` 定義可以讀的 bytes
+    * `io.Closer` 定義可以觀的東西
+    ``` go
+    package io
+
+    type Reader interface {
+        Read(p []byte) (n int, err error)
+    }
+    type Closer interface {
+        Close() error
+    }
+    ```
+    * 可以把 interface 組合起來稱為 embedding an interface
+    ``` go
+    type ReadWriter interface {
+        Reader
+        Writer
+    }
+    type ReadWriteCloser interface {
+        Reader
+        Writer
+        Closer
+    }
+    ```
+
+### 7.3 Interface Satisfaction
+* 如果 type 滿足所有 interface 所需要的 method 代表 type 滿足 interface
+* Assignability rules of interface
+    ``` go
+    var w io.Writer
+    w = os.Stdout // OK: *os.File has Write method
+    w = new(bytes.Buffer) // OK: *bytes.Buffer has Write method
+    w = time.Second // compile error: time.Duration lacks Write method
+    
+    var rwc io.ReadWriteCloser
+    rwc = os.Stdout // OK: *os.File has Read, Write, Close methods
+    rwc = new(bytes.Buffer) // compile error: *bytes.Buffer lacks Close method
+    
+    w = rwc // OK: io.ReadWriteCloser has Write method
+    rwc = w // compile error: io.Writer lacks Close method
+    ```
+* Compiler 會對 type method 的 receiver parameter 跟 argument 做 pointer 型態轉換但 type T 的 value 就不會，所以會符合比較少的 interface
+    ``` go
+    type IntSet struct { /* ... */ }
+    func (*IntSet) String() string
+
+    var _ = IntSet{}.String() // compile error: String requires *IntSet receiver
+
+    var s IntSet
+    var _ = s.String() // OK: s is a variable and &s has a String method
+
+    var _ fmt.Stringer = &s // OK
+    var _ fmt.Stringer = s // compile error: IntSet lacks String method
+    ```
+    * `var _ = s.String()`: 因為 s 是 addresable 所以 compiler 會幫忙做轉換
+    * `var _ fmt.Stringer = s`: 因為 interaface 是 dynamic value 所以無法在 compile time 幫忙轉換
+* Interface 把 concrete type 跟 data 封裝起來，儘管 concrete type 有 method 也不能使用
+    ``` go
+    os.Stdout.Write([]byte("hello")) // OK: *os.File has Write method
+    os.Stdout.Close() // OK: *os.File has Close method
+
+    var w io.Writer
+    w = os.Stdout
+    w.Write([]byte("hello")) // OK: io.Writer has Write method
+    w.Close() // compile error: io.Writer lacks Close method
+    ```
+* Empty interface: 因為不需要符合任何條件代表可以 assign 任意的值
+    ``` go
+    var any interface{}
+    any = true
+    any = 12.34
+    any = "hello"
+    any = map[string]int{"one": 1}
+    any = new(bytes.Buffer)
+    ```
+* Interface satisfaction 是看兩個 type 的 method 所以不需要特別宣告 concrete type 跟 satisfy 的 interface
+    * 有時候也會特別 assert relationship 作為 document 讓 compiler 抓的出錯誤來
+    ``` go
+    // *bytes.Buffer must satisfy io.Writer
+    var w io.Writer = new(bytes.Buffer)
+    ```
+    * 不需要 allocate variable 因為不需要任何 value 所以用 nil
+    * 永遠不會用到 w 所以可以用 blank identifier
+    ``` go
+    // *bytes.Buffer must satisfy io.Writer
+    var _ io.Writer = (*bytes.Buffer)(nil)
+    ```
+
+### 7.4. Parsing Flags with flag.Value
+``` go
+import (
+	"flag"
+	"fmt"
+	"time"
+)
+
+var period = flag.Duration("period", 1*time.Second, "sleep period")
+
+func main() {
+	flag.Parse()
+	fmt.Printf("Sleeping for %v...", *period)
+	time.Sleep(*period)
+	fmt.Println()
+}
+```
+* fmt package 呼叫 time.Duration 的 String() method 印出
+    ```shell
+    $ go build gopl.io/ch7/sleep
+    $ ./sleep
+    Sleeping for 1s...
+    ```
+* -period 參數控制 sleep 時間
+    ``` shell
+    $ ./sleep period
+    50ms
+    Sleeping for 50ms...
+    $ ./sleep period
+    2m30s
+    Sleeping for 2m30s...
+    $ ./sleep period
+    1.5h
+    Sleeping for 1h30m0s...
+    $ ./sleep period
+    "1 day"
+    invalid value "1 day" for flag period:
+    time: invalid duration 1 day
+    ```
+* 只要符合 flag.Value interface 就可以使用新的 flag
+    ``` go
+    package flag
+    // Value is the interface to the value stored in a flag.
+    type Value interface {
+        String() string
+        Set(string) error
+    }
+    ```
+    * String format flag value 當作 command-line help messages
+    * Set: parse string argument 跟 update flag value
+* `celsiusFlag` type: 可以用 Celsius 或者 Fahrenheit 表示溫度
+    ``` go
+    // *celsiusFlag satisfies the flag.Value interface.
+    type celsiusFlag struct{ Celsius }
+
+    func (f *celsiusFlag) Set(s string) error {
+        var unit string
+        var value float64
+        fmt.Sscanf(s, "%f%s", &value, &unit) // no error check needed
+        switch unit {
+        case "C", "°C":
+            f.Celsius = Celsius(value)
+            return nil
+        case "F", "°F":
+            f.Celsius = FToC(Fahrenheit(value))
+            return nil
+        }
+        return fmt.Errorf("invalid temperature %q", s)
+    }
+    ```
+    * fmt.Sscanf parse floating-point number(value) and string(unit)
+    ``` go
+    // CelsiusFlag defines a Celsius flag with the specified name,
+    // default value, and usage, and returns the address of the flag variable.
+    // The flag argument must have a quantity and a unit, e.g., "100C".
+    func CelsiusFlag(name string, value Celsius, usage string) *Celsius {
+        f := celsiusFlag{value}
+        flag.CommandLine.Var(&f, name, usage)
+        return &f.Celsius
+    }
+    ```
+    * return pointer to the Celsius field embedded within celsiusFlag f
+    * Celsius field 會被 Set update
+    * Var 把 flag 加進 application 原本的 flag
+    * 呼叫 Var 把 celsiusFlag argument assign 到 flag.Value 的 parameter 讓 compiler 檢查是否有符合 interface
+    ``` go
+    var temp = tempconv.CelsiusFlag("temp", 20.0, "the temperature")
+
+    func main() {
+        flag.Parse()
+        fmt.Println(*temp)
+    }
+    ```
+    ``` shell
+    $ go build gopl.io/ch7/tempflag
+    $ ./tempflag
+    20°C
+    $ ./tempflag temp -18C
+    -18°C
+    $ ./tempflag temp 212°F
+    100°C
+    $ ./tempflag temp 273.15K
+    invalid value "273.15K" for flag temp: invalid temperature "273.15K"
+    Usage of ./tempflag:
+        -temp value
+            the temperature (default 20°C)
+    $ ./tempflag help
+    Usage of ./tempflag:
+        -temp    value
+            the temperature (default 20°C)
+    ```
+### 7.5. Interface Values
+* Interface value 包含 concrete type 跟該 type 的 value
+* type 是 compile-time 的概念所以 type 不是 value
+* type descriptor 提供 type 的資訊包含 name 跟 methods
+``` go
+var w io.Writer
+w = os.Stdout
+w = new(bytes.Buffer)
+w = nil
+```
+* `w` 有三種 value 其中第一個跟最後一個是一樣的
+* Go 會將宣告的變數初始化好所以 interface 也是一樣的
+* `var w io.Write` 將 type 跟 value 都設為 `nil`
+* `w = os.Stdout` 把 `*os.File` type 的 value assign 給 w，另外 compiler 會做隱性轉換 `io.Writer(os.Stdout)`
+* `w.Write([]byte("Hello"))` 由於 interface value 有 `*os.File` 所以會呼叫 `(*os.File).Write`
+* Dynamic dispatch: compiler time 不知道 interface value 的 type 是什麼，所以 receiver argument 會複製 interface 的 dynamic value 
+* `w = new(bytes.Buffer)` assign `*bytes.Buff` type 的 value 給 w
+* Interface 可以用 `==` 或 `!=` 如果兩者的 Interface value 的 dynamic type 跟 dynamic value 都一樣就代表一樣
+* Interface 的 dynamic type 如果是不可比較就會 panic
+
+#### 7.5.1. Caveat: An Interface Containing a Nil Pointer Is NonNil
+* Interface 有可能 dynamic type 有形態但是 dynamic value 是 nil
+
+### 7.6. Sorting with sort.Interface
+* 一般程式語言的 sort 都是 sequence of data type 然後 order data type 的 value
+* Go 的 `sort.Sort` function 不管 sequence 或 element 的 representation
+* Go 使用 interface `sort.Interface` 定義一般 sorting algorithm 會使用到的 method
+``` go
+package sort
+type Interface interface {
+    Len() int
+    Less(i, j int) bool // i, j are indices of sequence elements
+    Swap(i, j int)
+}
+```
+* 要 sort 任何 sequence 必須先定義好有sort.Interface 的 method 的 type
+``` go
+type StringSlice []string
+
+func (p StringSlice) Len() int { return len(p) }
+func (p StringSlice) Less(i, j int) bool { return p[i] < p[j] }
+func (p StringSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+```
+* sorting slice of string
+
+### 7.7. The http.Handler 
+``` go
+package http
+type Handler interface {
+    ServeHTTP(w ResponseWriter, r *Request)
+}
+func ListenAndServe(address string, h Handler) error
+```
+* `ListenAndServe` 需要 address (localhost:8888) 跟一個 dispatch 所有 requests 的 Handler interface
+``` go
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+)
+
+func main() {
+	db := database{"shoes": 50, "socks": 5}
+	log.Fatal(http.ListenAndServe("localhost:8000", db))
+}
+
+type dollars float32
+
+func (d dollars) String() string { return fmt.Sprintf("$%.2f", d) }
+
+type database map[string]dollars
+
+func (db database) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	for item, price := range db {
+		fmt.Fprintf(w, "%s: %s\n", item, price)
+	}
+}
+```
+* site 可以顯示商品的價格
+* `database` 是個 map type
+* `database` 有 ServeHTTP method 滿足 http.Handler interface
+``` go
+func (db database) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	switch req.URL.Path {
+	case "/list":
+		for item, price := range db {
+			fmt.Fprintf(w, "%s: %s\n", item, price)
+		}
+	case "/price":
+		item := req.URL.Query().Get("item")
+		price, ok := db[item]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound) // 404
+			fmt.Fprintf(w, "no such item: %q\n", item)
+			return
+		}
+		fmt.Fprintf(w, "%s\n", price)
+	default:
+		w.WriteHeader(http.StatusNotFound) // 404
+		fmt.Fprintf(w, "no such page: %s\n", req.URL)
+	}
+}
+```
+* /list 列出所有商品價格
+* /price?item=socks 找出特定商品價格
+``` go
+func main() {
+	db := database{"shoes": 50, "socks": 5}
+	mux := http.NewServeMux()
+	mux.Handle("/list", http.HandlerFunc(db.list))
+	mux.Handle("/price", http.HandlerFunc(db.price))
+	log.Fatal(http.ListenAndServe("localhost:8000", mux))
+}
+
+type database map[string]dollars
+
+func (db database) list(w http.ResponseWriter, req *http.Request) {
+	for item, price := range db {
+		fmt.Fprintf(w, "%s: %s\n", item, price)
+	}
+}
+
+func (db database) price(w http.ResponseWriter, req *http.Request) {
+	item := req.URL.Query().Get("item")
+	price, ok := db[item]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound) // 404
+		fmt.Fprintf(w, "no such item: %q\n", item)
+		return
+	}
+	fmt.Fprintf(w, "%s\n", price)
+}
+```
+* `net/http` `ServeMux` 可以簡化 URLs 跟 Handler 的關聯
+* Go 不需要 framework 因為使用基本 library 可以組出 framework 的效果
+* `db.list` 是個 method value 也就是使用 receiver vale 是 db 的  database.list method
+* `db.list` 是個 function 沒有 method 也就不滿足 http.Handler interface 所以不能直接傳給 mux.Handler
+* `http.HandlerFunc(db.list)` 是 conversion 不是 functino call
+    ``` go
+    package http
+    type HandlerFunc func(w ResponseWriter, r *Request)
+    func (f HandlerFunc) ServeHTTP(w ResponseWriter, r *Request) {
+        f(w, r)
+    }
+    ```
+    * `HandlerFunc` 是個有 method 且滿足 `Http.Handler` interface 的 function type
+    * `HandlerFunc` 是個 adapter 將 function value 滿足 interface
+    * 因為太常需要這種轉換所以 mux.HandleFunc 簡化寫法
+    ``` go
+    mux.HandleFunc("/list", db.list)
+    mux.HandleFunc("/price", db.price)
+    ```
+``` go
+func main() {
+	db := database{"shoes": 50, "socks": 5}
+	http.HandleFunc("/list", db.list)
+	http.HandleFunc("/price", db.price)
+	log.Fatal(http.ListenAndServe("localhost:8000", nil))
+}
+```
+* `net/http` 提供 `ServeMux` global instance 名字叫 `DefaultServeMux` 跟 package-level function `http.Handle` 跟 `http.HandleFunc`
+* 使用 `DefaultServeMux` 只要傳 `nil` 給 `ListenAndServe` 就可以了
+
+### 7.8. The error Interface
+``` go
+type error interface {
+    Error() string
+}
+```
+* error interface 只有一個 method 會回傳 error message
+``` go
+package errors
+func New(text string) error { return &errorString{text} }
+type errorString struct { text string }
+func (e *errorString) Error() string { return e.text }
+```
+* `error.New` return 新的 error 
+* `errorString` 是個 struct 而不是 string 為了隱藏 representation 和以後 update
+* 使用 pointer type 的 method 是為了滿足 interface error 和每次 New 出來的 error 都是不一樣的
+    ``` go
+    fmt.Println(errors.New("EOF") == errors.New("EOF")) // "false"
+    ```
+* 不常使用到 `errors.New` 因為有 wrapper function `fmt.Errorf` 可以 formaatting
+* Go 的 syscall 提供 API 給 low-level system `Errorno` 滿足 `Error`
+    ``` go
+    package syscall
+
+    type Errno uintptr // operating system error code
+
+    var errors = [...]string{
+        1: "operation not permitted",   // EPERM
+        2: "no such file or directory", // ENOENT
+        3: "no such process",           // ESRCH
+        // ...
+    }
+
+    func (e Errno) Error() string {
+        if 0 <= int(e) && int(e) < len(errors) {
+            return errors[e]
+        }
+        return fmt.Sprintf("errno %d", e)
+    }
+    ```
+    ``` go
+    var err error = syscall.Errno(2)
+    fmt.Println(err.Error()) // "no such file or directory"
+    fmt.Println(err) // "no such file or directory"
+    ```
+    * `Errno` 有效率的對應出 system 的錯誤並且滿足 error interface
+
+### 7.9. Example: Expression Evaluator
+* Build arithmetic expression evaluator
+* 包含 floating-point literal, binary operation(+, -, *, /), unary operation(-x, +x), function call(pow(x, y), sin(x), sqrt(x))
+``` go
+// A Var identifies a variable, e.g., x.
+type Var string
+
+// A literal is a numeric constant, e.g., 3.141.
+type literal float64
+
+// A unary represents a unary operator expression, e.g., -x.
+type unary struct {
+	op rune // one of '+', '-'
+	x  Expr
+}
+
+// A binary represents a binary operator expression, e.g., x+y.
+type binary struct {
+	op   rune // one of '+', '-', '*', '/'
+	x, y Expr
+}
+
+// A call represents a function call expression, e.g., sin(x).
+type call struct {
+	fn   string // one of "pow", "sin", "sqrt"
+	args []Expr
+}
+```
+* 需要 evaluate 有 variable 的 expression 所以需要 map variable name 到 values 的 `environment`
+``` go
+type Env map[Var]float64
+```
+* `Eval` 用來 計算 expression 的值，因為每個 expression 都需要這個 method 所以加進 `Expr` interface
+``` go
+type Expr interface {
+    // Eval returns the value of this Expr in the environment env.
+    Eval(env Env) float64
+}
+```
+* package eval 只有 export `Expr`, `Env`, `Var` 讓 client 不需要讀取其他 expression type 就可以 evaluate
+``` go
+func (v Var) Eval(env Env) float64 {
+	return env[v]
+}
+
+func (l literal) Eval(_ Env) float64 {
+	return float64(l)
+}
+```
+* `Var` 從 environment 找 varaible 的值並回傳，如果找不到就回傳 0
+* `literal` 單純回傳 literal 的 value
+``` go
+func (u unary) Eval(env Env) float64 {
+	switch u.op {
+	case '+':
+		return +u.x.Eval(env)
+	case '-':
+		return -u.x.Eval(env)
+	}
+	panic(fmt.Sprintf("unsupported unary operator: %q", u.op))
+}
+
+func (b binary) Eval(env Env) float64 {
+	switch b.op {
+	case '+':
+		return b.x.Eval(env) + b.y.Eval(env)
+	case '-':
+		return b.x.Eval(env) - b.y.Eval(env)
+	case '*':
+		return b.x.Eval(env) * b.y.Eval(env)
+	case '/':
+		return b.x.Eval(env) / b.y.Eval(env)
+	}
+	panic(fmt.Sprintf("unsupported binary operator: %q", b.op))
+}
+
+func (c call) Eval(env Env) float64 {
+	switch c.fn {
+	case "pow":
+		return math.Pow(c.args[0].Eval(env), c.args[1].Eval(env))
+	case "sin":
+		return math.Sin(c.args[0].Eval(env))
+	case "sqrt":
+		return math.Sqrt(c.args[0].Eval(env))
+	}
+	panic(fmt.Sprintf("unsupported function call: %s", c.fn))
+}
+```
+* unary 跟 binary 都是先決定 operation 在去 eval value 後進行運算
+* 不考慮除 0 或者除無限等問題，因為還是會產生結果
+* 有些 method 也會錯誤像是 function name 給錯或者只使用不允許的 operation 這些錯誤都會造成 panic
+``` go
+func TestEval(t *testing.T) {
+	tests := []struct {
+		expr string
+		env  Env
+		want string
+	}{
+		{"sqrt(A / pi)", Env{"A": 87616, "pi": math.Pi}, "167"},
+		{"pow(x, 3) + pow(y, 3)", Env{"x": 12, "y": 1}, "1729"},
+		{"pow(x, 3) + pow(y, 3)", Env{"x": 9, "y": 10}, "1729"},
+		{"5 / 9 * (F - 32)", Env{"F": -40}, "-40"},
+		{"5 / 9 * (F - 32)", Env{"F": 32}, "0"},
+		{"5 / 9 * (F - 32)", Env{"F": 212}, "100"},
+		//!-Eval
+		// additional tests that don't appear in the book
+		{"-1 + -x", Env{"x": 1}, "-2"},
+		{"-1 - x", Env{"x": 1}, "-2"},
+		//!+Eval
+	}
+	var prevExpr string
+	for _, test := range tests {
+		// Print expr only when it changes.
+		if test.expr != prevExpr {
+			fmt.Printf("\n%s\n", test.expr)
+			prevExpr = test.expr
+		}
+		expr, err := Parse(test.expr)
+		if err != nil {
+			t.Error(err) // parse error
+			continue
+		}
+		got := fmt.Sprintf("%.6g", expr.Eval(test.env))
+		fmt.Printf("\t%v => %s\n", test.env, got)
+		if got != test.want {
+			t.Errorf("%s.Eval() in %v = %q, want %q\n",
+				test.expr, test.env, got, test.want)
+		}
+	}
+}
+```
+* 每次測試不同的 expression 跟 environment
+* Check syntax for static error 可以在跑程式起來之前就檢查到錯誤
+``` go
+type Expr interface {
+	// Eval returns the value of this Expr in the environment env.
+	Eval(env Env) float64
+	// Check reports errors in this Expr and adds its Vars to the set.
+	Check(vars map[Var]bool) error
+}
+```
+* Check method 檢查 expression 的 static error 
+``` go
+func (v Var) Check(vars map[Var]bool) error {
+	vars[v] = true
+	return nil
+}
+
+func (literal) Check(vars map[Var]bool) error {
+	return nil
+}
+
+func (u unary) Check(vars map[Var]bool) error {
+	if !strings.ContainsRune("+-", u.op) {
+		return fmt.Errorf("unexpected unary op %q", u.op)
+	}
+	return u.x.Check(vars)
+}
+
+func (b binary) Check(vars map[Var]bool) error {
+	if !strings.ContainsRune("+-*/", b.op) {
+		return fmt.Errorf("unexpected binary op %q", b.op)
+	}
+	if err := b.x.Check(vars); err != nil {
+		return err
+	}
+	return b.y.Check(vars)
+}
+
+func (c call) Check(vars map[Var]bool) error {
+	arity, ok := numParams[c.fn]
+	if !ok {
+		return fmt.Errorf("unknown function %q", c.fn)
+	}
+	if len(c.args) != arity {
+		return fmt.Errorf("call to %s has %d args, want %d",
+			c.fn, len(c.args), arity)
+	}
+	for _, arg := range c.args {
+		if err := arg.Check(vars); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var numParams = map[string]int{"pow": 2, "sin": 1, "sqrt": 1}
+```
+* Check Var 跟literal 不可能 fail 所以都是 return nil
+* Check unary 跟 binary 先檢查 operator 再來檢查 operand
+* Check call 先檢查 function name 在檢查 argument 的數量 在檢查 argument 本身
+* Check argument 是 Var 的 set 在 check expression 途中會增加 variable name，如果這些 variable name 都有在 environment 裡面代表成功
+
+### 7.10. Type Assertions
+* type assertion 使用在 interface value 的 operation
+* `x.(T)` x 是 expression of interface type, T 是 type
+* type assertion 檢查 dynamic type 跟 asserted type 一樣
+* 如果 T 是 concrete type，type assertion 會檢查 dynamic type 是否和 T 一樣
+    * 如果一樣 type assertion 結果就是 dynamic value
+    * 如果不一樣就 panic
+    ``` go
+    var w io.Writer
+    w = os.Stdout
+    f := w.(*os.File) // success: f == os.Stdout
+    c := w.(*bytes.Buffer) // panic: interface holds *os.File, not *bytes.Buffer
+    ```
+* 如果 T 是 interface type，type assertion 檢查 dynamic type 是否滿足 type T
+    * 如果滿足則結果還是 interface value 但 dynamic type 換成 type T
+    ``` go
+    var w io.Writer
+    w = os.Stdout
+    rw := w.(io.ReadWriter) // success: *os.File has both Read and Write
+    w = new(ByteCounter)
+    rw = w.(io.ReadWriter) // panic: *ByteCounter has no Read method
+    ```
+    * rw 多了 Read method
+* 如果 operand 是 nil 則 type assertion 一定會 panic
+* 想測試 dynamic type 是否為 type T 又不想 panic 可以使用兩個 result 來接收結果
+    ``` go
+    var w io.Writer = os.Stdout
+    f, ok := w.(*os.File) // success: ok, f == os.Stdout
+    b, ok := w.(*bytes.Buffer) // failure: !ok, b == nil
+    ```
+
+### 7.11. Discriminating Errors with Type Assertions
+* 有很多可能的錯誤會在 file operation 的時候發生，os package 提供 file exist, file not found, file permission denied 的 helper function
+    ``` go
+    package os
+
+    func IsExist(err error) bool
+    func IsNotExist(err error) bool
+    func IsPermission(err error) bool
+    ```
+* 最簡單的實作方式就是確認 error message 但是不同平台會有不同 message 而且錯誤也不一定每次都是相同的 message
+``` go
+package os
+
+// PathError records an error and the operation and file path that caused it.
+type PathError struct {
+	Op   string
+	Path string
+	Err  error
+}
+
+func (e *PathError) Error() string {
+	return e.Op + " " + e.Path + ": " + e.Err.Error()
+}
+```
+* 使用專用的 type 來描述 error
+* `PathError` 描述 file operation 的錯誤像是 create or delete file
+* 處理 error 都是統一用呼叫 Error method 來處理
+* Client 需要分辨不同 error 需要使用 type assertion
+``` go
+var ErrNotExist = errors.New("file does not exist")
+
+// IsNotExist returns a boolean indicating whether the error is known to
+// report that a file or directory does not exist. It is satisfied by
+// ErrNotExist as well as some syscall errors.
+func IsNotExist(err error) bool {
+	fmt.Println(err)
+	if pe, ok := err.(*PathError); ok {
+		err = pe.Err
+		fmt.Println(err)
+	}
+	fmt.Println(err)
+	return err == syscall.ENOENT || err == ErrNotExist
+}
+```
+* error 是 `syscall.ENOENT` 或者 `os.ErrorNotExist` 或者 `*PathError` 都回傳 True
+
+### 7.12. Querying Behaviors with Int erface Type Assertions
+``` go
+func writeHeader(w io.Writer, contentType string) error {
+	if _, err := w.Write([]byte("ContentType:")); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(contentType)); err != nil {
+		return err
+	}
+	// ...
+}
+```
+* `io.Writer w` 代表 HTTP response
+* `Write` method 需要 byte slice 但是我們希望寫入的是 string 因此需要做轉換 `[]byte(...)`
+* `[]byte(...)` 需要 allocate 記憶體但是又馬上丟棄，假使這是核心部分就會造成速度緩慢
+* `net/http` package 有些 type 有 `WriteString` 讓人方便的寫入 string 而不需要 allocate memory
+* 無法確定 `io.Writer` 到底有沒有 `WriteString` method 但我們可以定義新的 type 只有 `WriteString` 使用 type assertion 確認 dynamic type 是否滿足新的 type
+    ``` go
+    // writeString writes s to w.
+    // If w has a WriteString method, it is invoked instead of w.Write.
+    func writeString(w io.Writer, s string) (n int, err error) {
+        type stringWriter interface {
+            WriteString(string) (n int, err error)
+        }
+        if sw, ok := w.(stringWriter); ok {
+            return sw.WriteString(s) // avoid a copy
+        }
+        return w.Write([]byte(s)) // allocate temporary copy
+    }
+    func writeHeader(w io.Writer, contentType string) error {
+        if _, err := writeString(w, "ContentType:"); err != nil {
+            return err
+        }
+        if _, err := writeString(w, contentType); err != nil {
+            return err
+        }
+        // ...
+    }
+    ```
+    * 為了避免重複的 check code 所以搬到 function 裡面
+    * type assertion 檢查 general interface type 是否有更符合特定的 interface type，如果有就使用
+``` go
+package fmt
+
+func formatOneValue(x interface{}) string {
+	if err, ok := x.(error); ok {
+		return err.Error()
+	}
+	if str, ok := x.(Stringer); ok {
+		return str.String()
+	}
+	// ...all other types...
+}
+```
+* `fmt.Fprintf` 檢查使否滿足 error 或 Stringer interface
+
+### 7.13. Type Switches
+* Interface 使用方式有兩種
+    * 專注在 Interface 的 method 表示 concrete type 滿足行為而隱藏 concrete type 的實作細節
+    * Discriminated union
+        * interface value 可以相容於各種 concrete type 把 interface 視為 concrete type 的集合
+        * 注重 concreate type 本身，而不是 interface  method，不隱藏實作細節
+* type switch 簡化 if-else chain of type assertion
+``` go
+func sqlQuote(x interface{}) string {
+	switch x := x.(type) {
+	case nil:
+		return "NULL"
+	case int, uint:
+		return fmt.Sprintf("%d", x) // x has type interface{} here.
+	case bool:
+		if x {
+			return "TRUE"
+		}
+		return "FALSE"
+	case string:
+		return sqlQuoteString(x) // (not shown)
+	default:
+		panic(fmt.Sprintf("unexpected type %T: %v", x, x))
+	}
+}
+```
+* case 的順序有影響，一旦符合就執行
+* `switch x := x.(type)` reuse x 因為 switch 會創造新的 lexical block 所以不會 conflict
+* case 內容相同可以 combine 
+* 雖然 x 是 interface{} 但可以視為 discriminated union of int, uint, bool, nil, string
+
+### 7.14. Example: Token-Based XML Decoding
+* `encoding/xml` 提供與 `encoding/json` 用來 encode/decode JSON 的Marshal 跟 Unmarshal
+* `encoding/xml` 提供 low-level  token-based API  來 decode xml 不會建構整個 document tree
+* token-based 會 consume input 後產生 stream of tokens 每一個都是 concrete type: `StartElement`, `EndElement`, `CharData`, `Comment`
+``` go
+package xml
+
+type Name struct {
+	Local string // e.g., "Title" or "id"
+}
+type Attr struct { // e.g., name="value"
+	Name  Name
+	Value string
+}
+
+// A Token includes StartElement, EndElement, CharData,
+// and Comment, plus a few esoteric types (not shown).
+type Token interface{}
+type StartElement struct { // e.g., <name>
+	Name Name
+	Attr []Attr
+}
+type EndElement struct{ Name Name } // e.g., </name>
+type CharData []byte                // e.g., <p>CharData</p>
+type Comment []byte                 // e.g., <!Comment
+
+type Decoder struct { /* ... */}
+
+func NewDecoder(io.Reader) *Decoder
+func (*Decoder) Token() (Token, error) // returns next Token in sequence
+
+```
+* Token interface 沒有 method 也就是一個 discriminated union 的例子
+    * 一般的 interface 隱藏 concrete type 的實作細節，每一種 concrete type 都當成一樣的東西
+    * the set of concrete type 滿足 discriminated union，藉由 type switch 來決定要使用何種 method
+``` go
+// Xmlselect prints the text of selected elements of an XML document.
+package main
+
+import (
+	"encoding/xml"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
+
+func main() {
+	dec := xml.NewDecoder(os.Stdin)
+	var stack []string // stack of element names
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "xmlselect: %v\n", err)
+			os.Exit(1)
+		}
+		switch tok := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, tok.Name.Local) // push
+		case xml.EndElement:
+			stack = stack[:len(stack)-1] // pop
+		case xml.CharData:
+			if containsAll(stack, os.Args[1:]) {
+				fmt.Printf("%s: %s\n", strings.Join(stack, " "), tok)
+			}
+		}
+	}
+}
+
+// containsAll reports whether x contains the elements of y, in order.
+func containsAll(x, y []string) bool {
+	for len(y) <= len(x) {
+		if len(y) == 0 {
+			return true
+		}
+		if x[0] == y[0] {
+			y = y[1:]
+		}
+		x = x[1:]
+	}
+	return false
+}
+```
+
+### 7.15. A Few Words of Advice
+* 初學者當設計新的 package 時候先是定義了很多 interface 接著才定義滿足於 interface 的 concrete type
+    * 壞處: 導致很多 interface 只有一種實作，這些 interface 就是多餘的還會造成 run-time 的 cost
+    * 改善: 使用 export 的方式決定 type 的 method 或 field 可以給其他 package 看見
+* interface 適用於多種 concrete type 需要同樣處理方式使用
+    * 例外: interface 只有一種 concrete type 滿足但是因為相依性而無法在同一個 package 存在，所以可以用 interface 來 decouple two package
+* interface 的設計原則是只定義需要的 method: ask only for what you need
+
 ### Reference
 Golang website: https://golang.org/
 Go example: https://gobyexample.com/
