@@ -2192,6 +2192,1003 @@ func containsAll(x, y []string) bool {
     * 例外: interface 只有一種 concrete type 滿足但是因為相依性而無法在同一個 package 存在，所以可以用 interface 來 decouple two package
 * interface 的設計原則是只定義需要的 method: ask only for what you need
 
+## Chapter 8: Goroutines and Channels
+* Concurrent programming 是指多個 autonomous activities 所組合起來的程式
+    * Web server 同時處理多個 client 的 request
+    * 手機跟平板同時 render 畫面動畫跟處理網路 request 跟計算
+    * Batch problem 用 concurrency 隱藏 I/O operation latency
+* Go 支援兩種 concurrent programming
+    * Goroutines and Channels 支援 communicating sequential processes(GSP): independent activity 互相傳 value
+    * Shared memory multithreading
+
+### 8.1 Goroutiness
+* 每一個 executing activity 稱為 goroutine
+* Goroutine 近似於 thread
+* 程式一開始一個 goroutine 呼叫 main 稱之為 main goroutine
+* go statement create new goroutine
+    * go statement 是由一般的 function 或 method 前面加上 go
+    * functino 會在新的 goroutine 中被呼叫
+``` go
+func main() {
+	go spinner(100 * time.Millisecond)
+	const n = 45
+	fibN := fib(n) // slow
+	fmt.Printf("\rFibonacci(%d) = %d\n", n, fibN)
+}
+
+func spinner(delay time.Duration) {
+	for {
+		for _, r := range `-\|/` {
+			fmt.Printf("\r%c", r)
+			time.Sleep(delay)
+		}
+	}
+}
+
+func fib(x int) int {
+	if x < 2 {
+		return x
+	}
+	return fib(x-1) + fib(x-2)
+}
+```
+* 計算結果需要花很久，使用畫面輸出讓使用者知道程式沒有當掉
+* main function return 後所有 goroutine 馬上停止接著程式 exit
+* Goroutine 無法停止另外一個 goroutine
+* spinning 跟 fibonacci computing 是兩個 autonomous activities
+
+### 8.2 Example: Concurrent Clock Server
+* Networking 很自然使用 concurrency programming 因為 server handle 不同獨立 client 的 request 
+* net package 提供打造使用 TCP, UDP, Unix domain socket 溝通的 network client 跟 server program 的 component
+* sequential clock server write current time per second to client
+    ``` go
+    func main() {
+        listener, err := net.Listen("tcp", "localhost:8000")
+        if err != nil {
+            log.Fatal(err)
+        }
+        for {
+            conn, err := listener.Accept()
+            if err != nil {
+                log.Print(err) // e.g., connection aborted
+                continue
+            }
+            handleConn(conn) // handle one connection at a time
+        }
+    }
+
+    func handleConn(c net.Conn) {
+        defer c.Close()
+        for {
+            _, err := io.WriteString(c, time.Now().Format("15:04:05\n"))
+            if err != nil {
+                return // e.g., client disconnected
+            }
+            time.Sleep(1 * time.Second)
+        }
+    }
+    ```
+    * net.Conn 符合 io.Writer interface 所以可以直接使用
+    * time.Time.Format method 使用 example 顯示 date and time information
+``` go
+func main() {
+	conn, err := net.Dial("tcp", "localhost:8000")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	mustCopy(os.Stdout, conn)
+}
+
+func mustCopy(dst io.Writer, src io.Reader) {
+	if _, err := io.Copy(dst, src); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+* Go version of netcat
+* Read data from connection and write data to standard output
+``` go
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Print(err) // e.g., connection aborted
+			continue
+		}
+		go handleConn(conn) // handle connections concurrently
+	}
+```
+* 使用 go 呼叫 handleConn 可以同時 handle 多個 client
+
+### 8.3 Example: Concurrent Echo Server
+* Echo server 使用多個 goroutine 在一個 connection 
+``` go
+func echo(c net.Conn, shout string, delay time.Duration) {
+	fmt.Fprintln(c, "\t", strings.ToUpper(shout))
+	time.Sleep(delay)
+	fmt.Fprintln(c, "\t", shout)
+	time.Sleep(delay)
+	fmt.Fprintln(c, "\t", strings.ToLower(shout))
+}
+
+func handleConn(c net.Conn) {
+	input := bufio.NewScanner(c)
+	for input.Scan() {
+		echo(c, input.Text(), 1*time.Second)
+	}
+	// NOTE: ignoring potential errors from input.Err()
+	c.Close()
+}
+```
+* Reverberation echo server: echo "HELLO!", "Hello!", "hello!" with delay
+``` go
+func main() {
+	conn, err := net.Dial("tcp", "localhost:8000")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	go mustCopy(os.Stdout, conn)
+	mustCopy(conn, os.Stdin)
+}
+```
+* 讓 client 可以印出 server 的 response
+* main goroutine read standard input and send it to the server
+* second goroutine read and print server response
+``` go
+func handleConn(c net.Conn) {
+	input := bufio.NewScanner(c)
+	for input.Scan() {
+		go echo(c, input.Text(), 1*time.Second)
+	}
+	// NOTE: ignoring potential errors from input.Err()
+	c.Close()
+}
+```
+* 改良 echo 只會按照順序 reverberation
+
+### 8.4 Channels
+* Channel 是 goroutine 之前的 connection
+* Channel 讓 goroutine 可以 send value 到其他 goroutine
+* 每個 channel 都是傳導特定 type 的 value 稱為 channel 的 element type
+``` go
+ch = make(chan int)
+```
+* channel 的 element type 是 `int` 則 channel type 是 `chan int` 
+* `make` create a new channel
+* channel reference 到 make create 的 data structure
+* copy 或傳入 function 都是 copy reference
+* zero value of channel is `nil`
+* 相同 type 的 channel 可以比較，如果 reference 到相同的 data structure 則代表一樣的，也可以跟 nil 比較
+* channel operation: `send` and `receive` 統稱 communication
+    * send statement 傳送 value 到另外的 goroutine
+    * send 跟 receive 都是使用 `<-` operator
+    ``` go
+    ch <- x   // a send statement
+    x = <- ch // a receive expression in an assignment statement
+    <- ch     // a receive statement; result is discarded
+    ```
+* channel operation: `close`
+    * Set flag 告知不能傳 value 給該 channel
+    * send value to closed channel will panic
+    * receive value from closed channel 會 yield 之前收到的 value，把收到的 value yield 完之後會 yield zero value
+* Unbuffered channel: 沒有 capacity 的 channel
+    ``` go
+    ch = make(chan int) // unbuffered channel
+    ch = make(chan int, 0) // unbuffered channel
+    ch = make(chan int, 3) // buffered channel with capacity 3
+    ```
+
+#### 8.4.1. Unbuffered Channels
+* Send operation on the unbuffered channel 會 block goroutine 直到另外一個 goroutine recieve 這個 channel
+* Recieve 一個 unbuffered channel 也會 block 直到有另外一個 goroutine send
+* Unbuffered channel 機制讓 sending goroutine 跟 recieving goroutine 可以 synchronize 所以又稱為 synchronous channel
+* netcat 可以等 background goroutine 結束才結束
+    ``` go
+    func main() {
+        conn, err := net.Dial("tcp", "localhost:8000")
+        if err != nil {
+            log.Fatal(err)
+        }
+        done := make(chan struct{})
+        go func() {
+            io.Copy(os.Stdout, conn) // NOTE: ignoring errors
+            log.Println("done")
+            done <- struct{}{} // signal the main goroutine
+        }()
+        mustCopy(conn, os.Stdin)
+        conn.Close()
+        <-done // wait for background goroutine to finish
+    }
+    ```
+    * done channel sychronize main goroutine 跟 background goroutine
+    * user close input stream 會讓 main 把 conn close
+        * close write 讓 seerver 收到 end-of-file
+        * close read 讓 background goroutine io.Copy 會出現 read from closed connection 錯誤
+    * Message 不需要 value 只用來 synchronize 稱為 event
+
+#### 8.4.2. Pipelines
+* 使用 channel 把 goroutine 的輸入輸出串再一起成為 pipeline
+``` go
+func main() {
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	go func() {
+		for x := 0; ; x++ {
+			naturals <- x
+		}
+	}()
+
+	// Squarer
+	go func() {
+		for {
+			x := <-naturals
+			squares <- x * x
+		}
+	}()
+
+	// Printer (in main goroutine)
+	for {
+		fmt.Println(<-squares)
+	}
+}
+```
+``` go
+func main() {
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	go func() {
+		for x := 0; x < 100; x++ {
+			naturals <- x
+		}
+		close(naturals)
+	}()
+
+	// Squarer
+	go func() {
+		for x := range naturals {
+			squares <- x * x
+		}
+		close(squares)
+	}()
+
+	// Printer (in main goroutine)
+	for x := range squares {
+		fmt.Println(x)
+	}
+}
+```
+* 輸出有限數字，使用 close 關閉 channel
+* 不一定結束 channel 都要 close，但需要告知其他 goroutine 已經送完所有東西就需要 close
+* close 一個已經 close 的 channel 會 panic
+
+#### 8.4.3. Unidirectional Channel Types
+* 隨著程式成長會需要將 goroutine 拆開成 function
+    ``` go
+    func counter(out chan int)
+    func squarer(out, in chan int)
+    func printer(in chan int)
+    ```
+    * `out` 跟 `in` 都是 `chan int` type 但是只能 receive from`in`channel 跟 send to `out` channel
+    * 無法阻止 send to `in` channel 跟 receive from `out` channel
+* Unidirectional channel type 規定 chane type 只能 send 或 receive
+    * `chan<- int` type 是 send-only channel of int
+    * `<-chan int` type 是 receive-only channel of int
+    * close receive-only hannel 會 compile error
+``` go
+func counter(out chan<- int) {
+	for x := 0; x < 100; x++ {
+		out <- x
+	}
+	close(out)
+}
+
+func squarer(out chan<- int, in <-chan int) {
+	for v := range in {
+		out <- v * v
+	}
+	close(out)
+}
+
+func printer(in <-chan int) {
+	for v := range in {
+		fmt.Println(v)
+	}
+}
+
+func main() {
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	go counter(naturals)
+	go squarer(squares, naturals)
+	printer(squares)
+}
+```
+* `counter(naturals)` 跟 `printer(squares)` compiler 會隱性轉換將 bidirectional channel type 轉成 unidirectional channel
+
+#### 8.4.4. Buffered Channels
+* Buffered channel has a queue of elements
+* Create buffered channel 就要決定 queue 大小
+* Send to full channel will block goroutine
+* Receive from empty channel will block goroutine
+* `cap(ch)` 得知 queue 的大小
+* `len(ch)` 得知目前 element 數量
+* 有時候會因為容易撰寫 buffered channel 的關係而在一個 goroutine 裡面當成 queue，但沒有使用好會讓整個程式暴露在 blocking 的情況下
+* goroutine leak: send one the channel which no goroutine will ever receive
+* 選擇使用 unbuffered channel 或 buffered channel 會影響到程式正確性
+    * unbuffered channel 能確保每個 send 會 synchronize 相對應的 receive
+    * buffered channel decouple send and receive operation
+    * 如果知道有多少 value 會被 send 到 channel 就會使用 unbufferd channel，因為不會想要把所有 value send 完才開始處理
+    * buffered channel 的 capacity 給的不足夠會發生 deadlock
+* Buffered channel 的 capacity 會影響程式效能
+
+### 8.5 Looping in Parallel
+* Embarrassingly parallel: 分割出來的小問題彼此獨立，可以使用 concurrency 增加效能
+``` go
+func makeThumbnails(filenames []string) {
+	for _, f := range filenames {
+		if _, err := thumbnail.ImageFile(f); err != nil {
+			log.Println(err)
+		}
+	}
+}
+```
+* 一次執行一個縮圖
+``` go
+// NOTE: incorrect!
+func makeThumbnails2(filenames []string) {
+	for _, f := range filenames {
+		go thumbnail.ImageFile(f) // NOTE: ignoring errors
+	}
+}
+```
+* 使用 goroutine 處理每個縮圖
+* 不正確因為不會等 goroutine 結束才結束
+``` go
+// makeThumbnails3 makes thumbnails of the specified files in parallel.
+func makeThumbnails3(filenames []string) {
+	ch := make(chan struct{})
+	for _, f := range filenames {
+		go func(f string) {
+			thumbnail.ImageFile(f) // NOTE: ignoring errors
+			ch <- struct{}{}
+		}(f)
+	}
+
+	// Wait for goroutines to complete.
+	for range filenames {
+		<-ch
+	}
+}
+```
+* 因為知道總共有多少檔案需要處理所以使用 channel 來計算是否處理完畢
+* literal function 使用 explicit 的 f 而不是 range 出來的 f
+* 使用 range assign 的 f 會讓所有 goroutine 都使用最後一個來處理
+``` go
+// makeThumbnails4 makes thumbnails for the specified files in parallel.
+// It returns an error if any step failed.
+func makeThumbnails4(filenames []string) error {
+	errors := make(chan error)
+
+	for _, f := range filenames {
+		go func(f string) {
+			_, err := thumbnail.ImageFile(f)
+			errors <- err
+		}(f)
+	}
+
+	for range filenames {
+		if err := <-errors; err != nil {
+			return err // NOTE: incorrect: goroutine leak!
+		}
+	}
+
+	return nil
+}
+```
+* 第一個 create file error 就會停止
+* 遇到 error 就 return 導致沒有人去 receive err channel 讓其他 goroutine block 也就是 goroutine leak
+``` go
+// makeThumbnails5 makes thumbnails for the specified files in parallel.
+// It returns the generated file names in an arbitrary order,
+// or an error if any step failed.
+func makeThumbnails5(filenames []string) (thumbfiles []string, err error) {
+	type item struct {
+		thumbfile string
+		err       error
+	}
+
+	ch := make(chan item, len(filenames))
+	for _, f := range filenames {
+		go func(f string) {
+			var it item
+			it.thumbfile, it.err = thumbnail.ImageFile(f)
+			ch <- it
+		}(f)
+	}
+
+	for range filenames {
+		it := <-ch
+		if it.err != nil {
+			return nil, it.err
+		}
+		thumbfiles = append(thumbfiles, it.thumbfile)
+	}
+
+	return thumbfiles, nil
+}
+```
+* 使用 buffered channel 避免錯誤出現後造成 goroutine leak
+``` go
+// makeThumbnails6 makes thumbnails for each file received from the channel.
+// It returns the number of bytes occupied by the files it creates.
+func makeThumbnails6(filenames <-chan string) int64 {
+	sizes := make(chan int64)
+	var wg sync.WaitGroup // number of working goroutines
+	for f := range filenames {
+		wg.Add(1)
+		// worker
+		go func(f string) {
+			defer wg.Done()
+			thumb, err := thumbnail.ImageFile(f)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			info, _ := os.Stat(thumb) // OK to ignore error
+			sizes <- info.Size()
+		}(f)
+	}
+
+	// closer
+	go func() {
+		wg.Wait()
+		close(sizes)
+	}()
+
+	var total int64
+	for size := range sizes {
+		total += size
+	}
+	return total
+}
+```
+* return total bytes of new files
+* 使用 channel 接收 filename
+* `sync.WaitGroup` count goroutine
+    * `Add`: goroutine 啟動之前呼叫，如果再 goroutine 裡面呼叫可能會在 closer goroutine 呼叫 wait 之後才 Add
+    * `Done`: 等於 `Add(-1)` 使用 defer 確保發生錯誤還是會呼叫 Done
+*  size channel 計算總共的 file size 
+*  wait 跟 close 必須平行處理
+    *  wait 在 main goroutine 的 loop 之前會造成永遠不停止因為沒有 goroutine receive size channel
+    *  wait 在 main goroutine 的 loop 之後會造成沒有人 close sizes channel 所以 loop 不會停止
+
+### 8.6. Example: Concurrent Web Crawler
+* 使用 concurrent 方式建立 link graph of web
+``` go
+func main() {
+	worklist := make(chan []string)
+
+	// Start with the command-line arguments.
+	go func() { worklist <- os.Args[1:] }()
+
+	// Crawl the web concurrently.
+	seen := make(map[string]bool)
+	for list := range worklist {
+		for _, link := range list {
+			if !seen[link] {
+				seen[link] = true
+				go func(link string) {
+					worklist <- crawl(link)
+				}(link)
+			}
+		}
+	}
+}
+```
+* worklist 使用 channel 同時處理 URLs
+* crawl goroutine 用 explicit parameter 避免 loop variable problem
+* 一開始要使用 goroutine 把 command-line arguments 送給 worklist ,不然會 deadlock, main goroutine 跟 crawler goroutine 都會想送給 ｗorklist 但沒有人會 receive
+* 因為太平行處理導致容易超過網路連線數量而使 DNS lokup 跟 `net.Dial` 失敗
+    * 沒有上限的平行處理容易超過系統的限制，例如: CPU cores for compute-bound workloads, local disk I/O operation, network bandwidth
+* 所以需要控管超越某個數量的呼叫時候就要停止
+* 使用 buffered channel 來限制平行處理的程度，稱為 couting semaphore
+* channel 中空的 slot 像是 token,send value 給 channel 像是 acquires token, receive value from channel 像是 release token
+``` go
+// tokens is a counting semaphore used to
+// enforce a limit of 20 concurrent requests.
+var tokens = make(chan struct{}, 20)
+
+func crawl(url string) []string {
+	fmt.Println(url)
+	tokens <- struct{}{} // acquire a token
+	list, err := links.Extract(url)
+	<-tokens // release the token
+
+	if err != nil {
+		log.Print(err)
+	}
+	return list
+}
+```
+* 另外的問題是即使找到了所有 link 程式無法停止
+* 當 worklist 已經空了而且沒有 crawl goroutine 還在跑就需要 break main loop
+``` go
+func main() {
+	worklist := make(chan []string)
+	var n int // number of pending sends to worklist
+
+	// Start with the command-line arguments.
+	n++
+	go func() { worklist <- os.Args[1:] }()
+
+	// Crawl the web concurrently.
+	seen := make(map[string]bool)
+	for ; n > 0; n-- {
+		list := <-worklist
+		for _, link := range list {
+			if !seen[link] {
+				seen[link] = true
+				n++
+				go func(link string) {
+					worklist <- crawl(link)
+				}(link)
+			}
+		}
+	}
+}
+```
+* 使用 counter n 來計算 worklist 的數量
+``` go
+func main() {
+	worklist := make(chan []string)  // lists of URLs, may have duplicates
+	unseenLinks := make(chan string) // de-duplicated URLs
+
+	// Add command-line arguments to worklist.
+	go func() { worklist <- os.Args[1:] }()
+
+	// Create 20 crawler goroutines to fetch each unseen link.
+	for i := 0; i < 20; i++ {
+		go func() {
+			for link := range unseenLinks {
+				foundLinks := crawl(link)
+				go func() { worklist <- foundLinks }()
+			}
+		}()
+	}
+
+	// The main goroutine de-duplicates worklist items
+	// and sends the unseen ones to the crawlers.
+	seen := make(map[string]bool)
+	for list := range worklist {
+		for _, link := range list {
+			if !seen[link] {
+				seen[link] = true
+				unseenLinks <- link
+			}
+		}
+	}
+}
+```
+* 另一種方法解決過度平行化的問題
+* 使用原本的 crawl function，使用 20 long-lived crawler goroutine 確保 20 HTTP requests active concurrently
+* crawler goroutine 都是使用相同的 channel `unseenLinks`
+* main goroutine 負責去除 worklist 重複的網址
+
+### 8.7. Multiplexing with select
+``` go
+func main() {
+	fmt.Println("Commencing countdown.")
+	tick := time.Tick(1 * time.Second)
+	for countdown := 10; countdown > 0; countdown-- {
+		fmt.Println(countdown)
+		<-tick
+	}
+	launch()
+}
+```
+* `time.Tick` return 會週期性 send event 的channel
+``` go
+func main() {
+	abort := make(chan struct{})
+	go func() {
+		os.Stdin.Read(make([]byte, 1)) // read a single byte
+		abort <- struct{}{}
+	}()
+	launch()
+}
+```
+* 增加可以取消發射火箭的功能
+* 需要 select 來 multiplex 正常與不正常的情況
+``` go
+	fmt.Println("Commencing countdown.  Press return to abort.")
+	select {
+	case <-time.After(10 * time.Second):
+		// Do nothing.
+	case <-abort:
+		fmt.Println("Launch aborted!")
+		return
+	}
+	launch()
+```
+* select 等待可以處理 case 一旦開始處理其他 case 就不會同時處理
+* `select{}`: 沒有 case  的 select 會永遠等待
+* `time.After`: 馬上 return channel 跟 start new goroutine 等待特定時間後 send value 給 channel
+``` go
+func main() {
+	ch := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		select {
+		case x := <-ch:
+			fmt.Println(x) // "0" "2" "4" "6" "8"
+		case ch <- i:
+		}
+	}
+}
+```
+* `ch`  是個 buffer size 是 1 的 channel, 所以會在 empty 跟 full 的狀態交替
+* 因為不是空的就是滿的所以只會有一個 case 會執行
+* 多個 case 都 ready 則 select 會隨機挑一個來執行，所以當增加 channel 的 size 會導致每次結果不一定會一樣
+``` go
+func main() {
+	// ...create abort channel...
+	fmt.Println("Commencing countdown.  Press return to abort.")
+	tick := time.Tick(1 * time.Second)
+	for countdown := 10; countdown > 0; countdown-- {
+		fmt.Println(countdown)
+		select {
+		case <-tick:
+			// Do nothing.
+		case <-abort:
+			fmt.Println("Launch aborted!")
+			return
+		}
+	}
+	launch()
+}
+```
+* `countdown` function return 後就沒有人 receive `time.Tick` 造成 goroutine leak
+``` go
+ticker := time.NewTicker(1 * time.Second)
+<-ticker.C // receive from the ticker's channel
+ticker.Stop() // cause the ticker's goroutine to terminate
+```
+* 如果不是使用 `Tick` 在整個 application lifetime 就用這種 
+* 如果只是想嘗試 send 或 receive channel 而不 block 可以使用 selct default
+``` go
+select {
+case <- abort:
+    fmt.Printf("Launch aborted!\n")
+    return
+default:
+    // do nothing
+}
+```
+* 只 receive abort channel 稱為 polling a channel
+
+### 8.8. Example: Concurrent Directory Traversal
+* 回報多個資料夾的硬碟使用量
+``` go
+// walkDir recursively walks the file tree rooted at dir
+// and sends the size of each found file on fileSizes.
+func walkDir(dir string, fileSizes chan<- int64) {
+	for _, entry := range dirents(dir) {
+		if entry.IsDir() {
+			subdir := filepath.Join(dir, entry.Name())
+			walkDir(subdir, fileSizes)
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+
+// dirents returns the entries of directory dir.
+func dirents(dir string) []os.FileInfo {
+	entries, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "du1: %v\n", err)
+		return nil
+	}
+	return entries
+}
+```
+* `wakDir` 遞迴找出所有檔案的大小
+    * `walkDir` send message 到 `fileSizes` channel
+ * `dirents` 列舉 directory entries
+    * `ioutil.ReadDir` 回傳 slice of `os.FileInfo`
+``` go
+// The du1 command computes the disk usage of the files in a directory.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	// Determine the initial directories.
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+
+	// Traverse the file tree.
+	fileSizes := make(chan int64)
+	go func() {
+		for _, root := range roots {
+			walkDir(root, fileSizes)
+		}
+		close(fileSizes)
+	}()
+
+	// Print the results.
+	var nfiles, nbytes int64
+	for size := range fileSizes {
+		nfiles++
+		nbytes += size
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+
+func printDiskUsage(nfiles, nbytes int64) {
+	fmt.Printf("%d files  %.1f GB\n", nfiles, float64(nbytes)/1e9)
+}
+```
+* main function 使用兩個 goroutines
+    * backgroud goroutine 呼叫 `walkDir` 最後 close `fileSizes` channel
+    * main goroutine 計算 file sizes 總和後印出結果
+* 如果能即時讓使用者知道進度會更好，但用 loop 不斷呼叫 `printDiskUsage` 畫面會被洗版
+``` go
+func main() {
+	// ...start background goroutine...
+	//!+
+	// Print the results periodically.
+	var tick <-chan time.Time
+	if *verbose {
+		tick = time.Tick(500 * time.Millisecond)
+	}
+	var nfiles, nbytes int64
+loop:
+	for {
+		select {
+		case size, ok := <-fileSizes:
+			if !ok {
+				break loop // fileSizes was closed
+			}
+			nfiles++
+			nbytes += size
+		case <-tick:
+			printDiskUsage(nfiles, nbytes)
+		}
+	}
+	printDiskUsage(nfiles, nbytes) // final totals
+}
+```
+* 當使用者加上 `-v` flag 時候會週期性的印出結果
+* main goroutine 使用 ticker 每 500ms 會產生 event
+* select 會等待 file size message 或者 tick event
+* `-v` flag 沒有被 set 的時候 `tick` channel 是 `nil` 所以 select 的 case 會被 disable
+* 第一個 select case 會測試 `fileSizes` channel 是否已經 close
+    * 如果 `fileSizes` 已經 close 就 break loop
+    * label break 會跳出 select 跟 for loop
+    * unlabeled break 只會跳出 select
+* 使用平行處理加快處理速度
+``` go
+func main() {
+	// ...determine roots...
+	// Traverse each root of the file tree in parallel.
+	fileSizes := make(chan int64)
+	var n sync.WaitGroup
+	for _, root := range roots {
+		n.Add(1)
+		go walkDir(root, &n, fileSizes)
+	}
+	go func() {
+		n.Wait()
+		close(fileSizes)
+	}()
+    // ...select loop...
+}
+
+func walkDir(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
+	defer n.Done()
+	for _, entry := range dirents(dir) {
+		if entry.IsDir() {
+			n.Add(1)
+			subdir := filepath.Join(dir, entry.Name())
+			go walkDir(subdir, n, fileSizes)
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+```
+* 會產生上千的 goroutine 所以需要用 couting semaphore 避免同時開啟太多檔案
+    ``` go
+    // sema is a counting semaphore for limiting concurrency in dirents.
+    var sema = make(chan struct{}, 20)
+
+    // dirents returns the entries of directory dir.
+    func dirents(dir string) []os.FileInfo {
+        sema <- struct{}{}        // acquire token
+        defer func() { <-sema }() // release token
+        // ...
+    }
+    ```
+### 8.9. Cancellation
+* 有時候需要停止正在跑的 goroutine，例如 web server 計算途中 client 就斷線了
+* goroutine 無法直接停止另外一個 goroutine 因為會使 shared variable 處在 undefined state
+* 因為 goroutine 從 channel receive value 時候其他 goroutine 無法知道，所以需要有一個 broadcast 機制讓 goroutine 知道 cancellation event
+* 使用 channel close 並消耗完 send value 後，receive 只會得到 zero value 的特性製作 broadcast mechanism
+``` go
+var done = make(chan struct{})
+
+func cancelled() bool {
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
+```
+* 使用沒有 goroutine 會 send value 的 cancellation channel
+* cancellation channel 被 close 之後就可以 receive value
+* `cancelled` function 被呼叫的時候會 check cancellation state
+``` go
+// Cancel traversal when input is detected.
+go func() {
+    os.Stdin.Read(make([]byte, 1)) // read a single byte
+    close(done)
+}()
+```
+* 使用 goroutine 去讀 standard input
+* 如果有 input 就 close `done` channel 通知所有 goroutine cancellation
+``` go
+for {
+    select {
+    case <-done:
+        // Drain fileSizes to allow existing goroutines to finish.
+        for range fileSizes {
+            // Do nothing.
+        }
+        return
+    case size, ok := <-fileSizes:
+        // ...
+    }
+}
+```
+* select 增加 receive `done` channel 的 case
+* cacellation 後必須將 `fileSizes` channel 消耗完確保 `walkDir` 不會因為無法 send value 到 `fileSizes` 而無法跑完
+``` go
+func walkDir(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
+	defer n.Done()
+	if cancelled() {
+		return
+	}
+	for _, entry := range dirents(dir) {
+		// ...
+	}
+}
+```
+* `walkDir` 一開始先檢查 cancellation status
+* 雖然在 loop 裡面也檢查 cancellation 可以避免繼續產生 goroutine，但檢查的越精細會越需要頻繁的改動 code
+* `dirents` acquire semaphore token 會有 bottleneck
+``` go
+func dirents(dir string) []os.FileInfo {
+	select {
+	case sema <- struct{}{}:
+	// acquire token
+	case <-done:
+		return nil // cancelled
+	}
+	defer func() {
+		<-sema
+	}() // release token
+	// ...read directory...
+}
+```
+* cancellation 發生後所有 backgroud goroutine 會停止而 main fuction return
+* main function return 後程式就 exit 所以難以分辨 main function 有沒有在其他人都 clean up 後才結束
+* 測試的時候可以使用 panic 使 runtime dump goroutine stack
+
+### 8.10. Example: Chat Server
+* chat server 讓多個使用者可以 broadcast 訊息給彼此
+* main goroutine
+    ``` go
+    func main() {
+        listener, err := net.Listen("tcp", "localhost:8000")
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        go broadcaster()
+        for {
+            conn, err := listener.Accept()
+            if err != nil {
+                log.Print(err)
+                continue
+            }
+            go handleConn(conn)
+        }
+    }
+    ```
+    * listen 與 accept client network connection
+    * 為每一個 connection 建立 `handleConn` goroutine
+* broadcaster goroutine
+    ``` go
+    type client chan<- string // an outgoing message channel
+
+    var (
+        entering = make(chan client)
+        leaving  = make(chan client)
+        messages = make(chan string) // all incoming client messages
+    )
+
+    func broadcaster() {
+        clients := make(map[client]bool) // all connected clients
+        for {
+            select {
+            case msg := <-messages:
+                // Broadcast incoming message to all
+                // clients' outgoing message channels.
+                for cli := range clients {
+                    cli <- msg
+                }
+
+            case cli := <-entering:
+                clients[cli] = true
+
+            case cli := <-leaving:
+                delete(clients, cli)
+                close(cli)
+            }
+        }
+    }
+    ```
+    * `clients` 紀錄目前連線的 clients
+    * `entering` 跟 `leaving` 表示抵達與離開的 client，會 update `clients`
+    * `message` channel 收到 message 後轉送給每個 client
+* handleConn goroutine and clientWriter goroutine
+    ``` go
+    func handleConn(conn net.Conn) {
+        ch := make(chan string) // outgoing client messages
+        go clientWriter(conn, ch)
+
+        who := conn.RemoteAddr().String()
+        ch <- "You are " + who
+        messages <- who + " has arrived"
+        entering <- ch
+
+        input := bufio.NewScanner(conn)
+        for input.Scan() {
+            messages <- who + ": " + input.Text()
+        }
+        // NOTE: ignoring potential errors from input.Err()
+
+        leaving <- ch
+        messages <- who + " has left"
+        conn.Close()
+    }
+
+    func clientWriter(conn net.Conn, ch <-chan string) {
+        for msg := range ch {
+            fmt.Fprintln(conn, msg) // NOTE: ignoring network errors
+        }
+    }
+    ```
+    * `handleConn` 建立 outgoing client message channel send 給 entering 表示 client 已連線
+    * 讀取 input 後加上 prefix send 給 `messages` channel
+
 ### Reference
 Golang website: https://golang.org/
 Go example: https://gobyexample.com/
