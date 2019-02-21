@@ -3188,6 +3188,562 @@ func dirents(dir string) []os.FileInfo {
     ```
     * `handleConn` 建立 outgoing client message channel send 給 entering 表示 client 已連線
     * 讀取 input 後加上 prefix send 給 `messages` channel
+    
+## Chapter 9: Concurrency with Shared Variables
+### 9.1. Race Conditions
+* 多個 goroutine 同時運行時很能得知 statement 執行的順序
+* function 在 concurrency 的情形下也可以正確執行就稱為 concurrency-safe
+* 不需要讓每個 concrete type 都 concurrency-safe 才能打造 concurrency-safe 的程式
+    * goroutine 只存取 concurrency-safe 的 type
+    * 單個 goroutine 存取
+    * 使用 mutual exclusion
+* package-level function 通常被認為是 concurreny-safe，因為 package-level variable 並無法限制在單一 goroutine 使用
+* deadlock, livelock 跟 resource starvation 都可能使 function 無法再 concurrently 下正常使用
+* race condition 是當程式的多個 goroutine 以不同的 operation 執行順序而產生不同結果，因為不頻繁出現或者只在特定情況下才出現所以很能重製跟分析
+* date race: 兩個 goroutine 同時操作 variable 而且至少一個是做修改的操作
+* 避免 data race 的方法
+    * 不去 write variable
+    * 多個 goruotine 不讀取同一個 variable，限制一個 goroutine 讀取一個 variable
+    * 
+``` go
+// Package bank provides a concurrency-safe bank with one account.
+package bank
+
+var deposits = make(chan int) // send amount to deposit
+var balances = make(chan int) // receive balance
+
+func Deposit(amount int) { deposits <- amount }
+func Balance() int       { return <-balances }
+
+func teller() {
+	var balance int // balance is confined to teller goroutine
+	for {
+		select {
+		case amount := <-deposits:
+			balance += amount
+		case balances <- balance:
+		}
+	}
+}
+
+func init() {
+	go teller() // start the monitor goroutine
+}
+```
+* serial confinement: goroutine 之前用 pipeline 的方式 share variable，依序讀取 share variable
+
+### 9.2. Mutual Exclusion: sync.Mutex
+* 使用 buffered channel 當作 counting semaphore 確保一定個數的 goroutine 能執行，當限制 buffered size 為一就可以限制只有一個 goroutine 可以存取 share variable
+* 只允許一個 goroutine 的 semaphore 稱為 binary semaphore
+``` go
+var (
+	sema    = make(chan struct{}, 1) // a binary semaphore guarding balance
+	balance int
+)
+
+func Deposit(amount int) {
+	sema <- struct{}{} // acquire token
+	balance = balance + amount
+	<-sema // release token
+}
+
+func Balance() int {
+	sema <- struct{}{} // acquire token
+	b := balance
+	<-sema // release token
+	return b
+}
+```
+* 這種方式的 mutual exclusion 很常使用所以 sync package 的 Mutex type 有直接支援
+``` go
+import "sync"
+
+var (
+	mu      sync.Mutex // guards balance
+	balance int
+)
+
+func Deposit(amount int) {
+	mu.Lock()
+	balance = balance + amount
+	mu.Unlock()
+}
+
+func Balance() int {
+	mu.Lock()
+	b := balance
+	mu.Unlock()
+	return b
+}
+```
+* `Lock` acquire token
+* `Unlock` release token
+* 通常被 mutux 保護的變數要皆在 mutex 後面宣告
+* function 裡面先去 Lock 後才去存取變數稱為 monitor
+* 使用 `defer` 避免忘記 `Unlock`，function 結束時就會自動 `Unlock`
+    ``` go
+    func Balance() int {
+        mu.Lock()
+        defer mu.Unlock()
+        return balance
+    }
+    ```
+* 使用 `defer` `Unlock` 可以確保就算 critical section panic 也是會 `Unlock` 讓程式有機會 recover
+``` go
+// NOTE: not atomic!
+func Withdraw(amount int) bool {
+    Deposit(amount)
+    if Balance() < 0 {
+        Deposit(amount)
+        return false // insufficient funds
+    }
+    return true
+}
+```
+* `balance` 會暫時處於小於 0 的數字，會導致 Bob 買跑車時 Alice 卻無法買咖啡
+* `Withdraw` 不是 atomic operation，而是三個 atomic operation 所組成的 (Deposit, Balance, Deposit)
+``` go
+// NOTE: incorrect!
+func Withdraw(amount int) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	Deposit(amount)
+	if Balance() < 0 {
+		Deposit(amount)
+		return false // insufficient funds
+	}
+	return true
+}
+```
+* `Withdraw` 先 acquire mutex lock 後因為 lock 不是 re-entrant 所以 `Deposit` or `Balance` 就無法 acquire mutex lock 形成 deadlock
+* golang 沒有 re-entrant lock 是因為 lock 不只有保證單一 goroutine 存取還有其他保證，但是 re-entrant lock 只保證單一 goroutine 存取並不確保其他保證
+``` go
+func Withdraw(amount int) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	deposit(amount)
+	if balance < 0 {
+		deposit(amount)
+		return false // insufficient funds
+	}
+	return true
+}
+
+func Deposit(amount int) {
+	mu.Lock()
+	defer mu.Unlock()
+	deposit(amount)
+}
+func Balance() int {
+	mu.Lock()
+	defer mu.Unlock()
+	return balance
+}
+
+// This function requires that the lock be held.
+func deposit(amount int) { balance += amount }
+```
+* 新增 unexported function `deposit` 預設已經 lock 完成
+* 確保需要保護的變數都沒有 export
+
+### 9.3. Read/Write Mutexes: sync.RWMutex
+* 如果不斷的確認存款會導致 deposit 跟 withdraw 變慢因為 balance 會 acquire lock 導致其他 goroutine block
+* 確認存款只需要 read 所以只要 deposit 跟 withdraw goroutine 沒有再跑應該要允許多個 balance goroutine 同時跑
+``` go
+var mu sync.RWMutex
+var balance int
+
+func Balance() int {
+	mu.RLock() // readers lock
+	defer mu.RUnlock()
+	return balance
+}
+```
+* 只允許多個 goroutine 進行 read-only operation，write operation 還是 exclusive access 則稱為 multiple reader, single writer lock
+* `RWMutx` 最好只用在大部分的 goroutine 只需要讀取而且 lock 經常被 acquire 讓其他 gorouinte 需要定期等待 acquire lock，因為 `RWMutex` 比起一般 mutex 會更耗時間在確認 lock 的狀態
+
+### 9.4. Memory Synchronization
+* `Balance` function 需要 mutex 是因為要確保不會再類似 `Withdraw` 途中執行 `Balance`，另外就是同步不只是 goroutine 之間的執行順序還有 memory 的同步
+* 現代電腦都有多個 processor 都各自的 cache 只有在需要的時候才會 flush 到 main memory，而 mutex 跟 channel 的作用就是讓 processor 去 flush cache 到 main memory
+
+### 9.5. Lazy Initialization: sync.Once
+* 將 expensive initialization 推遲到真正需要的那一刻是個不錯的實作方式
+* 程式一開始就 initialize variable 可能會讓啟動變慢，還有可能根本不會用到那個 variable
+``` go
+var icons map[string]image.Image
+
+func loadIcons() {
+	icons = map[string]image.Image{
+		"spades.png":   loadIcon("spades.png"),
+		"hearts.png":   loadIcon("hearts.png"),
+		"diamonds.png": loadIcon("diamonds.png"),
+		"clubs.png":    loadIcon("clubs.png"),
+	}
+}
+
+// NOTE: not concurrencysafe!
+func Icon(name string) image.Image {
+	if icons == nil {
+		loadIcons() // onetime initialization
+	}
+	return icons[name]
+}
+```
+* 多個 goroutine 呼叫會有問題，因為 Icon 裡面有多個步驟，確認 icons 是否為空、loadIcons、update icons
+* 直覺來說最糟的情況也不過是 loadIcons 被呼叫多次但是這是錯誤的，因為少可能 memory 的問題
+    ``` go
+    func loadIcons() {
+        icons = make(map[string]image.Image)
+        icons["spades.png"] = loadIcon("spades.png")
+        icons["hearts.png"] = loadIcon("hearts.png")
+        icons["diamonds.png"] = loadIcon("diamonds.png")
+        icons["clubs.png"] = loadIcon("clubs.png")
+    }
+    ```
+    * 有可能 icons 先變成 empty map 後其他 goroutine 就以為已經 load 完成
+``` go
+var mu sync.Mutex // guards icons
+var icons map[string]image.Image
+
+// Concurrencysafe.
+func Icon(name string) image.Image {
+	mu.Lock()
+	defer mu.Unlock()
+	if icons == nil {
+		loadIcons()
+	}
+	return icons[name]
+}
+```
+* 雖然用 mutex 可以確保 initialize icons 成功，但是會讓以後 goruotine 無法同時讀取 Icon
+``` go
+var mu sync.RWMutex // guards icons
+var icons map[string]image.Image
+
+// Concurrencysafe.
+func Icon(name string) image.Image {
+	mu.RLock()
+	if icons != nil {
+		icon := icons[name]
+		mu.RUnlock()
+		return icon
+	}
+	mu.RUnlock()
+	// acquire an exclusive lock
+	mu.Lock()
+	if icons == nil { // NOTE: must recheck for nil
+		loadIcons()
+	}
+	icon := icons[name]
+	mu.Unlock()
+	return icon
+}
+```
+* 先用 reader lock 確認 map 有沒有結果然後 release
+* 假設 map 是空的就 acquire writer lock 去 loadIcons
+* 雖然提供更好的 concurrency 但是 code 變很複雜
+``` go
+var loadIconsOnce sync.Once
+var icons map[string]image.Image
+
+// Concurrencysafe.
+func Icon(name string) image.Image {
+	loadIconsOnce.Do(loadIcons)
+	return icons[name]
+}
+```
+* `sync.Once` 提供 one-time initialization
+* `sync.One` 包含一個 mutex 跟 boolean 表示是否 initialize 狀態
+* `Do` accept initialization function
+* 每一次呼叫 `Do(loadIcons)` 都會 lock muteux 跟 check boolean
+    * 第一次呼叫 `Do(loadIcons)` 會呼叫 `loadIcons` 跟把 variable 設成 True
+    * 之後的呼叫就不做任何事
+
+### 9.6. The Race Detector
+* `go build`, `go run` or `go test` 加上 `-race` flag 來分析 concurrency 的 bug
+    * compiler 在 execution 的時候建立額外的 shared variable record 
+    * compiler 紀錄 shared variable 被那些 goroutine read 跟 wrote
+    * compiler 紀錄 go, channel operation 等等的資訊
+
+### 9.7. Example: Concurrent Non-Blocking Cache
+* 存下只需要計算一次就可以的 function result 
+    ``` go
+    func httpGetBody(url string) (interface{}, error) {
+        resp, err := http.Get(url)
+        if err != nil {
+            return nil, err
+        }
+        defer resp.Body.Close()
+        return ioutil.ReadAll(resp.Body)
+    }
+    ```
+    * 呼叫這個 function 的成本很昂貴所以希望可以存下結果避免重複計算
+    * `ReadAll` return `[]bytes` and `error`
+``` go
+// Package memo provides a concurrency-unsafe
+// memoization of a function of type Func.
+package memo
+
+// A Memo caches the results of calling a Func.
+type Memo struct {
+	f     Func
+	cache map[string]result
+}
+
+// Func is the type of the function to memoize.
+type Func func(key string) (interface{}, error)
+
+type result struct {
+	value interface{}
+	err   error
+}
+
+func New(f Func) *Memo {
+	return &Memo{f: f, cache: make(map[string]result)}
+}
+
+// NOTE: not concurrency-safe!
+func (memo *Memo) Get(key string) (interface{}, error) {
+	res, ok := memo.cache[key]
+	if !ok {
+		res.value, res.err = memo.f(key)
+		memo.cache[key] = res
+	}
+	return res.value, res.err
+}
+```
+* `Memo` instance 紀錄 `f` function 跟 `cache`
+    * `f` date type 是 `Func`
+    * `cache` 是 mapping string 到 `result`
+        * `result` 紀錄 呼叫 `f` 回傳的 value 跟 error
+``` go
+m := memo.New(httpGetBody)
+for url := range incomingURLs() {
+    start := time.Now()
+    value, err := m.Get(url)
+     err != nil {
+        log.Print(err)
+    }
+    fmt.Printf("%s, %s, %d bytes\n",
+    url, time.Since(start), len(value.([]byte)))
+}
+```
+* 紀錄 request 的時間
+``` go
+m := memo.New(httpGetBody)
+var n sync.WaitGroup
+for url := range incomingURLs() {
+    n.Add(1)
+    go func(url string) {
+        start := time.Now()
+        value, err := m.Get(url)
+        if err != nil {
+            log.Print(err)
+        }
+        fmt.Printf("%s, %s, %d bytes\n",
+            url, time.Since(start), len(value.([]byte)))
+        n.Done()
+    }(url)
+}
+n.Wait()
+```
+* HTTP request 通常都是同時一起跑
+* 雖然速度加快但是有時候結果有錯，cache miss, hit cache 但是回傳結果錯誤、crash，但是有時候是正確無誤
+* 使用 `-race` flag 可以找出 `Get` function 不是 concurrency-safe
+``` go
+type Memo struct {
+	f     Func
+	mu    sync.Mutex // guards cache
+	cache map[string]result
+}
+
+// Get is concurrency-safe.
+func (memo *Memo) Get(key string) (value interface{}, err error) {
+	memo.mu.Lock()
+	res, ok := memo.cache[key]
+	if !ok {
+		res.value, res.err = memo.f(key)
+		memo.cache[key] = res
+	}
+	memo.mu.Unlock()
+	return res.value, res.err
+}
+```
+* 使用 monitor-based synchronization 讓 `Get` 變成 concurrency-safe
+* 雖然沒有 data race 但是 `Get` 無法 parallel 執行導致速度變慢
+``` go
+func (memo *Memo) Get(key string) (value interface{}, err error) {
+	memo.mu.Lock()
+	res, ok := memo.cache[key]
+	memo.mu.Unlock()
+	if !ok {
+		res.value, res.err = memo.f(key)
+
+		// Between the two critical sections, several goroutines
+		// may race to compute f(key) and update the map.
+		memo.mu.Lock()
+		memo.cache[key] = res
+		memo.mu.Unlock()
+	}
+	return res.value, res.err
+}
+```
+* acquire lock twice
+    * lookup
+    * update if lookup return nothing
+* 速度變快但是如果同時去 Get 會發現 cache 沒有結果而同時去 Get 所以會 fetch URLs 兩次
+``` go
+type entry struct {
+	res   result
+	ready chan struct{} // closed when res is ready
+}
+
+func New(f Func) *Memo {
+	return &Memo{f: f, cache: make(map[string]*entry)}
+}
+
+type Memo struct {
+	f     Func
+	mu    sync.Mutex // guards cache
+	cache map[string]*entry
+}
+
+func (memo *Memo) Get(key string) (value interface{}, err error) {
+	memo.mu.Lock()
+	e := memo.cache[key]
+	if e == nil {
+		// This is the first request for this key.
+		// This goroutine becomes responsible for computing
+		// the value and broadcasting the ready condition.
+		e = &entry{ready: make(chan struct{})}
+		memo.cache[key] = e
+		memo.mu.Unlock()
+
+		e.res.value, e.res.err = memo.f(key)
+
+		close(e.ready) // broadcast ready condition
+	} else {
+		// This is a repeat request for this key.
+		memo.mu.Unlock()
+
+		<-e.ready // wait for ready condition
+	}
+	return e.res.value, e.res.err
+}
+```
+* duplicate suppression: 避免 redundant work
+* map element 換成 `entry`
+* `entry` 多了 channel `ready` broadcast 其他 goroutine 可以安全讀取結果
+* 第一次讀取發現沒有 entry 就創造 entry 塞進 map 後就 release lock
+* 如果有 entry 但還沒有結果就先 release lock 等到 channel ready close 後拿結果
+``` go
+// A request is a message requesting that the Func be applied to key.
+type request struct {
+	key      string
+	response chan<- result // the client wants a single result
+}
+
+type Memo struct{ requests chan request }
+
+// New returns a memoization of f.  Clients must subsequently call Close.
+func New(f Func) *Memo {
+	memo := &Memo{requests: make(chan request)}
+	go memo.server(f)
+	return memo
+}
+
+func (memo *Memo) Get(key string) (interface{}, error) {
+	response := make(chan result)
+	memo.requests <- request{key, response}
+	res := <-response
+	return res.value, res.err
+}
+
+func (memo *Memo) Close() { close(memo.requests) }
+```
+* `Memo` 有 `requests` channel 讓 `Get` 可以與 monitor goroutine 溝通
+* `requests` channel 的 element type 是 `request`
+* 呼叫 `Get` 的人 send `key` 跟 `response` 給 `requests`
+``` go
+func (memo *Memo) server(f Func) {
+	cache := make(map[string]*entry)
+	for req := range memo.requests {
+		e := cache[req.key]
+		if e == nil {
+			// This is the first request for this key.
+			e = &entry{ready: make(chan struct{})}
+			cache[req.key] = e
+			go e.call(f, req.key) // call f(key)
+		}
+		go e.deliver(req.response)
+	}
+}
+
+func (e *entry) call(f Func, key string) {
+	// Evaluate the function.
+	e.res.value, e.res.err = f(key)
+	// Broadcast the ready condition.
+	close(e.ready)
+}
+
+func (e *entry) deliver(response chan<- result) {
+	// Wait for the ready condition.
+	<-e.ready
+	// Send the result to the client.
+	response <- e.res
+}
+```
+* `cache` 只在 monitor goroutine 使用
+* monitor read request from loop until channel closed
+* `call` and `deliver` 必須用自己的 goroutine 確保 monitor goroutine 不會停止處理新的 rquest
+
+### 9.8. Goroutines and Threads
+
+#### 9.8.1. Growable Stacks
+* OS thread
+    * 有固定大小 block (2MB) 的 memory 在 stack 上面，stack 處理 function 呼叫暫存 local variable 的工作區
+    * 2MB stack 對於工作量小的 goroutine 顯得太浪費記憶體
+    * 2MB stack 對於 Go program 很常產生上千的 goroutine 顯得太小
+    * 固定大小的 stack 也不利於複雜的 recursive function
+* Goroutine
+    * 2KB stack
+    * goroutine's stack 不是固定大小，會自動增減大小
+
+#### 9.8.2. Goroutine Scheduling
+* OS threads 由 OS kernel schedule
+    * 每幾個 milliseconds hardware timer interrupt the processor 讓 kernel function 呼叫 scheduler 暫停所有目前執行的 thread 並存好運行的 thread 的狀態到 memory，然後挑選下一個 thread 回復狀態並執行
+    * OS threads 轉換需要 context switch，而這個 operation 特別慢
+* Go runtime 有自己的 scheduler: `m:n scheduling`
+    * m 個 goroutine 在 n 個 OS thread
+* Go scheduler 不是定時去檢查該執行哪個 gorouinte 而是用 Go language construct
+    * 如果 goroutine call `time.Sleep` 或者 block channel 或者 mutex operation 的時候 scheduler 就會讓 goroutine sleep 讓其他 goroutine 跑起來
+    * 因為不需要 switch kernel context 所以 reschedule goroutine 比較快
+
+#### 9.8.3. GOMAXPROCS
+* Go scheduler 使用 `GOMAXPROCS` parameter 決定 OS thread 的數量
+* 預設為 CPU 的個數
+* Goroutine sleep 或 block in communication 不需要 thread
+* Goroutine block in I/O 或者 system call 或者互叫 non-Go function 雖然需要 OS thread 但不算入 `GOMAXPROCS`
+* 修改環境變數 `GOMAXPROCS` 或者使用 `runtime.GOMAXPROCS` function 控制 `GOMAXPROCS` 數字
+``` go
+for {
+    go fmt.Print(0)
+    fmt.Print(1)
+}
+$ GOMAXPROCS=1 go run hackercliché.go
+111111111111111111110000000000000000000011111...
+$ GOMAXPROCS=2 go run hackercliché.go
+010101010101010101011001100101011010010100110...
+```
+* 限制同時只能跑一個 goroutine 讓 main goroutine 先不斷印出 1 後才被 Go scheduler 叫去 sleep 後喚醒印出 0 的 goroutine 不斷印出 0
+* 限制同時可以跑兩個 goroutine 讓 OS thread 可以有兩個所以兩個 goroutine 就可以同時跑。
+
+#### 9.8.4. Goroutines Have No Identity
+* 許多作業系統與程式語言支援 multithreading
+    * 每個 thread 有 identity 使用 interger 或 pointer 來表示
+    * thread-local storage 是個 global map 紀錄每個 thread 可以存取的 value
+* Goroutine 沒有類似的 identity 因為設計上認為 thread-local storage 會讓 function 需要多看 thread identity 而造成行為容易混肴
+    * Go 希望影響 function 行為的變因只有 parameter，不只容易閱讀而且使用 function 在 subtask 裡面也不需要顧慮 identity
 
 ### Reference
 Golang website: https://golang.org/
