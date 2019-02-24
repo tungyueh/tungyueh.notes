@@ -3745,11 +3745,186 @@ $ GOMAXPROCS=2 go run hackercliché.go
 * Goroutine 沒有類似的 identity 因為設計上認為 thread-local storage 會讓 function 需要多看 thread identity 而造成行為容易混肴
     * Go 希望影響 function 行為的變因只有 parameter，不只容易閱讀而且使用 function 在 subtask 裡面也不需要顧慮 identity
 
+## Chapter 10: Packages and the Go Tool
+* package 讓 code 可以被 reuse
+* http://godoc.org 可以找到 go community 的 package
+* go 提供工具方便管理 package
+
+### 10.1. Introduction
+* package system 是為了設計大型程式的時候讓有相同 feature 的東西形成一個單位，這些單位會容易被理解、改變、並且獨立於其他單位，讓大型程式容易維護
+* 模組化讓 package 有機會讓 package 重複被利用
+* package 都需要有於其他人不同的名字作為 identifier，名字盡量簡短清楚讓之後使用更加方便
+* package 支援 encapsulation，藉由決定哪寫名稱可以被其他 package 看見
+    * 隱藏 package 的 helper function 跟 type 可以讓 maintainer 改變實作方式而不會影響到外部程式
+    * 隱藏內部變數可以只讓外部 package 透過 exported function 來改變這些變數確保內部的假設是正確的跟 concurrent program 的 mutual exclusion
+* Go compile 很快有三個原因
+    * import 都必須在 file 的開頭就列出，所以 compiler 不需要全部看過檔案
+    * dependencies of package 會形成 direct acyclic graph，所以 package 分開或甚至平行 compile
+    * Go compile 完的 object file 紀錄 exported 資訊，不僅是自己的還有 dependencies package，所以 compile package 就只需要看一個 object file
+
+### 10.2. Import Paths
+* package 的 identify string 就是 import path
+* Import path 是出現在 package `import` declaration 裡面
+* Go spec 沒有規定 import path 的意義跟如何定義 package import path 而是留給 tool 來決定
+* 公開發行的 package import path 必須是 global unique，起頭必須是  internet domain name of the organization
+
+### 10.3. The Package Declaration
+* package declaration 必須出現在檔案開頭作為 package identifier
+* package name 照慣例就是 import path 最後一個 segment
+    * package main 是例外情形，package main 是為了讓 go build 知道需要去 invoke linker 建立 executable file
+    * 結尾是 \_test package name，是 external test package 讓 go test 知道要額外多 build package，
+    * 為了 dependency management 後面會加上版本像是 "gopkg.in/yaml.v2"，所以 package name 還是 yaml
+
+### 10.4. Import Declarations
+* Go source file 在 package declaration 後會 import declaration 在第一個不是 import declaration 之前
+* import order 通常是字典排序 gofmt 跟 goimport 都會幫忙排好
+* renaming import: import 相同 package name 需要將其中一個 rename 避免 conflict
+    * rename 的 package 只影響該 file 不會影響其他 file 包含自己 package 的 file 也是不會被影響
+    * rename 不定要只用在 conflict 情形下，如果想要簡化 package name 或者避免與 local variable conflict 都可以使用
+    ``` go
+    import (
+        "crypto/rand"
+        mrand "math/rand" // alternative name mrand avoids conflict
+    )
+    ```
+* import declaration 建立 從 package 到 imported package 的 dependency，go build tool 會 report circular import
+
+### 10.5. Blank Import
+* Go 無法 import 沒有用到的 package，但是有時候我們需要 import package side effect 而不用到 package 像是 package `init` function
+* 為了避免 unused import error 所以需要 renaming import 成 blank identifier 無法讓人 reference
+    ``` go
+    import _ "image/png" // register PNG decoder
+    ```
+``` go
+package main
+
+import (
+	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png" // register PNG decoder
+	"io"
+	"os"
+)
+
+func main() {
+	if err := toJPEG(os.Stdin, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "jpeg: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func toJPEG(in io.Reader, out io.Writer) error {
+	img, kind, err := image.Decode(in)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "Input format =", kind)
+	return jpeg.Encode(out, img, &jpeg.Options{Quality: 95})
+}
+```
+* `image` package export `Decode` 可以 read from `io.Reader` 找出 image format 使用正確的 decoder 後回傳 `image.Image`
+* 少了 blank import `image/png` 還是可以正常 compile 但是無法知道輸入是 PNG 格式
+    * Go standard library 提供 GIF, PNG, JPEG 多種 decoder 但為了讓 executable 小只有在特別要求時才會加入 decoder
+    * `image.Decode` 使用 table 決定 supported format，table entry 有四種東西，format name, prefix string, Decode function, DecodeConfig
+    * `image.RegisterFormat` 可以加入 support format
+    * blank import 讓 `image.Decode` 可以 decode PNG
+    ``` go
+    package png // image/png
+    func Decode(r io.Reader) (image.Image, error)
+    func DecodeConfig(r io.Reader) (image.Config, error)
+    func init() {
+        const pngHeader = "\x89PNG\r\n\x1a\n"
+        image.RegisterFormat("png", pngHeader, Decode, DecodeConfig)
+    }
+    ```
+
+### 10.6. Packages and Naming
+* package name 需要短
+* package name 需要有描述性且不混淆，避免使用常用到的變數名稱
+* package name 通常都是單數，但像 `bytes`, `errors`, `strings` 是為了不跟 keyword 或者 predeclared type conflict
+* package name 不要使用有大家都常用的意義
+    * 溫度轉換 package 一開始用 temp 會跟所有表示 temporary 的東西 conflict
+    * 改成 temperature 顯得太長又不知道 package 行為
+    * 最後改成 tempconv 可以跟 strconv 互相輝映
+* package member 命名要跟 package name 一起思考，不需要重複 package name 已有的概念，`fmt.Println`, `bytes.Equal`, `flag.Int`, `http.Get`, `json.Marshal`
+* Single-type package 代表 package 只有 export 一個 principle type 與 method 通常是 `New`，可能造成 package name 與 package member name 造成重複
+
+### 10.7. The Go Tool
+* Go tool 用來download, query, foramt, build, test, install package
+* Go tool 集 package manager, build system, test driver 於一身
+
+#### 10.7.1. Workspace Organization
+* `GOPATH` 決定 workspace root，要切換不同 workspace 只要改變 `GOPATH`
+* `GOPATH` 有三個 subdirectory
+    * `src` 放 source code，每個 package 放在這邊，import path 就是相對於 `$GOPATH/src`
+    * `pkg` 放 build tool 產生的 compile package
+    * `bin` 放 excutable program
+* `GOROOT` 決定 Go distribution 放 standard library 所有 package 的地方
+* `go env` command 顯示重要的環境變數
+    * `GOOS`: target operating system (android, linux, darwin, windows)
+    * `GOARCH`: target processor architecture(amd64, 386, arm)
+
+#### 10.7.2. Downloading Packages
+* import path 不只代表 local workspace 也有需要從 internet 找到，`go get` command 會 retrieve 並且 update
+* `go get` command 除了可以下載一個 package 外也可以加上 `...` notation 下載整個 repository
+* `go get` 會下載所有 init package dependency package
+* `go get` 下載 package 後會 build 跟 install library 跟 command
+* `go get` 支援各種知名 version-control system 像是 GitHub, Bitbucket，如果使用不知名的網站需要提供 version protocol (Git or Mercurial)
+* `go get` 建立完整 remote repository 而不是單純複製檔案，所以可以看 diff 或者用不同 revision
+* `go get` command 加上 `-u` flag 確保之前 build 且 compiled 或的所有 package 都會被 update 到最新 version
+
+#### 10.7.3. Building Packages
+* `go build` command compile package
+    * 如果 package 是 library 會把結果丟棄只確認沒有 compile error
+    * 如果 package 是 main invoke linker 創造 executable 在目前的資料夾
+* `go build` 後面沒有改參數預設是目前資料夾
+* 如果是 main package，executable name 就是 go file 的名字
+* `go run` 用在想要 build 完馬上跑的時候
+* `go build` 預設 build 所有 dependency package 後丟棄只保留 excutable，雖然分析 dependency 跟 compilation 非常快但是如果 project 場的非常大的時候就會發現 recompile dependency 變慢
+* `go install` 跟 `go build` 很像，差在會把 package 的 compiled code 跟 command 結果存在 `pkg` 跟 `bin` 資料夾下面
+* `go install` 不會重新 compile 當 package 沒變的時候
+* `go build -i` 會 install build target 的 dependency package
+* compiled package 在不同平台跟架構上面都不一樣，`go install` 根據 `GOOS` 跟 `GOARCH` 存在相關資料夾底下
+* 只要設好想要的 `GOOS` 跟 `GOARCH` 就可以 cross-compile Go program
+    ``` go
+    func main() {
+        fmt.Println(runtime.GOOS, runtime.GOARCH)
+    }
+    ```
+* package 需要 compile 不同版本在特別的 platform 或 processor 以增加效能
+    * file name 含有 operating system name 或者 processor architecture name 時候，GO 只會 compile 該 file 在相對應的環境
+    * build tag: 決定要不要 build 這個 file
+        * `// +build linux dawwin`: 只在 Linux 或 Mac OS X 才 build
+        * `// +build ignore`: 永遠不 compile 這個 file
+
+#### 10.7.4. Documenting Packages
+* Go style 鼓勵 package API 要有目的及用法的註解，package declaration 與 package member 前面都要有註解
+* Go doc comment 都是完整的句子，第一句話用 function name 開頭概括，其中提到的 function parameter 都不需要特別 markup 或 quotation
+* package 前面的註解被認為是整個 package 的註解
+* 過長的註解會放在另外的檔案 `doc.go`
+* `go doc` 印出 declaration 與 doc comment
+
+#### 10.7.5. Internal Packages
+* Unexported identifier 只在相同的 package 看的到
+* exported identifier 則是其他 package 都看的到
+* 有時候想要讓一部分的 package 看的到，像是把 large package 重構成可管理的部分，但又不想洩漏這些部份的 interface 給其他 package 知道
+* `go build` 會將 import path 中間有 internal 當成 internal package
+
+#### 10.7.6. Querying Packages
+* `go list` 測試 package 存不存在以及 import path
+* `go list` 加上 `...` argument 代表 wildcard
+* `go list` 加上 `-json` argument 完整列出 package 詳細資訊
+
 ### Reference
 Golang website: https://golang.org/
+
 Go example: https://gobyexample.com/
+
 The Go Play Space: https://goplay.space/
+
 Book: https://www.amazon.com/Programming-Language-Addison-Wesley-Professional-Computing/dp/0134190440
+
 Book code example: https://github.com/adonovan/gopl.io/
 
 ###### tags: `go`
