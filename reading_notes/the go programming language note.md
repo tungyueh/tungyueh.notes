@@ -851,7 +851,7 @@ func sum(vals ...int) int {
 * 相同型態的 method 需要不同的 name，但是不同型態可以使用相同的 method name
 * 好處是可以讓 method name 比較短也不用寫出 package name
     ``` go
-    perim := geometry.Path{{1, 1}, {5, 1}, {5, 4}, {1, 1}}
+        perim := geometry.Path{ {1, 1}, {5, 1}, {5, 4}, {1, 1} }
 	fmt.Println(geometry.PathDistance(perim)) // "12", standalone function
 	fmt.Println(perim.Distance())             // "12", method of geometry.Path
     ```
