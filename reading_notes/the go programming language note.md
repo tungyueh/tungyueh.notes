@@ -3916,6 +3916,424 @@ func toJPEG(in io.Reader, out io.Writer) error {
 * `go list` 加上 `...` argument 代表 wildcard
 * `go list` 加上 `-json` argument 完整列出 package 詳細資訊
 
+## Chapter 11: Testing
+* 使用 peer review program 與 testing 管理 program 的複雜度
+* Testing 通常都是只自動化的測試，藉由測試程式測試 code 是否輸出預期的結果
+* Go 用 `go test` command 與寫測試程式的 convention 讓 `go test` 可以運作
+* 寫測試程式與一般程式一樣，每個 function 都只負責一小塊功能，必須注意 boundary condition
+
+### 11.1. The go test Tool
+* package directory 裡面檔案名稱結尾是 \_test.go 在 go build 不會被包進去，但是 go test 會
+* \*\_test.go 檔案裡面有三種類型的 function
+    * tests function: 名稱是 Test 開頭，測試程式邏輯與行為，go test 回報 PASS 或 FAIL
+    * benchmark function: 名稱是 Benchmark 開頭，測試 operation 的 performance，go test 回報平均的執行時間
+    * example function: 名稱是 Example 開頭，提供 machine-checked documentation
+* go test 掃描 \*\_test.go 的檔案，建立暫時的 main package，結束後會 clean up
+
+### 11.2. Test Functions
+* test file 必須 import testing package
+* test function signature
+    ``` go
+    func TestName(t *testing.T) {}
+    ```
+    * Name 需要以大寫開頭
+    * t parameter 提供 method 回報 failure 跟額外的 log 資訊
+* 檢查字串是否向後讀與向前讀一樣
+    ``` go
+    // Package word provides utilities for word games.
+    package word
+
+    // IsPalindrome reports whether s reads the same forward and backward.
+    // (Our first attempt.)
+    func IsPalindrome(s string) bool {
+        for i := range s {
+            if s[i] != s[len(s)-1-i] {
+                return false
+            }
+        }
+        return true
+    }
+    ```
+* IsPalindrome 測試程式
+    ``` go
+    package word
+
+    import "testing"
+
+    func TestPalindrome(t *testing.T) {
+        if !IsPalindrome("detartrated") {
+            t.Error(`IsPalindrome("detartrated") = false`)
+        }
+        if !IsPalindrome("kayak") {
+            t.Error(`IsPalindrome("kayak") = false`)
+        }
+    }
+
+    func TestNonPalindrome(t *testing.T) {
+        if IsPalindrome("palindrome") {
+            t.Error(`IsPalindrome("palindrome") = true`)
+        }
+    }
+    ```
+    * `t.Error` 回報錯誤
+* go test 後面沒有接 package 就是用目前所在位置的 package
+* 使用回報的錯誤作為新的 test case
+    ``` go
+    // The tests below are expected to fail.
+    // See package gopl.io/ch11/word2 for the fix.
+    func TestFrenchPalindrome(t *testing.T) {
+        if !IsPalindrome("été") {
+            t.Error(`IsPalindrome("été") = false`)
+        }
+    }
+
+    func TestCanalPalindrome(t *testing.T) {
+        input := "A man, a plan, a canal: Panama"
+        if !IsPalindrome(input) {
+            t.Errorf(`IsPalindrome(%q) = false`, input)
+        }
+    }
+    ```
+    * Errorf 避免過長的 input 重複寫兩遍
+* go test -v 印出每個測試的執行時間與名稱
+* go test -run="French|Canal" 指定 test case
+* 修正使用 bytes sequence 而不是使用 rune 來做檢查與沒有忽略不是 letter 的問題
+    ``` go
+    // Package word provides utilities for word games.
+    package word
+
+    import "unicode"
+
+    // IsPalindrome reports whether s reads the same forward and backward.
+    // Letter case is ignored, as are non-letters.
+    func IsPalindrome(s string) bool {
+        var letters []rune
+        for _, r := range s {
+            if unicode.IsLetter(r) {
+                letters = append(letters, unicode.ToLower(r))
+            }
+        }
+        for i := range letters {
+            if letters[i] != letters[len(letters)-1-i] {
+                return false
+            }
+        }
+        return true
+    }
+    ```
+* 新增許多測試案例
+    ``` go
+    func TestIsPalindrome(t *testing.T) {
+        var tests = []struct {
+            input string
+            want  bool
+        }{
+            {"", true},
+            {"a", true},
+            {"aa", true},
+            {"ab", false},
+            {"kayak", true},
+            {"detartrated", true},
+            {"A man, a plan, a canal: Panama", true},
+            {"Evil I did dwell; lewd did I live.", true},
+            {"Able was I ere I saw Elba", true},
+            {"été", true},
+            {"Et se resservir, ivresse reste.", true},
+            {"palindrome", false}, // non-palindrome
+            {"desserts", false},   // semi-palindrome
+        }
+        for _, test := range tests {
+            if got := IsPalindrome(test.input); got != test.want {
+                t.Errorf("IsPalindrome(%q) = %v", test.input, got)
+            }
+        }
+    }
+    ```
+    * table-driven test 常見於 Go，加入新的 test case 很容易，assertion logic 不會重複，可以產出更好的 error message
+    * 錯誤結果不會包含 stack trace，一發生錯誤也不會馬上停止，會把整個 test case 跑完
+    * t.Fatal 可以中斷 test case 馬上停下來
+    * failure message 通常都是 "f(x) = y, want z" 這種形式
+        * f(x) 代表嘗試操作與 input
+        * y 則是實際結果
+        * z 則是期望結果
+        * 測試 boolean function 就不需要 want z
+
+#### 11.2.1. Randomized Testing
+* table-driven test 使用特定的 input 來檢查 function logic 但 randomized testing 使用隨機組合的 input 讓測試涵蓋性可以變廣
+* 使用 randomized testing 就無法提供預期結果，但有兩種方式可以製造出預期結果
+    * 使用不同實作方法的 function，使用該 function 輸出作為預期結果
+    * 根據 input 的 pattern 決定預期結果
+* 由於 ramdomized testing 每次都不一樣所以保存 fail test record 非常重要，如果 input 很複雜應該只要保存 seed 就可以重新複製問題
+
+#### 11.2.2. Testing a Command
+* go test 用來測試 library packate 很好用，但也可以拿來測試 command
+* echo program
+    ``` go
+    // Echo prints its command-line arguments.
+    package main
+
+    import (
+        "flag"
+        "fmt"
+        "io"
+        "os"
+        "strings"
+    )
+
+    var (
+        n = flag.Bool("n", false, "omit trailing newline")
+        s = flag.String("s", " ", "separator")
+    )
+
+    var out io.Writer = os.Stdout // modified during testing
+
+    func main() {
+        flag.Parse()
+        if err := echo(!*n, *s, flag.Args()); err != nil {
+            fmt.Fprintf(os.Stderr, "echo: %v\n", err)
+            os.Exit(1)
+        }
+    }
+
+    func echo(newline bool, sep string, args []string) error {
+        fmt.Fprint(out, strings.Join(args, sep))
+        if newline {
+            fmt.Fprintln(out)
+        }
+        return nil
+    }
+    ```
+    * echo 多了參數減少 dependency
+    * out global variable 讓 echo write through 而不是直接 write os.Stdout 讓測試可以寫到不同 Writer
+* echo 測試程式
+    ``` go
+    package main
+
+    import (
+        "bytes"
+        "fmt"
+        "testing"
+    )
+
+    func TestEcho(t *testing.T) {
+        var tests = []struct {
+            newline bool
+            sep     string
+            args    []string
+            want    string
+        }{
+            {true, "", []string{}, "\n"},
+            {false, "", []string{}, ""},
+            {true, "\t", []string{"one", "two", "three"}, "one\ttwo\tthree\n"},
+            {true, ",", []string{"a", "b", "c"}, "a,b,c\n"},
+            {false, ":", []string{"1", "2", "3"}, "1:2:3"},
+        }
+
+        for _, test := range tests {
+            descr := fmt.Sprintf("echo(%v, %q, %q)",
+                test.newline, test.sep, test.args)
+
+            out = new(bytes.Buffer) // captured output
+            if err := echo(test.newline, test.sep, test.args); err != nil {
+                t.Errorf("%s failed: %v", descr, err)
+                continue
+            }
+            got := out.(*bytes.Buffer).String()
+            if got != test.want {
+                t.Errorf("%s = %q, want %q", descr, got, test.want)
+            }
+        }
+    }
+    ```
+    * test code 與 production code 在同個 package
+    * 雖然 package 是 main 也有 main function 但是在測試 package 會忽略 main function 只會 expose TestEcho function
+
+#### 11.2.3. White-Box Testing
+* White-box test 對於 package internal working 某種程度的了解，可以 access internal function or data structure，所以可以觀察與改變原本 client 無法辦到的事情
+* Black-box test 對於 package 的理解只靠 expose API 與 document
+* White-box test 與 black-box test 是互補關西，black-box test 不太需要隨著 software 發展而改變，幫助測試人員專注在 client of package 與 API design 的缺陷， white-box 可以對於細節做測試提高 coverage
+* TestIsPalindrome 只有呼叫 exported function 所以是 black-box test
+* Testecho 呼叫 unexported function echo 跟改變 global variable out 所以是 white-box test
+* 替換某些 production code 讓 code 變得容易測試
+* quota-checking logic，大於 90% 用量就寄信通知用戶
+    ``` go
+    package storage
+
+    import (
+        "fmt"
+        "log"
+        "net/smtp"
+    )
+
+    var usage = make(map[string]int64)
+
+    func bytesInUse(username string) int64 { return usage[username] }
+
+    // Email sender configuration.
+    // NOTE: never put passwords in source code!
+    const sender = "notifications@example.com"
+    const password = "correcthorsebatterystaple"
+    const hostname = "smtp.example.com"
+
+    const template = `Warning: you are using %d bytes of storage,
+    %d%% of your quota.`
+
+    func CheckQuota(username string) {
+        used := bytesInUse(username)
+        const quota = 1000000000 // 1GB
+        percent := 100 * used / quota
+        if percent < 90 {
+            return // OK
+        }
+        msg := fmt.Sprintf(template, used, percent)
+        auth := smtp.PlainAuth("", sender, password, hostname)
+        err := smtp.SendMail(hostname+":587", auth, sender,
+            []string{username}, []byte(msg))
+        if err != nil {
+            log.Printf("smtp.SendMail(%s) failed: %s", username, err)
+        }
+    }
+    ```
+* 測試的時候不想要真的寄信，所以把寄信的 function 獨立出來存在一個 unexported variable
+    ``` go
+    var notifyUser = func(username, msg string) {
+        auth := smtp.PlainAuth("", sender, password, hostname)
+        err := smtp.SendMail(hostname+":587", auth, sender,
+            []string{username}, []byte(msg))
+        if err != nil {
+            log.Printf("smtp.SendMail(%s) failed: %s", username, err)
+        }
+    }
+
+    func CheckQuota(username string) {
+        used := bytesInUse(username)
+        const quota = 1000000000 // 1GB
+        percent := 100 * used / quota
+        if percent < 90 {
+            return // OK
+        }
+        msg := fmt.Sprintf(template, used, percent)
+        notifyUser(username, msg)
+    }
+    ```
+* 不實際送信的測試
+    ``` go
+    package storage
+
+    import (
+        "strings"
+        "testing"
+    )
+
+    func TestCheckQuotaNotifiesUser(t *testing.T) {
+        var notifiedUser, notifiedMsg string
+        notifyUser = func(user, msg string) {
+            notifiedUser, notifiedMsg = user, msg
+        }
+
+        const user = "joe@example.org"
+        usage[user] = 980000000 // simulate a 980MB-used condition
+
+        CheckQuota(user)
+        if notifiedUser == "" && notifiedMsg == "" {
+            t.Fatalf("notifyUser not called")
+        }
+        if notifiedUser != user {
+            t.Errorf("wrong user (%s) notified, want %s",
+                notifiedUser, user)
+        }
+        const wantSubstring = "98% of your quota"
+        if !strings.Contains(notifiedMsg, wantSubstring) {
+            t.Errorf("unexpected notification message <<%s>>, "+
+                "want substring %q", notifiedMsg, wantSubstring)
+        }
+    }
+    ```
+    * 下個程式的 CheckQuota 的 notifyUser 還是被換過的，所以需要使用 defer 將改過的 global variable 在 test function 結束將原本的值換回來
+
+#### 11.2.4. External Test Packages
+* 測試 low-level package 可能會需要 import high-level package，但是 Go 禁止 cycle import
+* external test package 可以解決測試程式造成 cycle import 的問題
+    * 例如在 net/url package 的檔案使用 package url_test 來暗示 go test 需要將這些檔案多新增一個 package 只用來跑 test
+    * external test package 邏輯上是比其他 package 更高 level 所以不會有 cycle import 的問題
+* go list 可以列出 package 裡的檔案哪些是 production code, in-package tests, external tests
+    * production code
+    ```
+    $ go list f={{.GoFiles}} fmt
+    [doc.go format.go print.go scan.go]
+    ```
+    * in-package tests
+    ```
+    $ go list f={{.TestGoFiles}} fmt
+    [export_test.go]
+    ```
+    * external tests
+    ```
+    $ go list f={{.XTestGoFiles}} fmt
+    [fmt_test.go scan_test.go stringer_test.go]
+    ```
+* 有時候 external test package 需要讀取 internal package，我們可以在 in-package test 宣告將 external 需要用到的 internal expose，通常檔案名稱都是 export_test.go
+    * fmt package 需要用到 Unicode.IsSpace 當作 fmt.Scanf 的一部分
+    * 為了不造成 cycle import 所以 fmt 不能 import unicode package 跟龐大的 table 要使用簡單一點的 isSpace function
+    * external package 無法使用 isSpace 所以 fmt 開個 back door 在 export_test.go 宣告 exported variable 其實就是 isSpace
+    ``` go
+    package fmt
+    
+    var IsSpace = isSpace
+    ```
+    * export_test.go 單純宣告 exported symbol fmt.IsSpace 只給 external test 使用
+    * export_test.go 不包含任何測試
+
+#### 11.2.5. Writing Effective Tests
+* 其他語言可能提供很多關於測試的功能但是 failure message 卻時常令人費解
+* 好的 test 需要再失敗的時候清楚描述問題，最理想情況維護者可以不需要看 source code 才知道 fail message 是什麼意思
+* 測試不應該失敗一次就停止，應該跑完整個 test 找出多個錯誤，因為錯誤或許有相似的 pattern 可以提供線索
+
+#### 11.2.6. Avoiding Brittle Tests
+* 新的但是合法的輸入導致程式失敗稱為 buggy
+* 程式改動後導致程式失敗稱為 brittle
+* brittle test 每次程式改動都會失敗也稱為 change detector 或 status quo tests
+* 花在處理 brittle test 的時間所帶來的壞處會大於 test 的好處
+* 最簡單避免 brittle test 的方式就是只檢查重要的 properties，檢查 substring 而不是要求整個 string 都要符合
+
+### 11.3. Coverage
+* test 顯示已存在的 bug 而不是未發現的 bug，任何 test 都無法證明程式沒有任何錯誤，最多保證在重要的情況下都可以正常運作
+* test coverage 顯示程式的被測試的程度，可以指引我們在有用的地方進行測試
+* statement coverage 是指至少有跑過一次的 statement 與全部 statement 的比率
+* -coverprofile flag: 每個 statement 都有 boolean 跑過就會變成 true
+* -covermode=count flag: 每個 statement 都會算跑過幾次，就可以看出測試的熱點
+
+### 11.4. Benchmark Functions
+* benchmark 是指在固定 workload 上面測試程式的效能
+* Go benchmark function 在前面加上 Benchmark 跟用 \*testing.B
+``` go
+import "testing"
+func BenchmarkIsPalindrome(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        IsPalindrome("A man, a plan, a canal: Panama")
+    }
+}
+```
+* go test -bench=.
+    * -bench flag 選擇 benchmark 去跑
+    * 一開始先做點測試來決定到底要跑多少次
+* benchmark 除了用來得知 operation 的速度外，也常常需要用來比較不同設定的速度差異用來找出最合適的設定
+
+### 11.5. Profiling
+* profiling 可以找出程式中 critical code 的部分來增加效能
+* CPU profile 找出哪個 function 用了最多 CPU time
+* heap profile 找出哪個 statement 用了做多 memory
+* blocking profile 找出哪個 operation 讓 goroutine block 最久
+* 盡量不使用一種以上的 profile，因為有可能互相混亂
+* go tool pprof 用來分析 profile
+* profile 為了節省空間及增加效率不會包含 function name 只會有 function address，所以 pprof 需要executable
+
+### 11.6. Example Functions
+* 開頭是 Example 沒有 parameter 跟 result
+* example 是為了 documentation，一個好的例子可以很容易解釋 library 的行為
+* example 是會被 go test 執行，如果 example 最後有 // Output: comment，test drive 就會執行並確認結果
+* example 會被 godoc server 變成可以讓使用者在 go playground 修改做測試，這是最快的方式讓人知道 function 或語言的特性
+
 ### Reference
 Golang website: https://golang.org/
 
