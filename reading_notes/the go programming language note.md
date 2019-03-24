@@ -4334,6 +4334,567 @@ func BenchmarkIsPalindrome(b *testing.B) {
 * example 是會被 go test 執行，如果 example 最後有 // Output: comment，test drive 就會執行並確認結果
 * example 會被 godoc server 變成可以讓使用者在 go playground 修改做測試，這是最快的方式讓人知道 function 或語言的特性
 
+## Chapter 12: Reflection
+* Go 提供可以在 run time 時候更新、查看 value，呼叫 method 而不需要知道型態稱為 reflection
+* Reflection 可以把 types 當成 first-class value
+
+### 12.1. Why Reflection?
+* 有時候需要寫一個處理通用的 value of types 的 function 但是不滿足於單一 interface，或不知道 representation
+    * `fmt.Fprintf` 印出任何型態的 value
+    * 使用 type switch 來判斷型態後印出值，但是型態是無限的，所以需要 reflection 來解決問題
+
+### 12.2. reflect.Type and reflect.Value
+* Reflection 在 Go package reflect
+* Type represent a Go type
+* Type 是個 interface 有很多 method 用來判斷 types 跟 inspect component
+* `reflect.TypeOf` 接受任何 interface{} 然後 return dynamic type
+    ``` go
+    t := reflect.TypeOf(3) // a reflect.Type
+    fmt.Println(t.String()) // "int"
+    fmt.Println(t) // "int"
+    ```
+    * `Type(3)` assign value 3 到 interface{}，進行隱性轉換
+    * interface value 的 dynamic type 是 int 跟 dynamic value 是 3
+* `reflect.TypeOf` return interface value dynamic type 所以都會 return concrete type 同時也是 reflect.Type
+    ``` go
+    var w io.Writer = os.Stdout
+    fmt.Println(reflect.TypeOf(w)) // "*os.File"
+    ```
+* `reflect.Type` 滿足 `fmt.Stringer` 因為印出 interface value 的 dynamic type 對於 debugging 跟 logging 很有用，`fmt.Printf` 的 %T 內部是使用 `reflect.Type`
+* `reflect.ValueOf` 接受任何 interface{} 然後 return `reflect.Value` 含有 dynamic value
+* `reflect.ValueOf` 回傳的都是 concrete 但是 `reflect.Value` 含有 interface value
+    ``` go
+    v := reflect.ValueOf(3) // a reflect.Value
+    fmt.Println(v) // "3"
+    fmt.Printf("%v\n", v) // "3"
+    fmt.Println(v.String()) // NOTE: "<int Value>"
+    ```
+    * `reflect.Value` 也滿足 `fmt.Stringer`，但除非 value 是 string 才會印出不然只會印出 type，`%v` 會讓 fmt 特殊對待 `reflect.Value`
+    * Type method 回傳 type
+        ```
+        t := v.Type() // a reflect.Type
+        fmt.Println(t.String()) // "int"
+        ```
+* 與 `reflect.ValueOf` 相反操作是 `reflect.Value.Interface` 會回傳有著相同 concrete value 的 Interface{}
+    ``` go
+    v := reflect.ValueOf(3) // a reflect.Value
+    x := v.Interface() // an interface{}
+    i := x.(int) // an int
+    fmt.Printf("%d\n", i) // "3"
+    ```
+* `reflect.Value` 與 Interface{} 有相同的 value 但是 empty interface 隱藏 representation 與相關 operation 並且沒有 expose 任何 method，所以除非知道 dynamic type 跟 type assertion 才能知道怎麼使用，Value 有很多 method 可以在不知道 type 的情況去看內容。
+* 使用 `reflect.Value` 的 `Kind` method 區分 case，雖然型態是無限的但是種類是有限的
+    ``` go
+    package format
+
+    import (
+        "reflect"
+        "strconv"
+    )
+
+    // Any formats any value as a string.
+    func Any(value interface{}) string {
+        return formatAtom(reflect.ValueOf(value))
+    }
+
+    // formatAtom formats a value without inspecting its internal structure.
+    func formatAtom(v reflect.Value) string {
+        switch v.Kind() {
+        case reflect.Invalid:
+            return "invalid"
+        case reflect.Int, reflect.Int8, reflect.Int16,
+            reflect.Int32, reflect.Int64:
+            return strconv.FormatInt(v.Int(), 10)
+        case reflect.Uint, reflect.Uint8, reflect.Uint16,
+            reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+            return strconv.FormatUint(v.Uint(), 10)
+        // ...floating-point and complex cases omitted for brevity...
+        case reflect.Bool:
+            return strconv.FormatBool(v.Bool())
+        case reflect.String:
+            return strconv.Quote(v.String())
+        case reflect.Chan, reflect.Func, reflect.Ptr, reflect.Slice, reflect.Map:
+            return v.Type().String() + " 0x" +
+                strconv.FormatUint(uint64(v.Pointer()), 16)
+        default: // reflect.Array, reflect.Struct, reflect.Interface
+            return v.Type().String() + " value"
+        }
+    }
+    ```
+    * 對於 aggregate type(array, struct, interface) 只有印出 type 的 value
+    * 對於 refernece type 只會印出 reference type 跟 reference address in hexidecimal
+        ``` go
+        var x int64 = 1
+        var d time.Duration = 1 * time.Nanosecond
+        fmt.Println(format.Any(x)) // "1"
+        fmt.Println(format.Any(d)) // "1"
+        fmt.Println(format.Any([]int64{x})) // "[]int64 0x8202b87b0"
+        fmt.Println(format.Any([]time.Duration{d})) // "[]time.Duration 0x8202b87e0"
+        ```
+### 12.3. Display, a Recursive Value Printer
+* 改善 display composite type 為了不想直接抄 `fmt.Sprint` 所以做一個 `Display` function 可以 debugging，給一個 complex value `x`，印出完整的 structure 標示每個 element
+    ``` go
+    e, _ := eval.Parse("sqrt(A / pi)")
+    Display("e", e)
+    ```
+    ``` go
+    Display e (eval.call):
+    e.fn = "sqrt"
+    e.args[0].type = eval.binary
+    e.args[0].value.op = 47
+    e.args[0].value.x.type = eval.Var
+    e.args[0].value.x.value = "A"
+    e.args[0].value.y.type = eval.Var
+    e.args[0].value.y.value = "pi"
+    ```
+* 不應該 expose reflection 在 package 的 API
+* 定義 unexported 的 display function 做 recursion 然後 Display 只是個 wrapper 接受 interface{} parameter
+    ``` go
+    func Display(name string, x interface{}) {
+        fmt.Printf("Display %s (%T):\n", name, x)
+        display(name, reflect.ValueOf(x))
+    }
+    ```
+* `display` 裡面用 `formatAtom` 印出 elementary value 然後用 `reflect.Value` 去遞迴每個 component
+    ``` go
+    func display(path string, v reflect.Value) {
+        switch v.Kind() {
+        case reflect.Invalid:
+            fmt.Printf("%s = invalid\n", path)
+        case reflect.Slice, reflect.Array:
+            for i := 0; i < v.Len(); i++ {
+                display(fmt.Sprintf("%s[%d]", path, i), v.Index(i))
+            }
+        case reflect.Struct:
+            for i := 0; i < v.NumField(); i++ {
+                fieldPath := fmt.Sprintf("%s.%s", path, v.Type().Field(i).Name)
+                display(fieldPath, v.Field(i))
+            }
+        case reflect.Map:
+            for _, key := range v.MapKeys() {
+                display(fmt.Sprintf("%s[%s]", path,
+                    formatAtom(key)), v.MapIndex(key))
+            }
+        case reflect.Ptr:
+            if v.IsNil() {
+                fmt.Printf("%s = nil\n", path)
+            } else {
+                display(fmt.Sprintf("(*%s)", path), v.Elem())
+            }
+        case reflect.Interface:
+            if v.IsNil() {
+                fmt.Printf("%s = nil\n", path)
+            } else {
+                fmt.Printf("%s.type = %s\n", path, v.Elem().Type())
+                display(path+".value", v.Elem())
+            }
+        default: // basic types, channels, funcs
+            fmt.Printf("%s = %s\n", path, formatAtom(v))
+        }
+    }
+    ```
+    * Slices and arrays: `Len` 得知有幾個 element，`Index(i)` 拿取第 i 個 element
+    * Structs: `NameField` 得知有幾個 field，`Field(i)` 得知第 i 個 field 的值，`v.Type().Field(i).Name` 知道 field 的名字
+    * Maps: `MapKeys` 回傳 slice of reflect.Value，`MapIndex(key)` 回傳 key 的 value
+    * Pointers: `Elem` 回傳 pointer 指向的 value，雖然遇到 nil 也使可以處理好但是 display 會當成 invalid，為了更精確的顯示所以明確處理 pointer 是 nil 的情況
+    * Interfaces: 跟 pointer 一樣先檢查是否為 nil，再來印出 dynamic value 的 type 跟 value
+
+### 12.4. Example: Encoding S-Expressions
+* `Display` 顯示 structured data 但是不夠短到可以 encode 或 marshal Go object 在 inter-process communication
+* Go standard library 支援 JSON, XML and ASN.1 但是沒有支援 S-expressions 因為沒有廣泛接受的定義
+* Encode type of Go
+    * Nil -> nil
+    * Array and slices -> list notation
+    * Struct -> list of field binding, 每個 field binding 是兩個 element 的 list，第一個是 field name，第二個是 field value
+    * Map -> list of pairs, 每個 pair 有 key 跟 value
+* Encoding 遞迴 encode function 來完成
+    ``` go
+    func encode(buf *bytes.Buffer, v reflect.Value) error {
+        switch v.Kind() {
+        case reflect.Invalid:
+            buf.WriteString("nil")
+
+        case reflect.Int, reflect.Int8, reflect.Int16,
+            reflect.Int32, reflect.Int64:
+            fmt.Fprintf(buf, "%d", v.Int())
+
+        case reflect.Uint, reflect.Uint8, reflect.Uint16,
+            reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+            fmt.Fprintf(buf, "%d", v.Uint())
+
+        case reflect.String:
+            fmt.Fprintf(buf, "%q", v.String())
+
+        case reflect.Ptr:
+            return encode(buf, v.Elem())
+
+        case reflect.Array, reflect.Slice: // (value ...)
+            buf.WriteByte('(')
+            for i := 0; i < v.Len(); i++ {
+                if i > 0 {
+                    buf.WriteByte(' ')
+                }
+                if err := encode(buf, v.Index(i)); err != nil {
+                    return err
+                }
+            }
+            buf.WriteByte(')')
+
+        case reflect.Struct: // ((name value) ...)
+            buf.WriteByte('(')
+            for i := 0; i < v.NumField(); i++ {
+                if i > 0 {
+                    buf.WriteByte(' ')
+                }
+                fmt.Fprintf(buf, "(%s ", v.Type().Field(i).Name)
+                if err := encode(buf, v.Field(i)); err != nil {
+                    return err
+                }
+                buf.WriteByte(')')
+            }
+            buf.WriteByte(')')
+
+        case reflect.Map: // ((key value) ...)
+            buf.WriteByte('(')
+            for i, key := range v.MapKeys() {
+                if i > 0 {
+                    buf.WriteByte(' ')
+                }
+                buf.WriteByte('(')
+                if err := encode(buf, key); err != nil {
+                    return err
+                }
+                buf.WriteByte(' ')
+                if err := encode(buf, v.MapIndex(key)); err != nil {
+                    return err
+                }
+                buf.WriteByte(')')
+            }
+            buf.WriteByte(')')
+
+        default: // float, complex, bool, chan, func, interface
+            return fmt.Errorf("unsupported type: %s", v.Type())
+        }
+        return nil
+    }
+    ```
+* Marshal function wrap the encoder in API
+    ``` go
+    // Marshal encodes a Go value in S-expression form.
+    func Marshal(v interface{}) ([]byte, error) {
+        var buf bytes.Buffer
+        if err := encode(&buf, reflect.ValueOf(v)); err != nil {
+            return nil, err
+        }
+        return buf.Bytes(), nil
+    }
+    ```
+
+### 12.5. Setting Variables with reflect.Value
+* variable 是 addressable storage location 含有值則可以透過 address 更新值
+    ``` go
+    x := 2 // value type variable?
+    a := reflect.ValueOf(2) //2 int no
+    b := reflect.ValueOf(x) //2 int no
+    c := reflect.ValueOf(&x) // &x *int no
+    d := c.Elem() //2 int yes (x)
+    ```
+    * a 無法取得 address 只是複製 integer 2，b 也是一樣
+    * c 無法取得 address 只是複製 &x
+    * 所有 `reflect.ValueOf(x)` 回傳的 `reflect.Value` 都是無法取 address
+    * d dereference c 就可以得到 address
+    * `reflect.ValueOf(&x).Elem()` 就可以得到 addressable value
+* `reflect.Value` 的 `CanAddr` method 可以判斷是否 addressable
+* 從 addressable `reflect.Value` 還原 variable 需要三步驟
+    ``` go
+    x := 2
+    d := reflect.ValueOf(&x).Elem() // d refers to the variable x
+    px := d.Addr().Interface().(*int) // px := &x
+    *px = 3 // x = 3
+    fmt.Println(x) // "3"
+    ```
+    1. 呼叫 `Addr()` 回傳 pointer
+    2. 呼叫 `Interface()` 回傳包含 pointer 的 interfaceP{}
+    3. 使用 type assertion 取的 interface 的 content 當成原本的 pointer
+* 直接使用 `reflect.Value.Set` method 更新
+    ``` go
+    d.Set(reflect.ValueOf(4))
+    fmt.Println(x) // "4"
+    ```
+    * run time 會確認是否可以 assign，如果不行就 panic
+        ``` go
+        d.Set(reflect.ValueOf(int64(5))) // panic: int64 is not assignable to int
+        ```
+    * 無法 address 也會 panic
+        ``` go
+        x := 2
+        b := reflect.ValueOf(x)
+        b.Set(reflect.ValueOf(3)) // panic: Set using unaddressable value
+        ```
+* `Set` method 有為基本型態做特化的 method: `SetInt`, `SetUint`, `SetString`, `SetFloat` 等等
+    ``` go
+    d := reflect.ValueOf(&x).Elem()
+    d.SetInt(3)
+    fmt.Println(x) // "3"
+    ```
+* `CanSet` 判斷是否可以更新 `reflect.Value`
+
+### 12.6. Example: Decoding S-Expressions
+* `lexer` 用 `text/scanner` package 的 `Scanner` type 分割 input stream 成為多個 token
+    ``` go
+    type lexer struct {
+        scan  scanner.Scanner
+        token rune // the current token
+    }
+
+    func (lex *lexer) next()        { lex.token = lex.scan.Scan() }
+    func (lex *lexer) text() string { return lex.scan.TokenText() }
+
+    func (lex *lexer) consume(want rune) {
+        if lex.token != want { // NOTE: Not an example of good error handling.
+            panic(fmt.Sprintf("got %q, want %q", lex.text(), want))
+        }
+        lex.next()
+    }
+    ```
+* parser 有兩個重要 function 一個是 `read`
+    ``` go
+    func read(lex *lexer, v reflect.Value) {
+        switch lex.token {
+        case scanner.Ident:
+            // The only valid identifiers are
+            // "nil" and struct field names.
+            if lex.text() == "nil" {
+                v.Set(reflect.Zero(v.Type()))
+                lex.next()
+                return
+            }
+        case scanner.String:
+            s, _ := strconv.Unquote(lex.text()) // NOTE: ignoring errors
+            v.SetString(s)
+            lex.next()
+            return
+        case scanner.Int:
+            i, _ := strconv.Atoi(lex.text()) // NOTE: ignoring errors
+            v.SetInt(int64(i))
+            lex.next()
+            return
+        case '(':
+            lex.next()
+            readList(lex, v)
+            lex.next() // consume ')'
+            return
+        }
+        panic(fmt.Sprintf("unexpected token %q", lex.text()))
+    }
+    ```
+    * S-expression 使用 identifier 為了兩個不同的目的
+        * struct field name
+        * nil pointer，把 value 使用 `reflect.Zero` 設成 zero value
+    * `readList` 看到 ( token 代表接下來處理 list 有可能是 map, struct, slice, array，最後用 `endList` 判斷是否結束了
+    * 在遇到 ')' token 之前都會不斷遞迴呼叫 `read`
+``` go
+func readList(lex *lexer, v reflect.Value) {
+    switch v.Kind() {
+    case reflect.Array: // (item ...)
+        for i := 0; !endList(lex); i++ {
+            read(lex, v.Index(i))
+        }
+
+    case reflect.Slice: // (item ...)
+        for !endList(lex) {
+            item := reflect.New(v.Type().Elem()).Elem()
+            read(lex, item)
+            v.Set(reflect.Append(v, item))
+        }
+
+    case reflect.Struct: // ((name value) ...)
+        for !endList(lex) {
+            lex.consume('(')
+            if lex.token != scanner.Ident {
+                panic(fmt.Sprintf("got token %q, want field name", lex.text()))
+            }
+            name := lex.text()
+            lex.next()
+            read(lex, v.FieldByName(name))
+            lex.consume(')')
+        }
+
+    case reflect.Map: // ((key value) ...)
+        v.Set(reflect.MakeMap(v.Type()))
+        for !endList(lex) {
+            lex.consume('(')
+            key := reflect.New(v.Type().Key()).Elem()
+            read(lex, key)
+            value := reflect.New(v.Type().Elem()).Elem()
+            read(lex, value)
+            v.SetMapIndex(key, value)
+            lex.consume(')')
+        }
+
+    default:
+        panic(fmt.Sprintf("cannot decode list into %v", v.Type()))
+    }
+}
+
+func endList(lex *lexer) bool {
+    switch lex.token {
+    case scanner.EOF:
+        panic("end of file")
+    case ')':
+        return true
+    }
+    return false
+}
+```
+* Exported function `Unmarshal` wrap parser
+    ``` go
+    // Unmarshal parses S-expression data and populates the variable
+    // whose address is in the non-nil pointer out.
+    func Unmarshal(data []byte, out interface{}) (err error) {
+        lex := &lexer{scan: scanner.Scanner{Mode: scanner.GoTokens}}
+        lex.scan.Init(bytes.NewReader(data))
+        lex.next() // get the first token
+        defer func() {
+            // NOTE: this is not an example of ideal error handling.
+            if x := recover(); x != nil {
+                err = fmt.Errorf("error at %s: %v", lex.scan.Position, x)
+            }
+        }()
+        read(lex, reflect.ValueOf(out).Elem())
+        return nil
+    }
+    ```
+
+### 12.7. Accessing Struct Field Tags
+* struct field tag 修改 JSON encode Go struct value
+    * json field tag 可以換成不同的 field name 跟避免 empty field
+* HTTP handler 的 search function
+    ``` go
+    import "gopl.io/ch12/params"
+
+    // search implements the /search URL endpoint.
+    func search(resp http.ResponseWriter, req *http.Request) {
+        var data struct {
+            Labels     []string `http:"l"`
+            MaxResults int      `http:"max"`
+            Exact      bool     `http:"x"`
+        }
+        data.MaxResults = 10 // set default
+        if err := params.Unpack(req, &data); err != nil {
+            http.Error(resp, err.Error(), http.StatusBadRequest) // 400
+            return
+        }
+
+        // ...rest of handler...
+        fmt.Fprintf(resp, "Search: %+v\n", data)
+    }
+    ```
+    * data 是個沒有名字的 struct， field 跟 HTTP request parameter 有關聯
+* Unpack function
+    ``` go
+    // Unpack populates the fields of the struct pointed to by ptr
+    // from the HTTP request parameters in req.
+    func Unpack(req *http.Request, ptr interface{}) error {
+        if err := req.ParseForm(); err != nil {
+            return err
+        }
+
+        // Build map of fields keyed by effective name.
+        fields := make(map[string]reflect.Value)
+        v := reflect.ValueOf(ptr).Elem() // the struct variable
+        for i := 0; i < v.NumField(); i++ {
+            fieldInfo := v.Type().Field(i) // a reflect.StructField
+            tag := fieldInfo.Tag           // a reflect.StructTag
+            name := tag.Get("http")
+            if name == "" {
+                name = strings.ToLower(fieldInfo.Name)
+            }
+            fields[name] = v.Field(i)
+        }
+
+        // Update struct field for each parameter in the request.
+        for name, values := range req.Form {
+            f := fields[name]
+            if !f.IsValid() {
+                continue // ignore unrecognized HTTP parameters
+            }
+            for _, value := range values {
+                if f.Kind() == reflect.Slice {
+                    elem := reflect.New(f.Type().Elem()).Elem()
+                    if err := populate(elem, value); err != nil {
+                        return fmt.Errorf("%s: %v", name, err)
+                    }
+                    f.Set(reflect.Append(f, elem))
+                } else {
+                    if err := populate(f, value); err != nil {
+                        return fmt.Errorf("%s: %v", name, err)
+                    }
+                }
+            }
+        }
+        return nil
+    }
+    ```
+    * 呼叫 `req.ParseForm()` parse request 讓 `req.Form` 有所有的 parameter
+    * `Unpack` 建立 effective name 與 field name 的 mapping
+    * `Unpack` iterate 整個 HTTP request 然後 update struct field
+* `populate` 負責設好 single field
+    ``` go
+    func populate(v reflect.Value, value string) error {
+        switch v.Kind() {
+        case reflect.String:
+            v.SetString(value)
+
+        case reflect.Int:
+            i, err := strconv.ParseInt(value, 10, 64)
+            if err != nil {
+                return err
+            }
+            v.SetInt(i)
+
+        case reflect.Bool:
+            b, err := strconv.ParseBool(value)
+            if err != nil {
+                return err
+            }
+            v.SetBool(b)
+
+        default:
+            return fmt.Errorf("unsupported kind %s", v.Type())
+        }
+        return nil
+    }
+    ```
+
+### 12.8. Displaying the Methods of a Type
+* 使用 `reflect.Type` 印出 type 的 value 與 method
+    ``` go
+    // Print prints the method set of the value x.
+    func Print(x interface{}) {
+        v := reflect.ValueOf(x)
+        t := v.Type()
+        fmt.Printf("type %s\n", t)
+
+        for i := 0; i < v.NumMethod(); i++ {
+            methType := v.Method(i).Type()
+            fmt.Printf("func (%s) %s%s\n", t, t.Method(i).Name,
+                strings.TrimPrefix(methType.String(), "func"))
+        }
+    }
+    ```
+    * `reflect.Type` 跟 `reflect.Value` 都有 `Method` 
+    * 呼叫 `t.Method(i)` 回傳一個 `reflect.Method` instance 描述 method 的 name 跟 type
+    * 呼叫 `v.Method(i)` 回傳 `reflect.Value` 的 method value
+
+### 12.9. A Word of Caution
+* 使用 reflect 的 code 很脆弱，每個錯誤都會讓 compiler 噴 type error，reflection error 只會在執行的時候發現
+    * 使用 reflection 修改變數需要特別注意 addressability 跟 settability
+    * 避免的方法是確保只在自己的 package 使用 reflection，不要使用 `reflect.Value` 當作 parameter 在 API，如果無法做到就要在做危險的操作之前先檢查
+    * reflection 減少安全性跟 automated refactoring 的精確度與分析工具的精確度，因為無法藉由 type information 來判斷
+* type 是一種 document 的用處，reflection 的 operation 無法使用 static type checking，使用太多 reflect 的 code 也不容易讀，所以使用 reflect 時候需要清楚標示期望的 type
+* 使用 reflect 的 code 會比一般的 function 慢
+
 ### Reference
 Golang website: https://golang.org/
 
