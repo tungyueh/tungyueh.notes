@@ -4895,6 +4895,297 @@ func endList(lex *lexer) bool {
 * type 是一種 document 的用處，reflection 的 operation 無法使用 static type checking，使用太多 reflect 的 code 也不容易讀，所以使用 reflect 時候需要清楚標示期望的 type
 * 使用 reflect 的 code 會比一般的 function 慢
 
+## Chapter 13: Low Level Programming
+* Go 設計時有許多原則避免 Go 壞掉，compilation 時候會檢查 operation 是否型態，避免直接存取內部型態像是 strings, maps, slices, channels
+* Go 對於無法靜態找出錯誤的時候讓程式馬上停止並提供錯誤訊息
+* Go 自動記憶體管理避免 use after free bug 跟 memory leak
+* 以上這些特性讓 Go 成為可預測性跟少些神秘感的程式
+* 有時候為了 performance 會選擇捨棄這些特性
+* `unsafe` package 讓我們不用遵從這些特性
+* `cgo` tool 建立 C library 跟 operating system call 與 Go 的 binding
+* `unsafe` package 提供存取 built-in language feature，但這些不會再正常情況使用因為 expose Go memory layout
+* `unsafe` package 通常使用在與 operating system 頻繁互動的 package 像是 runtime, os, syscall, net
+
+### 13.1. unsafe.Sizeof, Alignof, and Offsetof
+* `unsafe.Sizeof` 回報 operand 使用幾個 bytes
+    * 只會回報固定部分的 data structure 例如 pointer 或者字串長度
+    * 不同平台的 word 會不一樣，4 bytes 在 32-bit, 8 bytes 在 64-bit
+* 電腦從記憶體讀取值的時候只要都有適當對齊就最有效率
+    * 不同 size 的型態的 address 都需要是各自 size 的倍數
+    * 對於 aggregate type 會有一些 hole 來對齊所以會占用比實際需要大的空間
+* 沒有規定宣告 field 的順序要與在記憶體的一致所以 compiler 可以重新排列
+    * 對於 struct 中 field 有不同 size 排序方式會造成不同空間使用量
+    * 不需要太擔心 struct 的對齊方式但有效率的 pack struct 可以讓配置 data struct 更快速
+* `unsafe.Alignof` 回報需要對齊的大小，通常 boolean 跟 numeric type 會對齊到 size 而其他都是 word-aligned
+* `unsafe.Offsetof` 回報 field 與 struct 起點的距離
+
+### 13.2. unsafe.Pointer
+* `unsafe.Pointer` 是一種特殊的 pointer 可以存任何變數的 address
+* 一般的 pointer 可以轉換成 `unsafe.Pointer` 也可以轉換回來
+* `unsafe.Pointer` 讓我們能夠直接改動記憶體的值但是會顛覆 type system
+* 很多 `unsafe.Pointer` 都是當成中間人把原本的 pointer 轉成 raw numeric address 接著再轉回來
+    ``` go
+    var x struct {
+        a bool
+        b int16
+        c []int
+    }
+
+    // equivalent to pb := &x.b
+    pb := (*int16)(unsafe.Pointer(
+        uintptr(unsafe.Pointer(&x)) + unsafe.Offsetof(x.b)))
+    *pb = 42
+
+    fmt.Println(x.b) // "42"
+    ```
+* 不要把 uintptr 先暫存下來
+    ``` go
+    // NOTE: subtly incorrect!
+    tmp := uintptr(unsafe.Pointer(&x)) + unsafe.Offsetof(x.b)
+    pb := (*int16)(unsafe.Pointer(tmp))
+    *pb = 42
+    ```
+    * 有些 garbage collector 會移動變數在記憶體的位置稱為 moving GCs
+    * 當變數移動的時候需要更新所有指向這個變數的 pointer
+    * `unsafe.Pointer` 是個 pointer 所以會更新但是 uintptr 只是個數字
+    * 所以如果把 pointer 數字藏在 tmp 底下就不知道要更新這個數字了
+    * 最後也就會把不該改的記憶體位置寫 42 下去
+* 最保險方式是把所有 uintptr 的值當成舊的 address，減少轉換過程的操作
+
+
+### 13.3. Example: Deep Equivalence
+* `DeepEqual` 在 `reflect` package 裡面判斷兩個 value 是否相等
+    * 比較 basic type 就用內建的 == operator
+    * 比較 composite type 會遞迴的比較每個 element
+    * 如果無法使用內建的 == operator 還是可以比較
+    * 通常使用在 test 中
+    * 沒有考慮 nil map 等於 non-nil empty map 跟 nil slice 等於 non-nil empty slice 的情況
+* 定義 `Equal` function 可以比較任意 value 跟 `DeepEqual` 但另外會考慮 nil slice(map) 跟 non-nil empty slice(map) 的情況
+    ``` go
+    func equal(x, y reflect.Value, seen map[comparison]bool) bool {
+        if !x.IsValid() || !y.IsValid() {
+            return x.IsValid() == y.IsValid()
+        }
+        if x.Type() != y.Type() {
+            return false
+        }
+
+        // ...cycle check omitted (shown later)...
+        switch x.Kind() {
+        case reflect.Bool:
+            return x.Bool() == y.Bool()
+
+        case reflect.String:
+            return x.String() == y.String()
+
+        // ...numeric cases omitted for brevity...
+
+        case reflect.Chan, reflect.UnsafePointer, reflect.Func:
+            return x.Pointer() == y.Pointer()
+
+        case reflect.Ptr, reflect.Interface:
+            return equal(x.Elem(), y.Elem(), seen)
+
+        case reflect.Array, reflect.Slice:
+            if x.Len() != y.Len() {
+                return false
+            }
+            for i := 0; i < x.Len(); i++ {
+                if !equal(x.Index(i), y.Index(i), seen) {
+                    return false
+                }
+            }
+            return true
+
+        // ...struct and map cases omitted for brevity...
+
+        panic("unreachable")
+    }
+    ```
+    * 使用 unexported function `equal` 進行遞迴
+    * 對於 `x` 跟 `y` 檢查是否 valid 跟同型態
+* 不透露使用 reflect 所以用 export `Equal`
+    ``` go
+    func Equal(x, y interface{}) bool {
+        seen := make(map[comparison]bool)
+        return equal(reflect.ValueOf(x), reflect.ValueOf(y), seen)
+    }
+
+    type comparison struct {
+        x, y unsafe.Pointer
+        t    reflect.Type
+    }
+    ```
+    * 為了避免再 cyclic data structure 重複比較所以需要紀錄比較過那些
+    * `comparison` struct 有兩個變數的 address 跟 type of comparison
+    * 需要額外紀錄 type 因為兩個不同變數可能是同一個 address 像是 array x 跟 x[0]
+* `Equal` 一開始先檢查是否已經檢查過
+    ``` go
+    if x.CanAddr() && y.CanAddr() {
+        xptr := unsafe.Pointer(x.UnsafeAddr())
+        yptr := unsafe.Pointer(y.UnsafeAddr())
+        if xptr == yptr {
+            return true // identical references
+        }
+        c := comparison{xptr, yptr, x.Type()}
+        if seen[c] {
+            return true // already seen
+        }
+        seen[c] = true
+    }
+    ```
+
+### 13.4. Calling C Code with cgo
+* Go program 或許需要使用 C implement 的 hardware driver，查詢 C++ 實作的 embedded database，C 已經是程式的通用語所以 package 想要被廣泛使用需要 export C-compatible API
+* `cgo` 是個可以在 Go 建立 C function 的 binding，這類工具稱為 foreign-function interfaces(FFIs)，也有其他可以做到相同功能像是 SWIG 提供對於 C++ classes 更多 feature
+* Standard library 中 compress/... 提供常見的壓縮與解壓縮演算法像是 LZW 跟 DEFLATE，皆提供 wrapper `io.Writer` 讓壓縮完的資料寫入跟 `io.Reader` 讀取解壓縮完成的資料
+* bzip2 演算法雖然比 gzip 慢但是壓縮率更好，但 Go 只有提供 decompressor 而沒有提供 compressor，不過可以使用 open-source C implementation
+* 如果 C library 很小則會直接轉成 pure Go
+* 如果 C library Performance 不重要就會使用 subprocess 去跑
+* 如果需要使用複雜的 C library 跟 performance 需要很好，就需要使用 `cgo` wrap
+* 為了使用 libbzip2 C package 
+    * `bz_stream` struct 存放 input 跟 output buffer
+    * `BZ2_bzCompressInit` 配置 stream buffer
+    * `BZ2_bzCompress` 從 input buffer 壓縮資料到 output buffer
+    * `BZ2_bzCompressEnd` 釋放 buffer
+* 直接呼叫 `BZ2_bzCompressInit` 跟 `BZ2_bzCompressEnd` 然後定義 wrapper function `BZ2_bzCompress`
+    ``` go
+    /* This file is gopl.io/ch13/bzip/bzip2.c,         */
+    /* a simple wrapper for libbzip2 suitable for cgo. */
+    #include <bzlib.h>
+
+    int bz2compress(bz_stream *s, int action,
+                    char *in, unsigned *inlen, char *out, unsigned *outlen) {
+      s->next_in = in;
+      s->avail_in = *inlen;
+      s->next_out = out;
+      s->avail_out = *outlen;
+      int r = BZ2_bzCompress(s, action);
+      *inlen -= s->avail_in;
+      *outlen -= s->avail_out;
+      s->next_in = s->next_out = NULL;
+      return r;
+    }
+    ```
+* `import "C"` Go 沒有 C package 這是讓 go build 處理檔案之前先用 `cgo`
+    ``` go
+    // Package bzip provides a writer that uses bzip2 compression (bzip.org).
+    package bzip
+
+    /*
+    #cgo CFLAGS: -I/usr/include
+    #cgo LDFLAGS: -L/usr/lib -lbz2
+    #include <bzlib.h>
+    #include <stdlib.h>
+    bz_stream* bz2alloc() { return calloc(1, sizeof(bz_stream)); }
+    int bz2compress(bz_stream *s, int action,
+                    char *in, unsigned *inlen, char *out, unsigned *outlen);
+    void bz2free(bz_stream* s) { free(s); }
+    */
+    import "C"
+
+    import (
+        "io"
+        "unsafe"
+    )
+
+    type writer struct {
+        w      io.Writer // underlying output stream
+        stream *C.bz_stream
+        outbuf [64 * 1024]byte
+    }
+
+    // NewWriter returns a writer for bzip2-compressed streams.
+    func NewWriter(out io.Writer) io.WriteCloser {
+        const blockSize = 9
+        const verbosity = 0
+        const workFactor = 30
+        w := &writer{w: out, stream: C.bz2alloc()}
+        C.BZ2_bzCompressInit(w.stream, blockSize, verbosity, workFactor)
+        return w
+    }
+    ```
+    * `cgo` 產生暫時的 package 包含所有檔案用到所宣告 C function 跟 type
+    * `NewWriter` 呼叫 C function `BZ2_bzCompressInit` 初始化 stream 到 buffer
+* `Write` method 把未壓縮的資料給 compressor 呼叫 `bz2compress`，也有用到許多 C types 像是 bz_stream, char, uint 跟 C function 像是 bz2compress 跟 BZ_RUN 
+    ``` go
+    func (w *writer) Write(data []byte) (int, error) {
+        if w.stream == nil {
+            panic("closed")
+        }
+        var total int // uncompressed bytes written
+
+        for len(data) > 0 {
+            inlen, outlen := C.uint(len(data)), C.uint(cap(w.outbuf))
+            C.bz2compress(w.stream, C.BZ_RUN,
+                (*C.char)(unsafe.Pointer(&data[0])), &inlen,
+                (*C.char)(unsafe.Pointer(&w.outbuf)), &outlen)
+            total += int(inlen)
+            data = data[inlen:]
+            if _, err := w.w.Write(w.outbuf[:outlen]); err != nil {
+                return total, err
+            }
+        }
+        return total, nil
+    }
+    ```
+    * 每次 loop `bz2compress` 傳入剩下的資料的 address 跟長度還有 `w.outbuf` 的 address 跟長度，
+    * `inlin` 跟 `outlen` 傳入 address 所以 C function 可以改動這些值，所以就能知道消耗了多少資料跟多少壓縮完成的資料
+* `Close` method 使用 loop flush 剩下壓縮完成的資料
+    ``` go
+    // Close flushes the compressed data and closes the stream.
+    // It does not close the underlying io.Writer.
+    func (w *writer) Close() error {
+        if w.stream == nil {
+            panic("closed")
+        }
+        defer func() {
+            C.BZ2_bzCompressEnd(w.stream)
+            C.bz2free(w.stream)
+            w.stream = nil
+        }()
+        for {
+            inlen, outlen := C.uint(0), C.uint(cap(w.outbuf))
+            r := C.bz2compress(w.stream, C.BZ_FINISH, nil, &inlen,
+                (*C.char)(unsafe.Pointer(&w.outbuf)), &outlen)
+            if _, err := w.w.Write(w.outbuf[:outlen]); err != nil {
+                return err
+            }
+            if r == C.BZ_STREAM_END {
+                return nil
+            }
+        }
+    }
+    ```
+    * 完成後呼叫 `BZ2_bzCompressEnd` 釋放 stream buffer 使用 defer 確保所有 path 都會執行
+    * `w.stream` 結束後就不應該被 dereference 所以設成 nil 同時 一開始就先檢查避免呼叫 `Close` 之後還去使用 `w.stream`
+* `Write` 跟 `Close` method 都不是 concurrent-safe 所以 concurrent call to `Write` 跟 `Close` method 會讓 C function crash
+* `bzipper` 是 bzip2 compressor command
+    ``` go
+    package main
+
+    import (
+        "io"
+        "log"
+        "os"
+
+        "gopl.io/ch13/bzip"
+    )
+
+    func main() {
+        w := bzip.NewWriter(os.Stdout)
+        if _, err := io.Copy(w, os.Stdin); err != nil {
+            log.Fatalf("bzipper: %v\n", err)
+        }
+        if err := w.Close(); err != nil {
+            log.Fatalf("bzipper: close: %v\n", err)
+        }
+    }
+    ```
+### 13.5. Another Word of Caution
+* 高階語言把程式設計師從電腦細節分離出來讓程式可以安全且穩定的跑在各種不同的機器上面
+* `unsafe` package 讓程式設計師可以穿越隔離直接操作電腦細節用以獲得更好的效率，但代價是可攜性與安全性。仔細評估後如果使用 `unsafe` 是最好 solution 才使用，盡量侷限在小範圍
+
 ### Reference
 Golang website: https://golang.org/
 
