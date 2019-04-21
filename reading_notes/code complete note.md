@@ -248,6 +248,56 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 
 ### Chapter 25: Code-Tuning Strategies
 
+#### 25.1 Performance Overview
+* code tuning 只是讓系統效率變好的其中一種方式，通常還有其他花更少時間或不用動到 code 的方式
+* programmer 通常習慣透過 code 看世界，但 user 只會在乎程式的 feature 而不是 code quality，user 只在意 throughput 而不是 performance
+* 只在一處增加速度可能會導致整體系統變慢
+* 確定要增加效率時需要考慮下面幾點
+    * Program Requirements: 通常 performance requirement 都會比真正的 requirement 嚴格許多，開始著手 performance 問題前先確定這是值得被解決的
+    * Program Design: 有些程式設計的很難寫出高效率的程式，所以針對程式設計可以較容易寫出高效率的程式
+        * 為每個 resource 設定 performance 目標讓整體程式的效率可以預測，如果每個 resource 都有達成目標則最後就會達成目標，但途中發現某的 resource 無法達成目標就可以盡早重新 design
+        * 可以為了長遠的規劃先不達到效率的要求，但規劃好容易修改的設計後只要慢慢將效率差的部分換成效率好的最終還是可以達到設定的效率
+    * Class and Routine Design: 這層級主要考慮選擇的 data types 跟 algorithms，這些會直接影響到記憶體與執行速度
+    * Operating-System Interactions: 如果程式有使用 external files, dynamic memory, output device 通常就是跟 operating system 互動
+    * Code Compilation: 好的 compiler 會將 clear, high level language code 轉成有效率的 machine code
+    * Hardware: 有時候最便宜最好的方法就是升級硬體
+    * Code Tuning: 修改原本正確的 code 讓它跑的更快，通常侷限在小範圍裡
+
+#### 25.2 Introduction to Code Tuning
+* 提升效能 code tuning 不是最有效率的方法，從 program architecture, class design, algorithm selection，可以讓效能有顯著的提升
+* 提升效能 code tuning 不是最簡單的方式，直接買好一點的硬體或換優化能力比較好的 compiler 會更容易
+* 提升效能 code tuning 不是負擔最小的方式，手動調整的 code 不但需要花很多時間更讓 code 變的難維護
+* 80/20 法則也可套用在程式最佳化上面，通常 20% 的 routine 占用80% 程式運行時間，所以要先找出耗用時間最多的部分才來做優化
+* 在 high-level language 寫越少 code 並不會讓 machine code 的 speed 增加或 size 減少
+* 每次改變程式都需要 profile performance 才能知道是否有幫助，包含 compiler 跟 compiler 版本、library 跟 library 版本、處理器、記憶體大小之類的東西。
+* 不要再一開始就把每個 routine 都最佳化，因為在程式完成之前很難知道 bottleneck 在哪邊，過早的最佳化只是在浪費時間，就算猜對 bottleneck 在哪邊也會對其他部分矯枉過正，如果太專注在最佳化會讓其他更重要的東西例如: 正確性、information hiding，易讀性變成次要目標
+
+#### 25.3 Kinds of Fat and Molasses
+* Common Sources of inefficiency
+    * Input/Output Operation: 不使用不需要的 I/O，如果處理檔案可以在記憶體處理就不要從 disk 拿出來或者透過網路
+    * Paging: operation 讓系統需要 swap page of memory 比起在一個 page memory 處理慢上許多
+    * System calls: 使用 system call 需要耗費很多時間，因為要經歷 context switch
+    * Interpreted languages: 需要在產生 machine code 之前處理滿一行程式碼
+    * Errors: 錯誤會導致程式變慢
+
+#### 25.4 Measurement
+* 經驗無法幫助如何最佳化，因為經驗是累積在過去的機器、語言及 compiler
+* performance measurements 需要精確，可以利用 profiling tool
+* 確保只計算正在 tuning 那段 code 的時間，使用 CPU clock tick 來計算避免把系統 switch 到別的程式的時間計算下去
+
+#### 25.5 Iteration
+* 透過各種不同的優化方式累積起來可以達到很顯著的優化
+
+#### 25.6 Summary of the Approach to Code Tuning
+1. 開發容易理解與修改的軟體
+2. 如果 performance 很糟糕
+    a. 存好目前的 code
+    b. 測量系統找出耗費最多時間的部分
+    c. 考量是因為不適當的 design, data types, algorithm 導致的，如果是回到第一步
+    d. Tune bottleneck
+    e. 測試每次的 improvement
+    f. 如果 improvement 無效，revert code 到 step (a) 存的狀態
+
 ### Chapter 26: Code-Tuning Techniques
 
 ## Part VI: System Considerations
