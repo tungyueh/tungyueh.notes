@@ -299,6 +299,58 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
     f. 如果 improvement 無效，revert code 到 step (a) 存的狀態
 
 ### Chapter 26: Code-Tuning Techniques
+* code-tuning 表面上看起來跟 refactoring 有點像但是 refactoring 是改善 internal structure 而 code-tuning 反而是破壞 internal structure
+
+#### 26.1 Logic
+* Stop Testing When You Know the Answer
+    * short-circuit evaluation: compiler 會在知道答案後就馬上停止，了解語言支不支援，如果不支援需要自己注意此類情況
+    * 判斷 array 是否含有負數不需要完整找過一遍，只要發現有負數就可以立刻跳出
+* Order Tests by Frequency: 盡量把速度快或者常用到的測試擺在前面
+* Compare Performance of Similar Logic Structures: 不同語言對於相似的邏輯結構會有不同的表現，像是 case 與 if-then-else
+* Substitute Table Lookups for Complicated Expressions: 遇到需要很複雜的測試邏輯可以改用 lookup table 來增加效率，雖然定義 table 有點難懂但是只要加好註解後就不會這麼難懂了，另外如果定義改變用 table 的方式也比較好改
+* Use Lazy Evaluation: 直到需要處理才去處理
+
+#### 26.2 Loops
+* Unswitching: 不再 loop 裡面做決定，把做決定的判斷移出 loop，但缺點是會讓 code 變不好讀與不好維護
+* Jamming: 把多個有著相同 element set 的 loop 在融合在同一個 loop，但缺點是一旦 index 改變有可能需要重新分開，另外要注意順序跟之前不變
+* Unrolling: 把一次處理多個 element 減少 loop 的次數但會讓 code 變得難懂於難維護
+* Minimizing the Work Inside Loops: 把可以移到 loop 外面的計算移到外面，不僅速度更快也更容易讀懂
+* Sentinel Values: 把 sentinel value 放到 search 尾的後面確保會停止
+* Putting the Busiest Loop on the Inside: Nested loop 中最忙的 loop 放到裡面可以節省總 loop 次數
+* Strength Reduction: 把 loop 中比較昂貴的操作像是乘法換成便宜的操作像是加法
+
+#### 26.3 Data Transformations
+* Use Integers Rather Than Floating-Point Numbers: 整數的加法跟乘法都比浮點數更快
+* Use the Fewest Array Dimensions Possible: 使用一維的陣列會比起二維的陣列快
+* Minimize Array References: 減少對於 array 的 element 讀取，如果 loop 中都存取同一個 element 可以在外面先存取好記錄下來給 loop 用
+* Use Supplementary Indexes: 使用輔助的 index 可以加速存取 data type 的特徵
+    * String-Length Index: 可以加入長度的資訊在不定長度的資料型態才不用每次用到都需要計算加速
+    * Independent, Parallel Index Structure: 操作 index 比起直接操作 data type 更有效率，sorting 或 searching index 都會比起直接操作資料快
+* Use Caching: 暫存常用到的值，加快存取速度
+
+#### 26.4 Expressions
+* Exploit Algebraic Identities: 藉由代數的 identity 可以把 operation 替換成便宜的
+* Use Strength Reduction: 使用 cheap operation 代替 expensive operation
+    * 使用加法取代乘法
+    * 使用乘法取代指數運算
+    * 使用 long 或 int 取代 long long
+    * 使用 fix-point numbers 取代 float-point numbers
+    * 使用 single-precision number 代替 double-precision number
+    * 使用 shift operation 取代乘2或除2的操作
+* Initialize at Compile Time: 把 routine 中不會改變的值抽出來變成常數
+* Be Wary of System Routines: system routine 很昂貴但我們其實不需要這麼精準的答案就可以用自己寫的 routine 就好
+* Use the Correct Type of Constants: 使用正確的型態避免花時間在型態轉換上面
+* Precompute Results: 把之前算過的結果存起來，或者在一開始就全部算好
+* Eliminate Common Subexpressions: 如果有重複的 sub expression 可以 assign 到變數壁面重複計算
+
+#### 26.5 Routines
+* routine decomposition 對於 code-tuning 是很強大的工具
+    * 只要加速一個 routine 就可以同時加速使用到這個 routine 的人
+    * 小的 well-define routine 很容易用 low-level language 重寫加速
+* Rewrite Routines Inline: 古老時代的 machine 呼叫 routine 會需要許多 swap 導致程式變慢，但現代的 machine 不會有這種問題
+
+#### 26.6 Recoding in a Low-Level Language
+* 遇到 performance bottleneck 時候可以用 low-level language recode
 
 ## Part VI: System Considerations
 
