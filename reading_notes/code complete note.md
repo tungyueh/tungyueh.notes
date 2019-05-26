@@ -356,6 +356,29 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 
 ### Chapter 27: How Program Size Affects Construction
 
+#### 27.1 Communication and Size
+* 當負責專案的 programmer 越多時，產生的溝通成本會越大也更容易發生溝通上的誤解
+* 大型的專案需要建立 streamline 的溝通或者合理的限制溝通數量
+
+#### 27.2 Range of Project Sizes
+* 專案規模很難以界定，用團隊成員的數量是比較好的定義
+
+#### 27.3 Effect of Project Size on Errors
+* 大型專案有比較高比例的錯誤發生在設計與需求上
+* 錯誤密度會隨著專案規模增加而上升
+
+#### 27.4 Effect of Project Size on Productivity
+* 小型專案上的生產力取決於 programmer 本身的能李
+* 大型專案上的生產力則是受團隊大小與組織影響比較多
+
+#### 27.5 Effect of Project Size on Development Activities
+* 專案規模越大開發所佔的比例越低，因為其他部分會隨著專案規模變大所需要的時間會飛快的成長
+* 當專案變成產品時候需要再不同環境下測試過、加上文件說明跟維護，一個軟體產品比起軟體程式需要多三倍的時間
+* 軟體系統需要設計好介面整合不同的程式所以也比起單一程式需要多三倍的時間
+* 如果以打造程式的時間來推估打造系統的時間會低估所需的時間
+* 專案規模越大則規範會越多，不同的專案需要不同程度的規範
+* 越正式的專案需要更多的 paper work，因為需要文件來 coordinate 大家的想法
+
 ### Chapter 28: Managing Construction
 
 ### Chapter 29: Integration
