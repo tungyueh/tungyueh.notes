@@ -380,6 +380,60 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 * 越正式的專案需要更多的 paper work，因為需要文件來 coordinate 大家的想法
 
 ### Chapter 28: Managing Construction
+#### 28.1 Encouraging Good Coding
+* 由於 code 是 construction 主要的產出，所以最關鍵的是如何鼓勵良好的 coding practice，通常需要找個大家認可的高手的人來訂下 technical standard 才能讓底下 programmer 願意遵守
+* 訂定規則需要考慮組織的適用性，盡量訂下有彈性的 guideline 或者提供 best practice 讓人參考
+* 達成 good code practice 的技巧
+    * 同時讓兩個人以上負責 project 的一部分，可以確保至少有兩個人思考過 code 是可以正常運作且可讀懂
+    * Review 所有的 code: 通常至少兩個人 review code 就確保三個人有讀過這段 code，當 code 需要給人 review 就會使寫 code 的人提升 code 品質，同時可以建立起團隊的 code 標準，另外可以預防有人離開但剩下的人沒有人可以後續維護的問題
+    * Require code sign-offs: senior technical personnel 需要 sign code 表示 code 已經完成
+    * 提供好的 code 給大家參考，清楚提供品質的目標
+    * 強調 code 都是公共的資產，programmer 都會覺得自己寫的 code 就是自己的，但是 project code 應該是所有人都可以讀取並修改
+    * 獎勵好的 code，對於非常好的 code 才給獎勵，但如果無法分辨就乾脆都不給，因為給錯反而比不給糟
+
+#### 28.2 Configuration Management
+* software project 非常不穩定，code 會變、設計會變、需求也會變
+* configuration management 是用系統化的方式處理有關任何變動
+    * 如果不管理變動則會容易寫出不需要或不相容的 code，或者最後整合才發現根本無法整合，大家無法朝向一個明確的目標前進只會中途不斷迷路
+    * 如果過度管理變動可能會造成專案無法前進
+* 如果每次需求或設計變動時都接受時，最後可能會發現專案像在跑步機上面自己感覺有再前進但是根本只在原地踏步
+    * 任何變動都需要經過系統化的過程來釐清什麼是對專案有幫助
+    * 把所有想法或建議都先寫下來成為之後的待作清單，才不會因為明明有一個好的改動但是因為專案落後而被捨棄
+    * 對於任何變動都需要預測所需要的時間，包含 code review、重新測試，讓所有人清楚變動是錯綜複雜且需要時間的即使第一時間覺得只是個簡單的改動
+    * 對於大的變動需要有警覺，通常大變動都是不可逆的，雖然重新回去檢視需求和架構很麻煩但比起從做一遍好多了
+    * 建立一個 change-control board 管理變動，任何需求都會寫在上面，之後定期評估這些變動來跟決定優先順序
+    * 別讓官僚文化排除 change control，可以用 email 當成 change board 讓所有人了解這個過程或者把 change 當成 defect 之後由 defect-tracking system 處理
+* code version-control tool 可以幫助當改了 code 有 error 發生時可以對照舊的 code 找出原因
+* 一個好的 version-control software 有以下條件
+    * 同時處理同個檔案不會出現問題
+    * 可以簡單的更新檔案到現在的版本
+    * 可以回到任何版本的任何檔案
+    * 可以得到任何版本的任何檔案的變動的部分
+    * 不用擔心個人的備份問題，因為 version-control 提供另一層的保護
+* Tool versions: 需要把 compiler, linker, code library 也包含進 version control 之中
+* 建立標準化的環境讓大家不會因為環境的差異而遭遇不同的問題
+* 建立備份計畫，週期性的備份 code 並且特定時間嘗試還原資料檢查是否備份成功，結束專案後把所有之後還原 product 需要的東西都打包起來放到安全的地方
+
+#### 28.3 Estimating a Construction Schedule
+* 建立預測的目標，找出為何需要預測、只要預測 construction 或者全部的開發過程、需要預測的多準，樂觀或悲觀的預測會對結果造成什麼影響
+* 不要匆促的預測不然容易不精準，需要當成一個小 project 來預測時程
+* 預測之前需要訂好需求，不然無法預測
+* 檢視越細節的部份可以預測的更精準
+* 使用不同的方法預測並且比較這些結果
+* 定期重新預測，隨著專案進行時預測可以更加準確
+* 根據公司專案的經驗跟專案大小用來預測未來專案的時程
+* 預測是找出專案完成的時間的重要部分，一旦專案有了 delivery time 跟 specification 則重要的是如何控制預算並且準時交付專案
+* 專案落後的處理方式
+    * 保持樂觀的心態期待之後會趕上: 了解目前的落後是為了未來的加速，因為先花時間在釐清 spec 、訂好需求、做好測試上之後就可以更加快速
+    * 擴張團隊: 雖然 Fred Brook's Law 說在專案晚期加入新成員因為會花掉其他成員 training 新成員的時間而新成員也需要 training 後才能有產出導致專案會更晚，但是只要將專案的工作分割好就算新成員不需要 training 也可以上手就可能使專案趕上
+    * 減少 project scope: 少做一個 feature 等於少掉了 design, coding, debugging, testing, documentation，所以專案一開始把所有 feature 分類成必須有、有也不錯、有沒有都可以的類別，當專案落後就專注在必須有的 feature 就好，若必須有的 feature 一定要做出來也可以先做出比較沒那麼好得版本，例如暴力解、很慢、很花記憶體之類的缺點，之後再來改進
+
+#### 28.4 Measurement
+* 任何專案的屬性都可以被測量，有測量比起完全不測量的好
+* 測量後的數據作為之後開發過程的參考
+* 測量數據都是要可以被量化的，這樣才能用來比較優劣
+* 先從大方向的測量開始做起，再來隨著專案的特性挑選需要測量的面向
+* 測量需要原因，確認目標後提出問題再去測量
 
 ### Chapter 29: Integration
 
