@@ -436,6 +436,105 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 * 測量需要原因，確認目標後提出問題再去測量
 
 ### Chapter 29: Integration
+* Integration 把分開的軟體部分組合成一個系統
+* 建立軟體部分的順序與 integration 的順序息息相關，只有建造好的部分才能整合
+
+#### 29.1 Importance of the Integration Approach
+* 如果建造及整合軟體的順序錯誤會難以撰寫 code、測試及 debug，途中也會不清楚進度、複雜度造成過度樂觀的情況
+* 仔細整合會有下列的好處
+    * 容易找出缺陷
+    * 較少的缺陷
+    * 較短時間產出第一版可用的產品
+    * 較短的開發時程
+    * 提高完成專案的機率
+    * 更可靠的時程預估
+    * 更精準的進度
+    * 改善 code quality
+    * 較少的文件
+
+#### 29.2 Integration Frequency—Phased or Incremental?
+* Phased Integration
+    * Steps:
+        1. 設計、寫 code、測試、除錯每個 class，稱為 unit development
+        2. 把所有 class 組成一個系統
+        3. 測試跟除錯整個系統
+    * 缺點:
+        * 當把所有 class 組合再一起時，問題發生時有太多可能出錯的部分，有可能是 class 本身壞掉、兩個 class interface 之間的問題或者兩個 class 交互作用的問題
+        * 直到專案晚期才有辦法開始整合
+    * 對於只有 2-3 個 class 的程式 phased integration 或許是比較好的方式，但其他通常是用 incremental integration 比較好
+* Incremental Integration
+    * Steps:
+        1. 開發系統部分的功能當作基本的骨架，測試跟除錯
+        2. 設計，寫 code、測試、除錯 class
+        3. 整合新的 class 到骨架，測試及除錯，若還有剩餘的功能重複第二步驟
+    * 假設需要整合多個 class 可以先用 incremental integration 的方式整合好這些 class 在來把整合好的部分整合進主系統
+    * 優點:
+        * 容易找出錯誤的原因: 由於一次只新增一個 class 則問題發生點就被限縮，另外一次整合一個 class 會產生比較少的問題不容易發生多個問題互相遮掩的問題
+        * 系統在早期就可以作用: 當 code 開始整合且執行時，即使系統還不可用但可以讓人看到結果提高信心度
+        * 更容易監測進度: 頻繁的整合可以輕易看出哪些功能有沒有被實作與否
+        * 增進客戶關係: 客戶喜歡看到專案的進度跟頻繁整合代表進度有再前進
+        * 系統的部分被更完整的測試過: 頻繁整合過程中，系統的部分在每次整合都會被測試到
+        * 建立系統需要較少的開發時程: 仔細規劃整合可以讓工作平行處理
+
+#### 29.3 Incremental Integration Strategies
+* phased integration 不需要規劃整合的順序因為都是在相同時間一次整合
+* incremental integration 需要謹慎的規劃，整合的順序會影響到開發的順序
+* Top-Down Integration
+    * 在繼承最上端的 class 需要先開發跟整合
+    * class 的 interface 需要仔細的規範，問題常發生在 class 之間互動的問題
+    * 優點
+        * 系統的邏輯可以在早期就被測試好
+        * 專案早期就可以有部分功能的系統可以運作
+        * 底層細節的 detail design 完成前就可以開始 coding
+    * 缺點
+        * 把 tricky 的系統介面留到最後才做可能造成需要改動 high-level design
+        * 很多個 low-level class 需要途中一起整合破壞掉原本 incremental integration 的用意
+        * 現實中採用完全的 top-down 是不太可能的
+        * 如果 class 中沒有 top 就無法使用
+    * 可以局部採用 top-down integration
+* Bottom-Up Integration
+    * 從繼承最底部的 class 開始開發跟整合
+    * 優點: 及早發現潛藏的 system interface 問題
+    * 缺點
+        * 把 high-level system interface 整合留到最後，如果 high-level design 發現有問題需要把 low-level 工作捨棄
+        * 需要完成系統的設計才能開始整合，若沒有好好設計會導致 low-level code 反過來主導 high-level design 違反 information hiding 跟 object-oriented design 的原則
+* Sandwich Integration
+    * 同時使用 top-down 跟 bottom-up 的方式整合取捨者兩種的好壞
+    * 現實中常用的方式
+* Risk-Oriented Integration
+    * 先整合困難的部分，通常 top 跟 bottom 都是困難的部分所以會先整合
+    * 雖然跟 sandwich integration 順序很像但是動機不一樣
+* Feature-Oriented Integration
+    * 一次整合一個 feature
+    * 整合 feature 或許會一次整合多個 class 但是只有 feature 整合之前有好好整合過就比較不會喪失 incremental 的好處
+    * 不需要整合途中需要暫時讓整個系統作用的支架
+    * 每次整合 feature 代表在功能性上面有進步，作為專案進度的證據，如果想要提早釋出較少功能的系統也可以辦到
+    * 更容易使用 object-oriented design，因為 object 通常可以對應 feature
+    * 實際上的難度與純 top-down 跟 bottom-up 一樣困難
+* T-Shaped Integration
+    * 挑選一個 slice 先做開發及整合確保 top-down 跟 bottom-up 都沒問題再繼續做其他的 slice
+
+#### 29.4 Daily Build and Smoke Test
+* 每天每個 file 都需要被 compiled, linked 跟 combine 到 executable program，接著進行 smoke test 確認最基本的功能可以成功運作
+* 降低程式品質不佳的機率，透過 daily build 跟 smoke test 可以清楚知道目前的狀態
+* 容易找出系統壞掉的原因，檢查哪一天壞掉跟 commit 那些 code 就容易知道壞掉的原因
+* 頻繁的整合可能會造成沒有預見到的錯誤累積在專案最後才爆炸
+* 把 daily build 當成專案的心跳，每天的 build 可以快速整合大家的成果跟及時修正錯誤
+* 修正壞掉的 build 是最優先的事情
+* smoke test 對於系統 end to end 的檢查，主要找出重要的問題
+* daily build 缺少 smoke test 幾乎沒有價值，smoke test 維持品質及找出整合問題
+* smoke test 需要跟系統與時俱進
+* 將 daily build 與 smoke test 自動化
+* 當專案需要把 daily build 跟更新 smoke test 最為重要的事情時需要有人專門負責 daily build 與 smoke test
+* 整合有意義的時候才進行整合，不要整合沒有意義的 code 進系統
+* 很少整合 code 到系統是個警訊，有可能一次整合太多 code 失去 daily build 的用意，頻繁的整合迫使開發者需要將工作分割
+* 要求開發者自己先 smoke test 即將要整合的 code
+* 建立已經被整合好的 code base，讓開發者可以知道目前整合好的 code 用來測試即將需要整合的 code
+    * 整合的 code 會先進 code base 後如果 smoke test 成功後才會正式進入 code base
+    * 小型的專案利用 version control system 來查看新進的 code
+* 建立讓 build 壞掉的罰則，讓大家知道確保 daily build 健康是專案的第一要務，要求暫停手上的工作直到 daily build 修好
+* 早上 release build，測試者早上就可以拿最新的 build 來測試，build 也肯可能會 delay 所以早上 release 還有點時間可以修復，發現問題時也比較容易找到工程師來解決
+* 在時程壓力之下還是要維持 daily build 跟 smoke test，因為壓力之下更容易犯錯所以需要 daily build 跟 smoke test 來把關
 
 ### Chapter 30: Programming Tools
 
