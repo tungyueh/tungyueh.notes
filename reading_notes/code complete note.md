@@ -537,6 +537,104 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 * 在時程壓力之下還是要維持 daily build 跟 smoke test，因為壓力之下更容易犯錯所以需要 daily build 跟 smoke test 來把關
 
 ### Chapter 30: Programming Tools
+#### 30.1 Design Tools
+* Design tool 通常是圖像化的工具，可以藉由圖像表達設計概念
+* Design tool 幫我們管理區塊的排列及區塊間的連結關係，讓我們不必費心於此
+
+#### 30.2 Source-Code Tools
+* Editing
+    * Integrated Development Environments (IDEs)
+        * editor 有 compilation 跟 error detection 功能
+        * 整合 source-code control, build, test, debugging tool
+        * 檢視程式的架構
+        * 挑到任何 class, routine, variable
+        * 跳到任何使用到該 class, routine, variable 的地方
+        * 自動 formatting
+        * 提供程式語言的編輯建議
+        * Brace matching
+        * 提供常見的程式語言樣板
+        * 自動縮排
+    * Multiple-File String Searching and Replacing
+        * 發現錯誤時使用這種工具找出所有其他檔案相似的錯誤
+        * 能提供搜尋完全符合的字串、相似的字串及支援 regular expression
+        * 如果想把 routine, constant, global variable 換個更好的名字就可以使用，如果很容易在多個檔案換名字則有更多機會讓我們願意換更好的名字增加可讀性
+    * Diff Tools
+        * Programmer 常常需要比較兩個檔案的差異，如果修正錯誤中嘗試改 code 後發現不可行則工具可以讓我們知道那些地方是我們修改過的
+        * 與其他人合作是會想要看其他人做了那些改變就可以使用這種工具
+        * 通常整合在 revision-control tool
+    * Merge Tools
+        * 有一種 revision tool 只讓一個人在同一個時間修改檔案，所以不會有 merge 問題
+        * 另一種 revision tool 允許多人同時改檔案只在 check-in 時候做 merge change，所以需要 merge tool 的幫忙
+        * 通常會自動 merge 簡單的部分，無法判斷的部分就會詢問 programmer 該如何改動
+    * Source-Code Beautifiers
+        * 將 source code 的風格一致化
+        * 有一種工具在不改變 source code 的情況下產生更好看的格式
+        * 另一種會改動 source code 來一致化，通常使用在 legacy code 上面
+    * Interface Documentation Tools
+        * 有些工具可以分析 source code 的 programmer-interface documentation
+        * source code 通常使用 @tag 欄位來表示需要被分析
+    * Templates
+        * 常用到的東西想要一致化就可以使用樣板
+        * routine 前面的註解可以使用樣板自動加入讓 programmer 願意遵守 coding 跟 documentation style
+    * Cross-Reference Tools
+        * 列出 variable 跟 routine 跟被用到的地方
+        * 通常使用網頁的方式呈現
+    * Class Hierarchy Generators
+        * 產生 class 的繼承關係
+        * 用來除錯
+        * 更成用來分析程式架構及模組化程式
+* Analyzing Code Quality
+    * Picky Syntax and Semantics Checkers
+        * 提供比起編譯器更加完整的檢查
+        * 檢查語法上正確但是常見的錯誤
+    * Metrics Reporters
+        * 分析程式碼及產出報告
+        * 分析 routine 的複雜度，讓 programmer 重新檢視複雜度高的 routine
+        * 計算 code 的行數、宣告次數、註解多寡、空白的行數
+        * 追蹤 defect，紀錄哪個 programmer 製造的、修正的、修正次數，就可以知道哪些 routine 最常被修改
+* Refactoring Source Code
+    * Refactorers
+        * 容易在整個 code base 下改動 class 名稱
+        * 選取想要變成 routine 的 code 就可以抽出成 routine 必且自動排好 parameter list
+    * Restructurers
+        * 把 spaghetti code 轉成 better-structured code
+        * 如果原本邏輯就很糟轉換後來是很糟
+        * 通常在簡單或常出現的例子上使用，接著手動調整困難的部分
+    * Code Translators
+        * 將 code 從一個語言轉到另一個語言
+* Version Control
+    * Source-code control
+    * Dependency control
+    * Project documentation versioning
+    * Relating project artifacts: 需求、code、測試項目
+* Data Dictionaries
+    * 描述 project 中有意義的資料
+    * 避免使用重複的 class name
+    * 避免使用不同的 class name 代表相同東西
+#### 30.3 Executable-Code Tools
+* Code Creation
+    * Compilers and Linkers: compiler 將 source code 轉換成 executable code, linker link 需要的 object files 到 program
+    * Build Tools: 減少 build 現在版本的時間，build tool 檢查相依性確保一致性，只重新編譯有相依性的部分。
+    * Code Libraries: 快速寫出高品質程式其中一個方法是找出 open source 可用的高品質 library
+    * Code-Generation Wizards: 通常在 database application 使用，雖然自動產生的 code 不會比人類寫的 code 好但是指至少可以運作，對於需要實驗性質或 prototype 的 production code 可以快速的實作出來
+    * Setup and Installation: 檢查是否有缺少需要的 library，版本之類的東西
+    * Preprocessor: 容易切換 development code 與 production code 進行 debugging
+* Code Tuning: 
+    * Execution Profilers: 可以統計各個 statment 所跑過的次數與時間讓我們容易找出需要改進的地方進行調整
+    * Assembler Listings and Disassemblers: 有時候想要看 high-level language 產生的 assembler code 去了解為什麼看起來應該要很快但是實際跑得很慢，有些 high-level language 不會產生 assembler listings 所以需要 disassembler 從 machine code 產生 assembler code
+
+#### 30.4 Tool-Oriented Environments
+* Unix 有名在於有需多小工具可以很好的共同作用，組合再一起可以形成更大的功能
+
+#### 30.5 Building Your Own Programming Tools
+* building tool 是程式中很基礎的一件事
+* Project-Specific Tools
+    * 產生特出的測試資料
+    * 檢查資料的品質
+    * 模擬硬體的環境
+* Scripts
+    * 自動化處理需要重複做的事情
+    * 當發現自己不斷的重複某些事情就可以考慮寫個 script 自動化
 
 ## Part VII: Software Craftsmanship
 
