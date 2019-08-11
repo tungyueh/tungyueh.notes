@@ -639,6 +639,133 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
 ## Part VII: Software Craftsmanship
 
 ### Chapter 31: Layout and Style
+#### 31.1 Layout Fundamentals
+* The Fundamental Theorem of Formatting
+    * 一個好的排版要能表達出程式邏輯結構
+    * 這種方式可以讓好邏輯的 code 看起來不錯，爛邏輯的 code 看起來很糟
+    * 不需要讓所有 code 都看起來好看的排版方式
+* Human and Computer Interpretations of a Program
+    * 電腦使用 brace 或 begin, end 等等關鍵字來理解程式結構
+    * 人類使用視覺來理解程式結構
+    * 不正確的排版會造成人類與電腦的認知不同
+* How Much Is Good Layout Worth?
+    * 寫程式首先要讓機器讀的到，再來讓其他人讀得懂
+    * 程式設計師仰賴程式結構來記憶，所以好的排版更容易記憶
+    * 雖然好的排版有很多種但重要的是要保持一致性
+* Layout as Religion
+    * Programmer 自己對於排版的喜好會不易理解不同排版的 code
+    * 排版好壞通常有很多爭議，programmer 應該保持開放的心態接受新的排版方式
+* Objectives of Good Layout
+    * 精確表達邏輯結構
+    * 保持顯示邏輯結構的一致性
+    * 增加可讀性
+    * 不需要為了保持排版導致需要修改很多地方
+
+#### 31.2 Layout Techniques
+* White Space
+    * 包含 spaces, tabs, line breaks, blank lines
+    * 寫程式像寫書一樣需要把作者想像中的組織架構呈現出來，讓讀者可以知道邏輯是如何組織的
+    * Grouping: 利用空白將相關的 statement group 再一起
+    * Blank lines: 把不相關的 statement 分開
+    * Indentation: 使用縮排表達邏輯架構
+* Parentheses: 盡量使用括弧避免讓人需要思考程式的執行順序
+
+#### 31.3 Layout Styles
+* Pure Blocks: 都會有 begin 跟 end 來形成一個 block 所以 block 裡面的縮排也是很自然的，因此沒有可以爭議的地方
+* Emulating Pure Blocks: 在沒有 pure block 的語言可以把 { 或 } 當成 pure block 的開始與結束
+* Using begin-end Pairs (Braces) to Designate Block Boundaries: 把 begin-end 當成 block 的一部分而不是 control 的開始與結束
+* Endline Layout: 把 block 縮排到中間或結尾，begin 之後接上 parameter list，但遇到 nested 的結構就會讓 code 很難讀懂，如果第一航 code 的長度變更則後面的 code 都需要做修改造成維護的困難
+
+#### 31.4 Laying Out Control Structures
+* Fine Points of Formatting Control-Structure Blocks
+    * 避免 begin-end pairs 沒有縮排，會讓 begin, end 不屬於 control construct 也不屬於 statement
+    ``` c
+    for ( int i = 0; i < MAX_LINES; i++ )
+    {
+        ReadLine( i );
+        ProcessLine( i );
+    }
+    ```
+    * 避免重複縮排，statement 多縮排一次不僅比較複雜遇到 nest statement 就會變得很難讀懂
+    ``` c
+        for ( int i = 0; i < MAX_LINES; i++ )
+        {
+            ReadLine( i );
+            ProcessLine( i );
+        }
+    ```
+* Other Considerations
+    * 在沒有 begin-end pairs 情況下使用 blank line 區分出無關的邏輯
+    * 保持 single-statement block 的排版一致性
+    * 對於複雜的 expression 把不同的 condition 放在不同的 line
+    * 避免使用 goto，因為會難以證明程式正確性跟難以排版，若一定要用到可以將 label 名字使用全大寫跟擺在明顯的地方，上下都圍繞 blank line，不縮排向左靠齊都可以讓 labe 很明顯
+
+#### 31.5 Laying Out Individual Statements
+* 每行長度不超過 80 個字
+    * 超過 80個字比較難讀
+    * 80個字限制會減少 deep nesting 的情況
+    * 現在螢幕比較大一點就可以偶爾超過限制
+* 使用空白增加可讀性
+    * Logic expression 中 identifier 左右加上空白
+    * Array reference 中 index 左右加上空白
+    * Routine argument 左右加上空白
+* 排版 continuation lines
+    * 讓不完整的 statement 明顯一點
+        * 讓分開的 statement 很明顯看得出語法錯誤就會讓人知道這是不完整的 statement
+        * 把 continuation character 放到 continuation line 的開頭
+    * 把相關的 element 放在一起，例如 array reference, argument to the routine
+    * routine-call continuation line 與一般縮排一樣
+    * 讓 continuation line 的結尾容易被找到
+    * control statement continuation line 與一般縮排一樣
+    * 不要對齊 assignment statement 的右邊，會難維護
+    * assignment statement continuation line 與一般縮排一樣
+* 一行程式碼只用一個 statement
+    * 把多個 statement 放在同一行只是會讓複雜的 code 看起來很簡單而容易讓人忽略
+    * 把多個 statement 放在同一行並不會讓 compiler 知道要優化這行 code
+    * 一行一個 statement 讓人可以只從上往下讀然後注意縮排，而不需要從左到右去找還有哪些 statemtn 藏在同一行 code
+    * compiler 只會提供 error 的 line number，把多個 statement 放在同一行不容易找到錯誤
+    * line-oriented debugger 容易 step through，多個 statement 在同一行就會一次執行全部 statement
+    * 一行一個 statement 讓人容易修改、註解、刪除 statement 
+    * C++ 避免使用多個 operator 在同一行，因為沒有定義 evaulated 的順序，所以任何結果都有可能產生，每行只做一個 operation 不但容易看出 bug 也讓其他人不用思考 side effect 的問題
+* 宣告 data 的排版
+    * 一行只宣告一個 data
+    * 宣告 data 的地方要靠近使用的地方，不但減少 data 的 live time  之後 refactoring 成 routine 也比較方便
+    * 有道理的排好 data 宣告的順序，通常相同 type 放在一起因為相同 type 通常會用在一起
+    * C++ 將 asterisk 放在變數那邊，如果放在 type 那邊又有多個 statement 視覺上會以為所有變數都是 pointer 但其實只有第一個
+
+#### 31.6 Laying Out Comments
+* 將 comment 跟相關的 code 一起縮排
+* 每個 comment 至少有一個 blank line 讓其他 programmer 想要 over view program 比較容易
+
+#### 31.7 Laying Out Routines
+* 使用 blank line 分隔出 routine 的區塊
+* 使用 standard indention 在 routine argument
+    ``` c
+    public void InsertionSort(
+        SortArray data,
+        int firstElement,
+        int lastElement
+    )
+    ```
+    
+#### 31.8 Laying Out Classes
+* Laying Out Class Interfaces
+    * Header comment 描述 class 的使用方法
+    * Constructors 跟 destructors
+    * Public routines
+    * Protected routines
+    * Private routines 跟 member data
+* Laying Out Class Implementations
+    * header comment 描述內容
+    * Class data
+    * Public routines
+    * Protected routines
+    * Private routines
+    * 當有多個 class 在同個 file 裡面，使用多個 blank line 代表新的 class 的開頭，如果語言沒有限制最多幾個 file 則最好一個 file 一個 class
+* Laying Out Files and Programs
+    * 只放一個 class 到一個 file，file 應該包含目的相同的一堆 routine，而這些 routine 可以稱為 class，
+    * file name 要與 class name 相關
+    * 使用至少兩個 blank line 將相同 file 裡的 routine 分開
 
 ### Chapter 32: Self-Documenting Code
 
