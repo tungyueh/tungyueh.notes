@@ -768,6 +768,95 @@ Debugging 是一種找出錯誤的根本原因並且修正的過程。而我們�
     * 使用至少兩個 blank line 將相同 file 裡的 routine 分開
 
 ### Chapter 32: Self-Documenting Code
+#### 32.1 External Documentation
+* Unit development folders: 開發者在開發過程中備註的文件，包含為何採用該設計、相關需求、實作方式、設計備註
+* Detailed-design document: low-level 設計的文件，說明選擇該設計方式的理由
+
+#### 32.2 Programming Style as Documentation
+* 相較於外部的文件，內部的文件是指列在 source code 之中的，是最為詳細的文件也是與 code 最高度相關的文件
+* Code-level 文件主要來自於好的 programming style，包含程式架構、使用直接且容易瞭解的實作、好的 function 跟 variable name、排版清楚、最簡化 control-flow 與資料結構
+
+#### 32.3 To Comment or Not to Comment
+* 註解應該要表達無法從 code 表達出來的東西，不應該重複解釋 code 已經表達過的事情
+* 註解要能讓人快速找到想要看的部分
+
+
+#### 32.4 Keys to Effective Comments
+* 註解種類
+    * Repeat of the Code: 重複解釋 code 要做的事情，只是讓讀的人有更多東西要讀，並沒有提供任何額外的資訊
+    * Explanation of the Code: 解釋程式複雜、詭異的部分，但如果程式複雜到需要註解或許可以考慮直接改良而不是加上註解
+    * Marker in the Code: 用來提醒開發者尚未完成或代處理的部分，需要規定大家都使用相同關鍵字來當 marker 以便日後搜尋，release 之前務必檢查這些 marker
+    * Summary of the Code: 使用一兩句話總結 code 作用，讓人可以容易找到需要修改的地方
+    * Description of the Code’s Intent: 表明這段 code 的意圖，通常使用在描述問題而不是解法
+    * Information That Cannot Possibly Be Expressed by the Code Itself: 無法在 code 中表達的資訊，例如: 版權宣告、保密通知、版號等等
+* 有效率的註解
+    * 通常需要花很多時間寫註解有兩種
+        * 註解風格需要花時間很多時間，請使用其他省時間的風格，如果註解不容易更改，維護註解變困難後會導致註解過時並容易誤導
+        * 難以使用註解表達程式作用，可能代表並不了解這段程式的作用，所以寫註解的時間其實是了解程式作用的時間，而這段時間是必要的不管有沒有要寫註解
+    * 使用容易修改的註解方式: 太過 fancy 的註解都難以修改
+    * 使用 Pseudocode Programming Process 減少註解時間: 先寫好 code 的註解再來寫 code
+    * 把註解加入開發過程: 如果把註解放在最後會讓人覺得是多一項負擔，最後在寫註解還需要回想當初開發這段 code 的目的，如果覺得已經很難寫 code 了還要寫註解就應該先停下來把註解寫好釐清思緒再來寫 code，同時註解也寫好了
+    * 效能並不是不註解的理由: 古老時代註解可能會導致效能變差但現代已經不會有所差別
+
+#### 32.5 Commenting Techniques
+* Commenting Individual Lines: 通常好的 code 不太需要為單行作註解，可能是複雜到需要註解或標示含有的錯誤
+    * 不要使用意義不明的註解
+    * Avoid endline comments on single lines: 通常都是重複 code 的目的，空間比較少只能寫短的註解，不易修改因為需要縮排好
+    * Avoid endline comments for multiple lines of code: 需要讀完程式碼跟註解才能知道這是這段程式碼的註解而不是單行註解
+    * 可以使用 endline comment 的例外:
+        * 資料宣告可以使用 endline comment: 通常資料宣告比較短所以後面有足夠空間寫註解
+        * 避免使用 endline comment 來註解維護事項: 註解應該是要說明為何 code 可以正確運作而不是為何無法運作，使用 version-control 軟體來做比較適合
+        * 使用 endline comment 標示出 block 的尾端
+* Commenting Paragraphs of Code: 使用一到兩句話說明這段 code 的目的，而不是實作方法，如果實作方法有誤則說明目的的註解不需要更改，所以說明目的註解更容易維護
+    * 註解要能表達程式的目的，不需重複程式邏輯，盡量提供程式沒有提供的資訊，藉由思考如果要把這段程式變成 function 則會如何命名就可以比較容易下好的註解
+        * Poor: 檢查所有輸入字串直到找出 "$" 或者全部找過
+        * Good: 找出輸入字串有沒有 "$", 找出 command-word terminator ($)
+    * 專注於 code 本身的註解，為變數取目的明瞭的名字，例如 done 比較不清楚但 foundTheTerminator 比較清楚，或者直接包裝成 function
+    * 段落註解應該要說明這段 code 要做什麼而不是怎麼做，這樣才會專注在問題本身而不是程式上，如果程式有足夠說明時可以把註解變成段落標題讓人容易找到
+    * 使用註解來讓讀的人可以快速掌握程式作用跟要去哪邊看更詳細的情況
+    * 讓每個註解都有意義，如果太多註解會模糊程式本身
+    * 註解特殊的部分，像是使用不直覺的方式來實作是因為效能考量
+    * 避免使用縮寫在註解中
+    * 區分主要與次要的註解
+    * 註解錯誤或不再規格的 feature
+    * 註解為何不使用好的 coding style
+    * 不註解 tricky code 而是改寫
+* Commenting Data Declarations
+    * 註解數值的單位，最好把單位放進變數名稱裡面
+    * 註解數值的範圍
+    * 註解數值背後的意義，如果語言不支援 enum 型態的話
+    * 註解輸入資料的限制，也可以用 assertion 限制
+    * 註解 flag 的每個 bit 的意義
+    * 註解中的變數名稱要與被註解的變數名稱一樣確保改動時可以被搜尋到
+    * 註解 global data 表示為何需要 global，使用時也要表明是個 global 變數
+* Commenting Control Structures
+    * 在每個 if, case, loop or block 前加上註解，這類通常都需要解釋而且在前面也容易讓人看到
+    * 註解在 control structure 的結尾，對於很長或很深的 loop 這類註解可以幫助讓人理解邏輯結構
+    * loop 後的註解當成一種警告，代表 loop 已經過長需要重新改寫比較好
+* Commenting Routines
+    * 讓註解與 code 保持相近確保改動時註解也會一起被改動
+    * 使用一到兩句話描述 routine，如果無法做到代表 routine 太過複雜需要重新設計
+    * 註解在參數宣告的地方
+    * 使用 code documentation utilities 像是 Javadoc，可以容易維持 code 與註解的一致性
+    * 區分輸入與輸出的資料
+    * 註解預期的資料
+    * 註解程式的限制，說明在未預期的情況下會產生何種輸出
+    * 說明 routine 會對 global 造成什麼變化
+    * 註解使用的演算法來源
+    * 使用註解標記出特定位置，以便後續搜尋可以快速找到想要的地方
+* Commenting Classes, Files, and Programs
+    * General Guidelines for Class Documentation
+        * 從設計的角度說明 class，提供無法從 code 看出的資訊才是有用的，描述設計方法跟為何採用跟棄用某些設計方法的原因
+        * 描述限制、假設、錯誤處理的責任、演算法的出處，對於 global 的影響等等
+        * 註解 class 的 interface，如果 programmer 無法單純從 interface 就了解該如何使用 class 則封裝不完全
+        * 不要註解 class 內部的實作細節，不然會破壞封裝的原則
+    * General Guidelines for File Documentation
+        * 描述檔案的作用及內容，說明為何 routine 都在這個檔案，為何不同 class 要放在同一個檔案，為何要分散放到不同的檔案
+        * 把維護人資訊放到檔案中讓人知道誰對這個檔案負責，在大型專案中需要讓特定 programmer 負責特定區塊的程式
+        * 包含 version-control tag
+        * 包含版權宣告
+        * 檔案名稱需要與內容的 class 相近
+* 把 code 想成一本書來做註解有助於 programmer 了解 code 的組織性
 
 ### Chapter 33: Personal Character
 
