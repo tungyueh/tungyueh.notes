@@ -30,3 +30,26 @@
 * Clean code 不要有 duplication
 * Clean code 讓語言本身就像是為問題所產生的一樣
 * code 的童子軍原則: 讓 code 變得比當初發現的更好，就可以避免 code 腐化
+
+## Chapter 2: Meaningful Names
+* 軟體開發過程中需要常常命名所以需要好好的命名
+* 使用能表明意圖的名稱，雖然取好的名字需要花時間但是之後可以節省更多時間，使用有意義的名稱能快速幫助閱讀者知道 code 的作用跟意圖
+* 避免使用誤導性的命名、包含資料結構的命名、與其他命名差異過小
+* 讓命名都有明顯的區別，不要故意拼錯、使用 number-series naming 跟放 noise word 到名稱中，會讓讀者困惑
+* 使用可以念出來的名稱，才能夠順暢的討論，而且人類對於可發音的語言更能好好的處理所以要使用這項優勢
+* 使用容易被搜尋的命名才便於找出使用的地方，命名的長度可以根據出現的 scope 來決定，所以如果使用的 scope 很小就可以用短一點的命名
+* 避免使用縮寫因為還需要解讀也不容易唸出來更容易拼錯
+* 現代語言都要好的 type system 跟現代傾向寫出小的 class 跟 function 所以不太需要使用 Hungarian Notation 來幫助 programmer 記憶型態，而且也不太好更改命名跟比較難讀懂
+* 有了現代 IDE 的幫助就不需要在 class 的 member 前面加 prefix m_ ，而且寫小的 class 也不太需要特別加入 prefix，另外讀者會自動忽略 prefix 才能快速知道命名所以 prefix 也有點累贅
+* 比起 prefix interface 比較傾向 prefix implementation
+* 避免讓讀者還要自己找出命名背後的意義，通常發生在不使用 problem domain teram 也不使用 solution domain term
+* class 命名通常使用名詞
+* Method 命名通常使用動詞
+* 使用清楚的命名取代娛樂性的命名
+* 固定使用一種命名的方式才不會讓使用者困惑，fetch, retrieve, get 中挑選一種，controller, manager, driver 中挑選一種
+* 保持一個字只代表一種概念，不要使用同一個字但有兩種意思避免造成誤解
+* 使用 programmer 都知道的名字來命名，因為讀 code 的人都是 programmer，如果使用從問題命名而來就需要去讀懂問題的本身
+* 如果沒有 solution domain term 就使用 problem domain term 至少讓讀者可以去問該領域的專家，好好的把 solution 跟 problem domain 分開始 programmer 的工作之一
+* 把命名結合再一起形成有意義的 class, function ，如果都無法至少在這些命名加上 prefix 讓讀者知道這是屬於結構的一部分
+* 讓命名長度短到可以明確表達意思，不要加入累贅的部分，不僅會讓 IDE 的 auto complete 難以使用也無法重複使用該 class 或 function
+* 命名需要有良好的描述能力跟同樣的文化背景
