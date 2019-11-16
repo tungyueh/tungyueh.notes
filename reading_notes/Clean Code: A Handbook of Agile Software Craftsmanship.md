@@ -53,3 +53,86 @@
 * 把命名結合再一起形成有意義的 class, function ，如果都無法至少在這些命名加上 prefix 讓讀者知道這是屬於結構的一部分
 * 讓命名長度短到可以明確表達意思，不要加入累贅的部分，不僅會讓 IDE 的 auto complete 難以使用也無法重複使用該 class 或 function
 * 命名需要有良好的描述能力跟同樣的文化背景
+
+## Chapter 3: Functions
+* Function 是組織程式的第一步所以把 function 寫好是重要的事情
+* Function 越小越好，不要超過 100 行盡量在 20 行之內
+* 把 if, else, while 底下的 block 包裝成 function 可以給這個 block 有意義的名稱增加描述性，也可以減少 function 過多的縮排讓 function 更好讀
+* Function 下只做同一層概念的事情，因為 function 是為了把大概念分割成許多小概念的工具，所以如果 function 有不同層的概念就失去意義了
+* Function 用相同層級的概念下閱讀起來比較容易，讀者不需要再不同概念下轉換
+* switch (包含 if/else chain) 本性上就違反只做一件事的原則，但可以使用 polymorphisom 來把 switch 藏在下一層的概念裡避免重複
+    ``` java
+    public Money calculatePay(Employee e)
+    throws InvalidEmployeeType {
+        switch (e.type) {
+            case COMMISSIONED:
+                return calculateCommissionedPay(e);
+            case HOURLY:
+                return calculateHourlyPay(e);
+            case SALARIED:
+                return calculateSalariedPay(e);
+            default:
+                throw new InvalidEmployeeType(e.type);
+        }
+    }
+    ```
+    * 有新的 type 增加會使 function 變大
+    * 不只做一件事情，做了找出相對應的 function 跟計算 pay
+    * 違反 Single Responsibility Principle，當新種類的 employ 出現或改變計算薪資的方式都需要改這個 function
+    * 違反 Open Closed Principle，因為有新形態就要修改
+    * 最糟糕的是有其他很多 function 都會不斷出現這類結構，像是 `isPayday(Employee e, Date date)`, `deliverPay(Employee e, Money pay)`
+    ``` java
+    public abstract class Employee {
+        public abstract boolean isPayday();
+        public abstract Money calculatePay();
+        public abstract void deliverPay(Money pay);
+    }
+    -----------------
+    public interface EmployeeFactory {
+        public Employee makeEmployee(EmployeeRecord r) throws InvalidEmployeeType;
+    }
+    -----------------
+    public class EmployeeFactoryImpl implements EmployeeFactory {
+        public Employee makeEmployee(EmployeeRecord r) throws InvalidEmployeeType {
+            switch (r.type) {
+                case COMMISSIONED:
+                    return new CommissionedEmployee(r) ;
+                case HOURLY:
+                    return new HourlyEmployee(r);
+                case SALARIED:
+                    return new SalariedEmploye(r);
+                default:
+                    throw new InvalidEmployeeType(r.type);
+            }
+        }
+    }
+    ```
+    * 使用 abstract factory 產生不同的 employ class 把 switch 永遠藏起來
+    * 當 switch structure 只出現一次是可以接受的但是出現多次需要藏在繼承關係裡面讓其他人看不到
+* 挑選有描述性的 fuction 名字有助於釐清設計的方向並且幫助改善
+* Function Arguments
+    * Function 參數越少越好，三個以上參數就需要仔細思考了
+        * 參數讓讀者每次看到都需要耗費多餘的精力去理解
+        * 參數也不容易對 function 做完整的測試，參數越多則測試組合數量會快速的增加
+        * output 參數比 input 參數更讓人難以理解，一般都會認為由 function 回傳值而不是從參數回傳
+    * 通常傳一個參數到 function 是為了問關於這個參數的問題或者對於參數做特定的轉換，挑選 function 名字需要能準確區分這兩種目的，另外稍微少見一點的是 event 的形式，傳一個參數來做特定的事情沒有回傳值，不要把回傳值放在 output argument
+    * 不要使用 flag arugment，因為這樣就很清楚說明 function 不只做一件事情，也會讓 function 的目的模糊
+    * 兩個參數的 function 需要再合適的時機使用，像是在 `Point p = new Point(0,0);`，不一定要轉換成單個參數的 function 要考慮轉換後是否有得到好處
+    * 過多的參數可以用 object 來包裝減少參數的個數，包裝後的 object 可以為相關的參數取個名字增加可讀性
+    * Function 跟參數名字要能形成動詞與名詞的關係才能表達清楚彼此的關係
+* Function 不要有 side effect，不但違反 do one thing 的原則而且增加 coupling
+* Output arguments 會讓讀者很疑惑需要再去確認宣告的地方知道用法，需要避免使用，如果 function 需要改變東西的狀態應該東西本身自己去改變狀態，例如 `appendFooter(s);` 轉換成 `report.appendFooter();`
+* Function 不是做事就是回答問題，不要混用造成違犯 do one thing 也會讓可讀性降低
+    * Bad: `if (set("username", "unclebob"))...` 
+    * Good: 
+        ``` java
+        if (attributeExists("username")) {
+            setAttribute("username", "unclebob");
+            ...
+        }
+        ```
+* 使用 exception 來處理錯誤而不是回傳的 error code，使用回傳的 error code 造成可讀性降低也會讓結構有很深的縮排
+* 把 try/catch block 包成 function 比較容易閱讀
+* Error handling 也算是一件事情所以 function 只能處理 try/catch 而不能做其他事情
+* Error code class 會讓其他 class 都需要 import ，改變 Error code class 會需要重新 compile 跟 deploy 造成大家都不願意加新錯誤，但使用 exception 加新的 exception 是繼承所以不需要重新 compile 跟 deploy
+* 雖然有人提倡 one entry and one exit 但是在小型的 function 就不適用，所以小型的 function 還是可以用多個 return, break, continue，但還是不要使用 goto 因為 goto 只在大的 function 才有意義
