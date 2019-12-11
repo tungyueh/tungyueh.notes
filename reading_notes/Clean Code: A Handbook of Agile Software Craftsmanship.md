@@ -207,3 +207,130 @@
     * 不要為了單行的 if statement 或小的 while loop 或小的 function 而打破縮排的規定
     * 無可避免需要使用沒有 body 的 loop 的時候需要清楚將齊縮排好，而不要藏在最尾端
 * 每個人都有自己喜歡的排版方式但在專案裡需要大家討論出一個排版方式並且遵守才能讓專案有一致性
+
+## Chapter 6: Objects and Data Structures
+* 把變數變成 private 是為了不想要使用者依賴這些變數並且我們可以自由改變這些變數的實作方式，但還是有很多人為了讓外面的人讀取這些 private 的變數多加了 setter 跟 getter 來讓外面存取
+
+### Data Abstraction
+* 隱藏實作方式不只是將變數多一層分隔開來，主要目的是 abstraction
+* 把 private 變數提供 setter 跟 getter 讓外界可以更改還是等於把變數設為 public
+* 只把使用者需要操作的必要資料 expose 出去而隱藏內部實作細節
+* 要思考 expose 出去的 interface 的最佳形式而不是單純把隱藏的資料 expose 出去
+    * Concrete Vehicle: 
+        ``` java
+        public interface Vehicle {
+            double getFuelTankCapacityInGallons();
+            double getGallonsOfGasoline();
+        }
+        ```
+    * Abstract Vehical(Prefer):
+        ``` java
+        public interface Vehicle {
+            double getPercentFuelRemaining();
+        }
+        ```
+
+### Data/Object Anti-Symmetry
+* Object 把 data 隱藏在 abstraction 後面，提供 function 去對 data 操作
+* Data structure 只 expose data 沒有任何 function
+* 使用 data structure 容易增加 function 而不影響原本的 data structure，使用 OO 的方式容易增加 class 而不影響原本的 function
+* 根據使用情境挑選合適的解法
+
+### The Law of Demeter
+* Module 不該知道 object 內部的行為
+* class C 的 method f 只能呼叫
+    * C 的 method
+    * f create 出來的 object 的 method
+    * 被當作參數傳進 f 的 object 的 method
+    * C 的 instance variable 的 object 的 method
+* 不使用 `a.b.Method()` 這類方式，因為呼叫的 `Method()` 是 `b` 所回傳的
+
+#### Train Wrecks
+* `final String outputDir = ctxt.getOptions().getScratchDir().getAbsolutePath();`
+* 這類型的 code 像是一堆火車車廂擠在一起，應該要盡量避免
+* 最好改寫成 
+    ``` java
+    Options opts = ctxt.getOptions();
+    File scratchDir = opts.getScratchDir();
+    final String outputDir = scratchDir.getAbsolutePath();
+    ```
+* 上面這段 code 沒違反 Law of Demeter 因為呼叫的 function 只呼叫自己所知道的 function
+* 違反 Law of Demeter 端看是 object 還是 data structure，如果是 data structure 天生就 expose data 所以就跟 Law of Demeter 沒關係
+
+#### Hybrids
+* 混用 data structure 與 object 會同時得到兩種的缺點
+
+#### Hiding Structure
+* 如果 `ctxt`, `options,`, `scratchDir` 都是 object 就無法透過 internal structure 去找出 absolute path
+* 雖然可以讓 `ctxt` 加入 `getAbsolutePathOfScratchDirectoryOption()` 但感覺不太好
+* 應該要找出目的後讓 `ctxt` 為我們做事而不是詢問 `BufferedOutputStream bos = ctxt.createScratchFileStream(classFileName);`
+
+### Data Transfer Objects
+* 典型的 DTO 是一個 class 只有 public variable 沒有 function
+* 通常使用在與 database 溝通或者解析 socket 的訊息
+* Active Record 是 DTO 的一種特殊形式，除了 public variable 還有 navigational method 像是 save 或 find，提供直接的轉譯
+* 把 active record 誤認為 object 而加入 business rule 會有混用 object 與 data structe 的弊病
+* Active Reocrd 當成純粹的 data structure 在另外的 object 加入商業邏輯
+
+## Chapter 7: Error Handling
+* Error handling 是需要面對的事情，輸入或機器可能異常，所以要確保遇到異常情況能做需要的行為
+* 雖然 error handling 很重要但一但讓原本邏輯模糊掉就是錯誤的
+
+### Use Exceptions Rather Than Return Codes
+* 早期程式語言沒有 exception 所以都利用 error flag 或 error code 來檢查呼叫的結果
+* 用 error code 檢查呼叫結果缺點是 caller 需要立刻檢查 error code 的結果而且也容易忘記
+* 使用 excpetion 處理異常情形可以將本身的邏輯與處理錯誤的邏輯分離開來
+
+### Write Your Try-Catch-Finally Statement First
+* Exception 可以創造出 scope，讓人知道 try 裡面的 code 都有可能發生 exception 接著會在 catch 裏回復
+* 當遇到會發生 exception 的 code 使用 try-catch-finally 的寫法可以幫助使用者預測行為
+* 先從寫預期發生 exception 的測試開始，接著增加 handler 去滿足測試，這樣可以先把 try block 先建立好，之後只要在裡面增加邏輯就好
+
+### Use Unchecked Exceptions
+* Checked exception 缺點是如果改變的時候需要重新 compile
+* 當 low level throw checked exception 則中間的檔案都需要宣告這個 exception
+* Checked exception 破壞了封裝的概念，因為上層需要知道下層會吐出哪種 excpe
+
+### Provide Context with Exceptions
+* 丟出去的 exception 要能夠提供足夠的資訊讓接住的能有辦法判斷要如何處理
+* 雖然可以看 traceback 但是不容易看懂所以自己要轉換好資訊，通常包含做了什麼動作遇到什麼錯誤
+
+### Define Exception Classes in Terms of a Caller’s Needs
+* Define exception 時通常要考慮怎麼被接住
+* 多個 excepction 都是處理相同的事情就是 duplicate，可以 define excpetion 跟多一個 wrapper 來處理
+* 對於第三方 API 寫一個 wrapper 是好的作法，因為不需要遷就於原本作者的想法，也可以無痛的轉換不同的 API
+* 通常一個 exception class 對應到一個範圍的 code，利用 exception 的訊息可以分辨錯誤，如果想要讓某些 exception pass 才去 define 多個 exception class
+
+### Define the Normal Flow
+* 不要使用 exception 來處理特殊情況因為為打亂邏輯
+    ``` java
+    try {
+        MealExpenses expenses = expenseReportDAO.getMeals(employee.getID());
+        m_total += expenses.getTotal();
+    } catch(MealExpensesNotFound e) {
+        m_total += getMealPerDiem();
+    }
+    ```
+* 讓 object 去處理 special case 讓 client code 不需要特別處理使 special case 封裝在 object 中
+    ``` java
+    MealExpenses expenses = expenseReportDAO.getMeals(employee.getID());
+    m_total += expenses.getTotal();
+    public class PerDiemMealExpenses implements MealExpenses {
+        public int getTotal() {
+            // return the per diem default
+        }
+    }
+    ```
+
+### Don’t Return Null
+* 處理錯誤時常用的方法是回傳 null 但是會造成 caller 多需要檢查回傳值，也有忘了檢查的風險
+* 使用 exception 或 special case object 來處理
+
+### Don’t Pass Null
+* 不要傳 null 到 method 因為不保證 method 有對 null 做處理
+* Method 檢查傳進的參數後如果是 null 就丟出 exception，而由誰來接 exception 又是個問題
+* 使用 assert 來確保傳進 null 但還是會造成 runtime error
+
+### Conclusion
+* Clean code 不只是 readable 也要 robust，這兩者必不互相衝突
+* 分離 main logic 與 error handling logic 可以達成 clean robust code
