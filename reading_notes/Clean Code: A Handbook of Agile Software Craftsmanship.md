@@ -334,3 +334,73 @@
 ### Conclusion
 * Clean code 不只是 readable 也要 robust，這兩者必不互相衝突
 * 分離 main logic 與 error handling logic 可以達成 clean robust code
+
+## Chapter 8: Boundaries
+* 通常我們不會從無到有的打造軟體，都會使用 third-party package 或 open source，本章介紹如何讓我們的軟體與其他的有清楚的界線
+
+### Using Third-Party Code
+* 提供 interface 與使用 interface 本來就有一段差距，提供的人想要提供通用的 interface 讓更多人使用，而使用的人想要盡量專注在問題本身，拉鋸會造成系統界線模糊的問題
+* Java Map 提供很多 method 面向通用的情況，但我們實際使用可能不想要某些 method 的功能並且希望任何人都不應該使用某些 method
+* 使用 object 把使用 map 的實作封裝起來就可以畫清楚界線
+
+### Exploring and Learning Boundaries
+* Third-party code 幫助我們使用較少時間實作更多功能
+* 同時學習跟使用 thirty-pary code 是很困難的，可以分開使用 learning test 的方式透過撰寫測試來了解，之後再去使用
+
+### Learning Tests Are Better Than Free
+* Learning test 是個簡單理解 third-party code 的方式，可以精準測試我們的理解是否有誤
+* Learning test 可以在改版的時候及時發現是否預期行為有改變
+* 無論是否有 learning test 都需要有 boundary test 來測試外部的行為來幫助 migration
+
+### Using Code That Does Not Yet Exist
+* 已知與未知也是一種界線，當某些領域已經不再我們的知識裡面或目前不知道那部分的 code 會是怎麼樣
+* 為了不被其他團隊卡住所以先定義好自己希望的 API 後做好測試之後只要用 adapter 整合到 production code 就好
+
+### Clean Boundaries
+* Boundary 會發生 change 但好的設計應該不需要花太多研究與重製來對付變更，當 code 逐漸失去控制需要好好的仔細研究如何不讓未來改動花太多心力
+* Boundary code 清楚的分開跟測試預期行為，不讓我們的 code 知道太多關於 third-party code
+* 可以使用 wrap 或 adapter 的方式與 third-party code 畫清楚界線並將 interface 轉換成我們期待的樣貌，讓 code 更易讀也讓 interface 更一致
+
+## Chapter 9: Unit Tests
+
+### The Three Laws of TDD
+* FIRST LAW: 寫 production code 之前先寫好 failing test case
+* SECOND LAW: 寫更多 test case 之前要先把之前 failing test case 修好
+* THIRD LAW: 再讓 failing test 通過之前不寫多餘的 production code
+* 遵循著上述規則開發會得到需多的 test case 雖然可以幾乎覆蓋到全部的 production code 但數量過多的 test case 也造成管理困難
+
+### Keeping Tests Clean
+* Dirty tests 等於沒有 tests 因為 tests 需要跟著 code 做改變，當 tests 愈 dirty 則越難改動，讓修正 tests 的時間多餘改動 code 的時間，最後導致捨棄 tests
+* Test code 與 production code 同等重要，跟 production code 一樣需要關懷
+
+#### Tests Enable the -ilities
+* Unit test 讓 code 有彈性、維護性與可重複利用
+    * 沒有 unit test 則我們開始害怕改動 code 而失去彈性
+    * 沒有 unit test 的改動都可能造成 bug 的產生而不易維護
+* Unit test 讓設計與架構可以盡可能的保持 clean
+
+### Clean Tests
+* 可讀性是 clean test 的重點，所有讓 code 可以增加可讀性的方法都適用
+* 建立 domain-specific language 來測試，在不斷 refactoring tests 途中可以找到特定 pattern 製造 test API 讓測試更加清楚
+
+#### A Dual Standardh
+* 測試不一定要像 production code 一樣有效率因為測試只會在測試環境下跑
+* 多個測試結果需要測試可以違反 metal mapping 因為這樣才比較好確定測試結果: ```assertEquals("HBchL", hw.getState());```
+
+### One Assert per Test
+* 一個測試只能有一個 assert 聽起來很嚴格但好處是可以一目了然的檢視測試結果
+* 使用 give-when-then patter 可以讓測試更易讀但會有很多 duplicate code，可以使用 template 來消除 duplicate
+* 雖然一個測試只能有一個 assert 是好的建議但也不用刻意避免，只要注意最小化 assert 就好了
+* 一個測試只測試一個概念
+
+### F.I.R.S.T.
+* Fast: 測試要跑得快才會常跑才會早點找到問題
+* Independent: 測試要能獨立跑，如果測試彼此有 dependent 很難找問題點
+* Repeatable: 測試要能在各種環境下跑，如果不行就會懷疑是環境的問題，在特定環境無法使用下就無法跑測試
+* Self-Validating: 測試結果只能有通過或失敗，不需要讓跑測試的人親自去分析結果
+* Timely: 測試要在 production code 完成之前寫好才能讓 production code 可以被測試
+
+### Conclusion
+* Tests 與 production code 同等重要或更重要，tests 讓 code 保持彈性、易維護性與可重複利用的特性
+* 透過找出 testing API 讓 tests 可簡潔表達測試目的
+* 如果讓 tests 腐爛則 code 也會跟著腐爛，所以要保持 tests clean
