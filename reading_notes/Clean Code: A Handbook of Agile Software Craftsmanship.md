@@ -404,3 +404,56 @@
 * Tests 與 production code 同等重要或更重要，tests 讓 code 保持彈性、易維護性與可重複利用的特性
 * 透過找出 testing API 讓 tests 可簡潔表達測試目的
 * 如果讓 tests 腐爛則 code 也會跟著腐爛，所以要保持 tests clean
+
+## Chapter 10: Classes
+* 目前為止都注重在如何把某行或某區塊的 code 寫得好，也學習了如何適當讓 function 組合與了解彼此關係，但我們需要往更上一層的 code 組織概念才能讓 code 更 clean
+
+### Class Organization
+* Class 一開頭先宣告變數，順序如下
+    1. Public static constant
+    2. Private static variable
+    3. Private instance variable
+* Publice function 放在變數之後，將該 function 呼叫的 private utilities 放在下面
+
+##### Encapsulation
+* 我們都盡量把 variable 或 utilities 變成 private 但有時候為了測試會變成 protected 或 package scope
+* 先需要尋找有沒有替代方案最後才去鬆綁 encapsulation
+
+### Classes Should Be Small!
+* Class 越小越好
+* Class 大小由 responsibilites 來決定，不像 function 用行數來決定
+* Class 名稱可以幫助我們知道大小，如果不能精確的取名就代表 class 承擔的責任太多，越模糊的命名則代表所承擔的責任越多，像是含有 Processor、Manager、Super 等字眼的命名
+* 如果能不使用 if, and, or, but 來簡短描述 class 代表承擔的責任太多
+
+#### The Single Responsibility Principle
+* Class 或 Module 只能為了一種原因而改動，這個原則提供 responsibilites 的定義跟 class size 的原則
+* SRP 是 OO 設計中最容易理解的原則但我們還是容易寫出做太多事情的 class
+    * 讓軟體可以動跟讓軟體簡潔是兩種不同的思考模式，由於我們注重讓軟體可以動就忘記保持簡潔，分離不同的思考在撰寫程式的時候也很重要所以先讓軟體可以動也沒有錯
+    * 問題是大部分的人都只停留在讓軟體可以動後就結束開發過程了而沒有轉換到讓軟體簡潔的思考
+* 有些人會擔心太多小型單一目的 class 可能會讓人難以理解整體概念，為了知道如何達成目標需要再這些 class 中不斷尋找，但是其實不管系統裡的 class 多或少需要學習的東西都是一樣的
+* 具有規模的系統都會包含大量的邏輯與複雜度，處理龐大複雜度的工具就是要組織管理讓開發者任何時候都可以知道去哪裡找到需要的地方並且只需要了解該地方的邏輯
+* 總結來說我們希望我們的系統由許多小的 class 組成，每個小 class 都負責單一責任與其他 class 合作達成期望的系統行為
+
+#### Cohesion
+* Class 的 instance variable 應該要少一點
+* Method 使用的 instance variable 的多寡可以代表此 method 與 class cohesion 程度
+* 我們希望 method 與 class 的 cohesion 高一點比較好，因為這代表 method 與 variable 形成一整塊的邏輯
+* 讓 function 跟 parameter list 越小會導致 instance variable 增加讓 method 只用某些 instance variable，這時候可以將 variable 跟 method 分離成不同 class 提高 class 內部的 cohesion
+
+#### Maintaining Cohesion Results in Many Small Classes
+* 把 large function 分成許多小 function 會讓 class 增加
+    * 分開後的 function 需要用到在 large function 的變數，因為不要把參數全部傳給小 function 所以使用 class 把這些變數變成 instance varaible，所以分開 large function 的結果 class 數量增加
+    * 隨著把 function 變數慢慢變成 class 的 instance varaible 會造成 class 的 cohesion 降低，此時要在將 class 切割成更小的 class 以提高 cohesion，結果又造成 class 數量增加
+
+### Organizing for Change
+* 我們需要以避免改動造成系統危機的目標來管理 code
+* 改動 class 就有可能造成危機所以需要完整測試才能確保不影響其他 code
+* 當 class 的 private method 只某些 public method 被用就可以分離出來成為新的 class，但只在有改動需求的驅動下才去改動，不然就先不動
+* 當把一個有多個責任的 class 分成一堆 closed class 就可以將理解特定 class 時間等於幾乎沒有，也可以避免改變 function 造成其他 function 壞掉的機會降低，新增 function 也不會影響到現有 function，以測試觀點來看多個 closed class 比較方便測試邏輯
+* Open-Closed Principle: Class 只能擴充而不能修改
+* 理想的系統是增加新功能時只需要擴展系統而不是修改系統
+
+#### Isolating from Change
+* 需求會變動所以 code 會變動，在我們學的 OO 設計中 concrete class 包含實作細節而 abstract class 描述概念，當 client class 依賴於 concrete detail 就容易受到改動的影響也難以測試，所以要使用 interface 跟 abstract class 來將實作細節獨立出來
+* 當系統被 decouple 成足以被測試的情況也代表系統是有彈性而 code 也容易被 reuse，系統中的 element coupling 程度不高代表彼此獨立不容易受到其他 element 改動的影響，同時也讓人比較容易理解每個 element 
+* Dependency Inversion Principle: class 應該依賴於 abstraction 而不是 concrete detail
