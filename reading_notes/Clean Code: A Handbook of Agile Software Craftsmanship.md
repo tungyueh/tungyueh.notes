@@ -457,3 +457,86 @@
 * 需求會變動所以 code 會變動，在我們學的 OO 設計中 concrete class 包含實作細節而 abstract class 描述概念，當 client class 依賴於 concrete detail 就容易受到改動的影響也難以測試，所以要使用 interface 跟 abstract class 來將實作細節獨立出來
 * 當系統被 decouple 成足以被測試的情況也代表系統是有彈性而 code 也容易被 reuse，系統中的 element coupling 程度不高代表彼此獨立不容易受到其他 element 改動的影響，同時也讓人比較容易理解每個 element 
 * Dependency Inversion Principle: class 應該依賴於 abstraction 而不是 concrete detail
+
+
+## Chapter 11: Systems
+### How Would You Build a City?
+* 由一個人管理城市是不可能的，城市運作是有不同的團隊負責不同的部分，一部分負責詳細實行規劃而另一部分負責整體概念
+* 管理系統與城市有類似概念，目前 clean code 幫助我們達成 low level 的抽象化而本章更上一層讓系統層的抽象化更 clean
+
+### Separate Constructing a System from Using It
+* 建造與使用的過程是不一樣的，需要將 start up process 與 runtime logic 分開
+``` java
+public Service getService() {
+    if (service == null)
+        service = new MyServiceImpl(...); // Good enough default for most cases?
+    return service;
+}
+```
+* 直到使用才被建立出來有需多優點，如果沒用到就不需要建立、startup 時間可以縮短、也確保 service 不會回傳 null
+* 但是我們就會依賴於 `MyServiceImpl` 與所需要的參數，如果真的沒用到也不能 compile
+* 測試也是個問題，如果 `MyServiceImpl` 是個很大的 object 則需要 mock object 才能避開初始化 `MyServiceImpl`，因為把 construction logic 跟 runtine process 混再一起所以需要更多測試，也就是有多個 reponsibility 也就違反 SRP
+* 也不確定是否 `MyServiceImpl` 適用於所有 case
+* LAZY-INITIALIZATION 雖然不是壞事但把很多 setup 部分分散在系統各處不是很好
+* 如果要打造堅固的系統就不要讓貪圖方便的小技巧打亂了整體模組化的設計，需要好好區分 start up process 與 runtime logic 讓我們有個一致的方法來解決相依性問題
+
+#### Separation of Main
+* 把 construction 的部分都放在同一個地方，在將產生出來的東西丟給 application 使用
+* Application 不會知道所使用的東西是怎麼建立出來的，單純相信拿到的東西是對的
+
+#### Factories
+* 有時候需要讓 application 可以覺得什麼時候要製造東西出來，就像是一個訂單處理系統一樣
+* 使用 abstract factory 的 pattern 讓 main 製造 factory 出來給 訂單處理決定如果要產生訂單就使用 factory 來產生，訂單處理不會知道 factory 內部怎麼產生訂單，所以就達成將 construction 與 runtime logic 分離了
+
+#### Dependency Injection
+* Dependency Injection 是一個 mechanism 將 construction 從 use 抽離出來
+* Object 不需要負責初始化的責任而是交由另外的 authorative 的機制來產生
+* Class 不直接解決 dependency 而是提供 setter 或 constructor argument 用來 inject dependency
+
+### Scaling Up
+* 設計系統不可能一次到位，先是根據目前情況設計好後，之後根據需求來 refactor 擴展系統
+* 將各種 concern 都有分開維持好一定的空間就可以慢慢改進系統
+
+#### Cross-Cutting Concerns
+* Concern 會把原本的 domain natural object 切割掉，像是要使用 DBMS 或一般檔案來儲存資料需要再不同 object 都保持一致
+* Cross-Cutting Concern: 很多處理 concern 的相同 code 散落放進不同的 object 中，但這些 concern 也可以模組化所以需要好好的調整與 domain 的交錯
+* Aspect-oriented programming(AOP): 找出系統相同處理相同 concern 的 code 成為 modular construct 稱為 aspect 支援特定 concern
+
+### Java Proxies
+* 只適合用在簡單的情況，像是 wrap method call
+* 用在複雜的情況中會造成 code 太多且複雜所以需要使用真正的 AOP
+
+### Pure Java AOP Frameworks
+* 大多數的 proxy boolerplate 可以由 tool 自動處理，只需要寫好 business logic 在 object 中，此 object 就單純處理這個 domain 的 user story 不會與 enterprise framework 有 dependency，所以也就容易測試
+* 使用 config 或 API 來包含 application 需要的 cross-cutting concern
+
+### AspectJ Aspects
+* AspectJ 語言是 Java 的擴充支援 fist-class 提供做完整支援 seperating concerns through aspect，但需要採納新工具與學習新語言
+
+### Test Drive the System Architecture
+* 透過 aspect 把 concern 與 domain logic 分離好處很多
+    * 可以使用測試來驅動架構成長
+    * 不需要從一開始就精心設計 Big Design Up Front(BDUF)，如果一開始精心設計就會不容易捨棄不好的設計
+* 需要用 BDUP 的方式來建造可能是因為建造途中因為實際情況才無法隨時修改，但只要把 concern 分離好修改就是可行的
+* 我們可以在把各種 concern decouple 設計下從最簡單實現 user story 建造系統後才慢慢一步步擴充
+* 我們也不應該一頭栽進去 project 裡開始建造，需要有對於 project 的目標、範圍、時程才能開始打造，也要規劃好容許改動的空間
+* 一個好的系統應該由各種模組化的 domain concerns 所組成，不同 domain 盡可能不侵犯到其他 domain 讓整個系統可以被測試
+
+### Optimize Decision Making
+* 模組化與分好 concern 讓去中心化的管理與做決定可行，因為當如果系統太龐大則單獨一個人是無法做出所有決定
+* 我們都知道由一群人做出來的決定會比單獨一個人的好但卻忽略了決定越晚做越好，因為當資訊不足的情況做出來的決定不一定是做好的
+* 透過模組化來將做決定的時刻推延的最後一刻以期作出做好的決定，也可降低需要一次做出好多決定的複雜度
+
+### Use Standards Wisely, When They Add DemonstrableValue
+* 標準讓人可以更容易重複利用現有的東西、招募有經驗的人、encapsulate 好點子跟把各零件串接一起
+* 但是創造標準的時間會趕不上實際使用的時機也可能會與現況脫節
+
+### Systems Need Domain-Specific Languages
+* 建造過程需要有 domain specific languages(DSLs) 來讓溝通精確且有效率
+* 好的 DSLs 應該要能有效消除 domain concept 與實際的 code 的落差，如果使用與該 domain 專家一致的語言來實作也可以減少誤解
+* DSLs 提升 code abstraction level 讓開發者可以透過適當的 level 顯示他們的意圖
+
+### Conclusion
+* 系統中的 domain logic 沒有分清楚會造成無法敏捷開發，很容易有 bug 隱藏在模糊的 domain logic 也難以實作 user story，也會失去 TDD 的好處
+* 每個 abstraction level 都應該要清楚表示目標，透過單純的 object 再加上 aspect 機制才能讓不同 concern 分開
+* 不管是系統還是 module 都不要忘記用最簡單的方式實作
