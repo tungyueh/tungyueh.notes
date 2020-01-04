@@ -540,3 +540,44 @@ public Service getService() {
 * 系統中的 domain logic 沒有分清楚會造成無法敏捷開發，很容易有 bug 隱藏在模糊的 domain logic 也難以實作 user story，也會失去 TDD 的好處
 * 每個 abstraction level 都應該要清楚表示目標，透過單純的 object 再加上 aspect 機制才能讓不同 concern 分開
 * 不管是系統還是 module 都不要忘記用最簡單的方式實作
+
+## Chapter 12: Emergence
+### Getting Clean via Emergent Design
+* Kent Beck’s four rules of Simple Design
+    * 通過所有測試
+    * 不包含重複的 code
+    * 表達意圖
+    * 減少 class 跟 method 的數量
+* 參考這四條規則可以幫助我們創造具有良好設計的軟體
+
+### Simple Design Rule 1: Runs All the Tests
+* 設計系統讓它可以照預期的運作是最重要的，如果無法證明系統可以正常運作則這個設計只是紙上談兵而已
+* 當系統可以被完整的測試驗證才有開發的價值
+* 當系統可以被測試自然會讓我們遵循 SRP 來開發，因為遵循 SRP 才會容易測試
+* Tight coupling 讓我們難以測試，所以當我們要測試就會避免 tight coupling，為了避免 tight coupling 自然會採用 DIP, dependency injection, interface, abstraction 減少 coupling 程度
+* 當我們有測試且不斷去跑測試會強迫我們向 low coupling 與 high cohesion 的目標前進，所以寫測試會讓我們有更好的設計
+
+### Simple Design Rules 2–4: Refactoring
+* 測試可以讓我們不害怕去 refactoring code，所以當增加 code 的時候可以去反思有沒有讓設計變糟，如果有就可以放心去 refactoring
+* Refactoring 過程中可以使用任何好的設計，例如: increase cohesion, decrease coupling, seperate concern, modularize system concern, shrink functions and classes, choose better name 等等
+
+### No Duplication
+* Duplication 是好設計的大敵，代表增加多餘的工作量、多餘的危險、多餘的複雜度
+* 從小地方的 refactoring 讓 code 可以 reuse 可以降低系統的複雜度，為了可以 reuse 大地方的 code 要從小地方開始學習
+* TEMPLATE METHOD 常被用來去除 high-level 的 duplicate
+
+### Expressive
+* 在我們對於理解問題程度較深的時候容易寫出其他人較不容易懂的 code，因為其他人對於問題理解程度沒這麼深
+* software project 成本最高的地方就是維護，在系統日漸複雜的情況下能讓維護的人一眼看出 code 的意圖是很重要的，這樣才能降低理解 code 的時間
+* 取個好名字、用小的 function、design pattern 都可以很好的顯示意圖
+* 好的 unit tests 讓人快速理解 code 的作用
+* 完成 code 要多留一點時間思考有沒有辦法讓 code 變得更好讀，不要急著往下個問題前進
+
+### Minimal Classes and Methods
+* 雖然要保持 class 跟 method 小但可能會造成太多的 class 跟 method 所以應該也要保持 class 與 method 的數量少一點
+* 太多的 class 與 method 有時候是太過遵守原則的問題，應該要依照實際狀況來採用
+* 最終目標是要同時讓系統的 class 與 method 少而且 class 與 method 要小
+* 這條原則是排序最後的所以要先遵守好前三條
+
+### Conclusion
+* 沒有簡單的原則可以取代經驗，參考作者透過多年經驗所濃縮的原則可以少走一些冤枉路
