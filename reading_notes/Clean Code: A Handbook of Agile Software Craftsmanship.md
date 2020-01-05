@@ -581,3 +581,165 @@ public Service getService() {
 
 ### Conclusion
 * 沒有簡單的原則可以取代經驗，參考作者透過多年經驗所濃縮的原則可以少走一些冤枉路
+
+## Chapter 13: Concurrency
+* 要寫出 clean concurrent program 是很難的，雖然寫出看起來不錯的 code 但當系統在壓力之下就會崩潰
+* 本章討論 concurrent programming 的必要性跟困難之處，建議幾個方法來處理困難處，最後討論該如何測試
+
+### Why Concurrency?
+* Concurrency 把 what get done 跟 when get done decouple
+* Concurrency 可以增加 throughput 跟 application 的架構，可以讓系統更容易理解也可以更簡單分離 concern
+* 有些系統有 reponse time 與 throughput 的要求所以需要 concurrency 來達成
+
+#### Myths and Misconceptions
+* Concurrency 永遠會增加效能: 只有多個 thread 可以同時等待時間很多的時候才會
+* Concurrency 的設計不需要變: 分離 what 與 when 的概念會很大影響設計
+* 如果使用 container 就不太需要了解 concurrency: 最好了解 container 是如何處理 issue concurrent update 與避免 deadlock
+* Concurrency 會有額外的 overload 包括效能或多的 code
+* 正確的 concurrency 是很困難的
+* Concurrency 的 bug 通常很難重現，常被誤解成一次性的問題
+* Conccurency 通常需要從根本上採取不同的設計策略
+
+### Challenges
+``` java
+public class X {
+    private int lastIdUsed;
+    public int getNextId() {
+        return ++lastIdUsed;
+    }
+}
+```
+* 如果有一個 instance X 並設好 LastIdUsed 為 42 讓兩個 thread 共用
+* 假設兩個 thread 同時呼叫 getNextId 可能會有三種可能的結果
+    * Thread one 拿到 43, thread two 拿到 44, lastIdUsed 為 44
+    * Thread one 拿到 44, thread two 拿到 43, lastIdUsed 為 44
+    * Thread one 拿到 43, thread two 拿到 43, lastIdUsed 為 43
+* 最後一種結果最讓人驚訝，會發生的原因是有很多可能的路徑過經過那行 code，到底有多少 path 就要去理解 compile 怎麼產生的 bytes code 跟 jave memory model 怎麼做好 atomic
+* 雖然大多數的 path 產生正確的結果但是重點是有些 path 產生錯誤的結果
+
+### Concurrency Defense Principles
+#### Single Responsibility Principle
+* Concurrency 足夠複雜到可以當成一個原因去改變，所以要與其他 code 做分離
+* Concurrency-related code 有自己的 life cycle 包含開發，變動，微調
+* Concurrency-related code 有自己的困難之處，跟平常會遇到的困難不一樣
+* 有很多種撰寫 concurrency-based code 的錯誤方式在不增加 code 就已經足夠挑戰了
+* 建議把 concurrency-related code 與其他 code 分離
+
+#### Corollary: Limit the Scope of Data
+* 使用 synchronized keyword 保護 critical section，並且限制 critical section 的數量
+* 越多 shared data 則越容易忘記保護、到處都有保護的 code、難以找出錯誤的地方
+* 把 data encapsulation 放在心上，嚴格限制 shared data 的讀取
+
+#### Corollary: Use Copies of Data
+* 不使用 shared data 最好的方式就是不去 share data，某些情形可以複製 object 出來成唯獨狀態，或者複製 object 出來在 multi thread 然後在單一 thread 整理結果
+* 如果有簡單的方法避免 share data 則 code 就不會有太大問題，雖然使用複製的方式可以避免同步的問題但會額外造成 creation 與 garbage collection 的負擔
+
+#### Corollary: Threads Should Be as Independent as Possible
+* Threaded code 不去 share data 讓 thread 像是活在自己的世界不需要與其他 thread 交流
+* 嘗試把 data 分割讓 thread 可以獨立執行，之後更有機會在不同 processor 跑
+
+### Know Your Library
+* Java 5 提供許多對於 concurrency 的支援，主要需要注意下列事項
+    * 使用 thread-safe collection
+    * 使用 executor framework 去執行彼此不相關的 task
+    * 可以的話使用 non blocking solution
+    * 有些 library class 不支援 thread safe
+
+#### Thread-Safe Collections
+* Java 的 ConcurrentHashMap 在大部分情況都比 HashMap 效能好
+* Review 對你可用的 classes
+
+### Know Your Execution Models
+* 有很多種方式區分 concurrent application 的行為，所以要先定義以下名詞
+    * Bound Resources: 有固定大小的 resource
+    * Mutual Exclusion: 同一時間只有一個 thread 可以讀取 shared resource
+    * Starvation: 一個以上的 thread 長時間無法執行
+    * Deadlock: 兩個以上的 thread 都在等待對方結束
+    * Livelock: thread 處在每次嘗試執行都需等待
+
+#### Producer-Consumer
+* 一個以上的 producer thread 產生 work 放到 queue
+* 一個以上的 cosumer thread 從 queue 拿 work 出來完成
+* Queue 是個 bond resource，所以 producer 需要等 queue 有空間才能放，consumer 需要等 queue 有東西才能拿
+* Producer 與 Consumer 用 signal 通知 queue 的狀態
+
+#### Readers-Writers
+* Writer 更新 shared resource 會卡住 Reader 造成 throughput issue
+* 注重 throughput 可能造成 starvation 與 information 過時
+* 協調 Reader 不能讀 Writer 正在更新的資料是個困難的地方
+* 要提供合理的 throughput 與避免 starvation 是個有挑戰性的任務
+* writer 太常 update 會讓 throughput 降低，writer 等到 reader 都不需要 read 會讓 writer starve，取得之間的平行是很重要的問題
+
+#### Dining Philosophers
+* Thread 彼此搶 resource 會造成 starvation、deadlock、livelock、throughput、efficiency degradtion
+* 研究 algorithm 並且寫出 solution 可以幫助解決 concurrency 問題
+
+### Beware Dependencies Between Synchronized Methods
+* Synchronized method 彼此有 dependency 會造成奇怪的問題
+* 避免在 shared object使用兩個以上的 method 
+* 當一定要使用兩個以上的 method 參考下列方式讓寫出的 code 是正確的
+    * Client-Based Locking: Server 在呼叫第一個 method 之前 lock 起來直到呼叫最後一個 method
+    * Server-Based Locking: 用一個 method 把 server lock 起來，呼叫完所有 method 才 unlock，讓 client 使用這個 method
+    * Adapted Server: 創造中間層會去 lock，有點像是 server-based locking 但 server 無法改變的情況下使用
+
+### Keep Synchronized Sections Small
+* Lock 會製造 delay 與其他 overhead，所以要減少使用
+* 不需要為了減少 critical section 數量而把 critical 變得很大，因為會增加競爭的機率與降低效能
+
+### Writing Correct Shut-Down Code Is Hard
+* 寫出一個永遠跑下去的程式跟寫出只跑一段時間後就結束的程式是不一樣的
+* Graceful shutdown 很難正確因為可能會遇到 deadlock 或 thread 永遠等不到 signal
+* 盡早考量如何 graceful shutdown 因為這會花滿多時間
+
+### Testing Threaded Code
+* 對於可能會引發問題的部分寫測試並且使用不同 config 常常跑，如果出現錯誤要找出原因而不是忽略
+* 把 spurious failure 當成 threading issues
+* 讓 nonthreaded code 先正常運作
+* 讓 threaded code 可以決定是否使用
+* 讓 threaded code 可以調整
+* 使用比 processer 更多的 thread
+* 不同平台測試
+* 控制 code 可以強迫製造錯誤
+
+#### Treat Spurious Failures as Candidate Threading Issues
+* Threaded code 容易在不可能壞掉的地方壞掉，而且往往很久才發生一次
+* 不要忽略這類錯誤，不然 code 只會建立在錯誤的方向
+
+#### Get Your Nonthreaded Code Working First
+* 確保 code 在不是 threaded 的環境下也可以運作
+* 不要同時尋找 nonthreaded bug 跟 threaded bug，先確定 code 在不使用 thread 是正確的
+
+#### Make Your Threaded Code Pluggable
+* 支援 concurrency 的 code 應該要能在不同設定下跑
+* 讓 thread-based code pluggable 才能在不同設定嚇跑
+
+#### Make Your Threaded Code Tunable
+* 透過反覆測試才能找出平衡的 thread 數量，所以要讓 thread 可以調整
+* 最好是能在 run time 根據環境調整
+
+#### Run with More Threads Than Processors
+* 事情通常都發生在切換 task 的時候，所以使用比起 processor 更多的 thread 可以增加問題發生的機率
+
+#### Run on Different Platforms
+* 不同的 platform 有不同的 threading policies 所以需要再不同 platform 測試
+
+#### Instrument Your Code to Try and Force Failures
+* 缺陷常常藏在 concurrency code 中因為簡單的測試無法發現這類缺陷，需要很久時間才會發生一次
+* 只有很少的 path 才會觸發問題出現造成偵測及除錯困難
+* 可以操作 code 讓發生的機率提高
+* Hand-Coded
+    * 處理棘手的測試手動插入 `wait()`, `sleep()`, `yield()`, `priority`
+    * 缺點是需要找出適當的地方插入、要知道該使用何種指令、加在 production code 會變慢、可能還是找不到問題
+    * 只在測試做這件事，輕易的使用不同平台與設定來跑測試來增加問題發生的機率
+* Automated
+    * 使用 tool 來 instrument code
+    * 插入在不同地方後隨機產生動作藉由多次測試找出原因
+
+### Conclusion
+* 很難寫出對的 concurrent code，面對 concurrent code 需要嚴謹的態度
+* 依照 SRP 將 thread-aware code 與 thread-ignorant code 分開
+* 知道 concurrency 的問題的來源
+* 了解使用的 library 與 framework
+* 知道如何 lock 該 lock 的區域，不該 lock 的區域不要 lock，讓 shared object 與 scope 越少越好
+* Thread issue 不常發生所以要在不同平台用不同的設定反覆的測試
+* 實際插入某些指令在 code 提高問題發生的機率以便除錯
