@@ -743,3 +743,9 @@ public class X {
 * 知道如何 lock 該 lock 的區域，不該 lock 的區域不要 lock，讓 shared object 與 scope 越少越好
 * Thread issue 不常發生所以要在不同平台用不同的設定反覆的測試
 * 實際插入某些指令在 code 提高問題發生的機率以便除錯
+
+## Chapter 14: Successive Refinement
+* 程式一開始一開始很成功但是卻無法擴充，透過 refactored 跟 clean 的過程讓程式可以容易擴充
+* 寫程式像是手工藝品一樣要慢慢精雕細琢，clean code 由 dirty code 慢慢 clean 後才產生出來的，因此不要停留在讓 code work 的階段而是要到達 clean code 的階段才算結束
+* 當發現增加新功能需要改動 code 很多地方，多出很多 duplicate code 或讓 code 變得懂懂就先停下來，等到 refactoring 後才繼續
+* Refactoring 不要一次大量的改動容易毀滅整個程式，要建立好測試一步步改動，每個改動後系統還是可以正常運作
