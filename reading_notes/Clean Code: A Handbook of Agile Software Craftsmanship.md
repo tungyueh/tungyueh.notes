@@ -749,3 +749,226 @@ public class X {
 * 寫程式像是手工藝品一樣要慢慢精雕細琢，clean code 由 dirty code 慢慢 clean 後才產生出來的，因此不要停留在讓 code work 的階段而是要到達 clean code 的階段才算結束
 * 當發現增加新功能需要改動 code 很多地方，多出很多 duplicate code 或讓 code 變得懂懂就先停下來，等到 refactoring 後才繼續
 * Refactoring 不要一次大量的改動容易毀滅整個程式，要建立好測試一步步改動，每個改動後系統還是可以正常運作
+
+## Chapter 17: Smells and Heuristics
+
+### Comments
+
+#### C1: Inappropriate Information
+不要把不適當的資訊放在程式碼裡面像是 change history，而是要放到 source code control system，這些資訊只會把程式碼碎片化難以讀懂
+
+#### C2: Obsolete Comment
+Comment 很快的就會過時，最好的方法就是不要寫 comment，但如果發現過時的 comment 就要馬上更新或捨棄，不然過時的 comment 會誤導人對於 code 的理解
+
+#### C3: Redundant Comment
+如果 code 就已經足夠表達意圖就不要再加上多餘 comment，comment 應該只說明 code 無法說明的內容
+
+#### C4: Poorly Written Comment
+寫 comment 時要三思而後行確保寫出必須且最好的 comment
+
+#### C5: Commented-Out Code
+註解掉的 code 沒有人敢去動他，大家會預設有人之後需要用到，但隨著每天過去 code 會慢慢脫節導致不可用，所以看到註解掉的 code 就直接刪除因為 version control system 會記錄，真的需要時再去 revert 就好了
+
+### Environment
+
+#### E1: Build Requires More Than One Step
+Building project 應該要簡單的步驟就可以成功，而不用檢查各種環境需求
+
+#### E2: Tests Require More Than One Step
+要能一個按鈕就可以跑所有的測試，最糟也要能一個 command 就能執行，能夠快速直覺簡單的執行測試是很基本的事情
+
+### Functions
+
+#### F1: Too Many Arguments
+Function 要有越少參數越好，最多不要超過三個
+
+#### F2: Output Arguments
+Output arguments 很違反直覺的
+
+#### F3: Flag Arguments
+Boolean argument 清楚的說明 function 不只做一件事情
+
+#### F4: Dead Function
+不會被任何人呼叫的 method 就該被捨棄
+
+### General
+
+#### G1: Multiple Languages in One Source File
+不要讓多種不同語言放在同一個 source file 裡面，最好只有一個語言
+
+#### G2: Obvious Behavior Is Unimplemented
+任何的 function 或 class 應該要實作其他人預期的行為，當沒有做好預期的行為會迫使人去看細節
+
+#### G3: Incorrect Behavior at the Boundaries
+雖然說 code 要能正確的運作但對於何謂正常運作的細節卻沒有深入思考，對於 corner case 應該要實際去證明有正常運作而不是依靠直覺
+
+#### G4: Overridden Safeties
+輕忽安全性是很危險的，關掉 compiler 的 warning 或者忽略失敗的測試都會導致往後更多的 debug 時間，所以不要忽視目前發生的警告避免悲劇發生
+
+#### G5: Duplication
+當發現 duplication 就是個 abstract level 提升的機會，讓其他人可以使用減少錯誤的發生
+最明顯的 duplication 就是 code 看起來就是從其他地方不斷複製貼上，接著是 if/else chain 判斷相同的 condition，或者 module 都有相同的邏輯但不是用相同的 code
+
+#### G6: Code at Wrong Level of Abstraction
+Abstraction 要能分開 hight level 概念性的東西與 low level 的細節，要確保兩者分離清楚。
+當有錯誤的 abstraction 產生後實作細節不要去欺騙，不然會產生其他問題
+
+#### G7: Base Classes Depending on Their Derivatives
+當我們有 Base 跟 Derivative class 就是為了把概念拆開到不同 class，如果發現 Base class 有提到 Derivative class 的字眼代表有問題
+
+#### G8: Too Much Information
+定義良好的 module 通常有很少的 interface 卻能讓使用者做很多事情，相反的定義糟糕的會有很多的 interface 讓使用者需要用很多步驟才能完成一件簡單的事情
+好的 programmer 會限制 expose 出去的 interface，class 的 method 越少越好，Function 的 variable 越少越好
+把 data, utility function, constants, temporaries 藏好，不要創造有好多 method 的 class，不要創造很多 protected variable 跟 function 在 subclass 裡面，專注於讓 interface 小而美，透過限制來降低 coupling
+
+#### G9: Dead Code
+永遠不會被執行到的就是 dead code，dead code 不會隨著設計所改變卻仍然 compile 卻不遵守新的 convention，所以看到 dead code 就把它刪掉
+
+#### G10: Vertical Separation
+Variable 或 function 定義與使用的地方要盡量靠近，private function 也要與使用的地方接近，雖然 private function 的 scope 是整個 class 但為了閱讀方便還是要接近使用的地方
+
+#### G11: Inconsistency
+一但決定使用某種 convention 就要保持一致讓 code 更好讀跟修改
+
+#### G12: Clutter
+移除掉所有造成 code 混亂的東西，像是從沒用到的變數、從不呼叫的 function、沒有意義的註解
+
+#### G13: Artificial Coupling
+不相關的東西不該刻意綁再一起，好好花時間思考該在哪邊宣告而不是貪圖方便宣告在共用的地方
+
+#### G14: Feature Envy
+當 method 使用到其他 object 的 method 去獲取資料代表該 clss 逾越自己的本分，所有 class 應該都只能關注於自己有的 variable 跟 method
+
+#### G15: Selector Arguments
+Selector argument 會包含很多 function 再一起也很難記住不同 flag 會造成的不同行為，應該要把 function 拆成很多小 function 而不是用 selector arguments 挑選需要的 function
+
+#### G16: Obscured Intent
+盡量讓 code 意圖明顯，避免使用縮寫或 magic number
+
+#### G17: Misplaced Responsibility
+把 code 放在讀者預期的地方
+
+#### G18: Inappropriate Static
+盡量使用 nonstatic method，如果要用 static method 確保永遠不需要 polymorphism
+
+#### G19: Use Explanatory Variables
+讓每個變數的名稱都有意義，就算是計算途中暫存的變數也一樣
+
+#### G20: Function Names Should Say What They Do
+Function 要能讓人不需要看內部就知道做些什麼事情
+
+#### G21: Understand the Algorithm
+要能清楚知道自己的演算法如何作用而不是不斷微調到可以運作，最終還是要把演算法 refactor 到能清楚看出如何運作的方式
+
+#### G22: Make Logical Dependencies Physical
+Module 與其他有相依性應該限於 physical 的而不是 logical
+
+#### G23: Prefer Polymorphism to If/Else or Switch/Case
+大部分人使用 switch 只是因為是種暴力解法而不是正確的解法，通常比較會增加 function 而不常新增 type 的情況比較少見所以使用 switch 要特別謹慎，針對特定 type 選擇的 switch 只能有一個，使用 polymorphism 來取代其他地方的 switch
+
+#### G24: Follow Standard Conventions
+團隊需要有 coding standard 來遵循，不需要有正式的文件因為 code 都是範例可以參考
+
+#### G25: Replace Magic Numbers with Named Constants
+不應該要單純數字出現，要把它隱藏在有意義的名稱之下
+
+#### G26: Be Precise
+每當在 code 下決定需要確保夠精確，知道為何做出這個決定跟如何處理 exception
+
+#### G27: Structure over Convention
+決定設計方式應該要優先考慮 structure 而不是 convention
+
+#### G28: Encapsulate Conditionals
+Boolean logic 很難懂所以需要提煉出意圖
+
+#### G29: Avoid Negative Conditionals
+盡量讓 boolean 為 positive
+
+#### G30: Functions Should Do One Thing
+Function 有很多 section 或做一連串的操作需要再細分成小 function 讓每個 function 只做一件事
+
+#### G31: Hidden Temporal Couplings
+當 statement 有順序關係要強迫使用者照順序使用，裡用傳遞參數的方式可以清楚表達順序關係，雖然比較複雜一點但是可以 expose 順序關係
+
+#### G32: Don’t Be Arbitrary
+思考為何如此架構 code，要能與現有的 code 一致才比較不容易被改掉
+
+#### G33: Encapsulate Boundary Conditions
+不要讓 boundary condition 散落在 code 的各處，封裝起來
+
+#### G34: Functions Should Descend Only One Level of Abstraction
+Function 中的 statement 應該都描述於比 function name 低一層的 abstract level
+
+#### G35: Keep Configurable Data at High Levels
+如果有 default 的 constant 或 config 應該要定義在 high level 的 abstraction 藉由 hight level function 當成參數傳給 low level function
+
+#### G36: Avoid Transitive Navigation
+我們不希望 module 對於其他 collaborator 知道太多，例如 A 與 B 合作，B 與 C 合作，而我們不希望 module 利用 A 來知道 C，因為如果我們想要在 B 跟 C 之前加入 Q 需要找出所以這樣使用的 pattern
+
+### Java
+
+#### J1: Avoid Long Import Lists by Using Wildcards
+如果只要用到 package 某些 class 直接 import 整個 package，避免干擾讀者，直接說明用哪個 package 就好了
+指定 import 特定 class 會有 dependency 的問題而 import 整個 package 就不會有 dependency 問題
+
+#### J2: Don’t Inherit Constants
+不要把 constant 藏在 base calls 用繼承的方式底下的 class 知道 constant，而是用 import 的方式
+
+#### J3: Constants versus Enums
+使用 Enum 取代 constant，enum 有很多的 method 跟 field 可以表達更多意思與擁有更多彈性
+
+### Names
+
+#### N1: Choose Descriptive Names
+不要太快決定名稱，要確保是個有描述性的名字，並且隨時注意名字有沒有過時要隨著軟體做更新
+不能只靠感覺來取名，軟體靠名字來提高可讀性，需要花時間挑選讓名字並讓名字彼此有關連
+
+#### N2: Choose Names at the Appropriate Level of Abstraction
+根據 abstraction level 挑選名稱，雖然很困難但需要不斷反覆思考來找出不合適 abstraction level 的名稱
+
+#### N3: Use Standard Nomenclature Where Possible
+使用常用的名稱可以讓人馬上理解作用，專案也會有自己專屬的語言，常用這些語言可以讓讀者更容易理解
+
+#### N4: Unambiguous Names
+避免不清楚在做什麼的名稱，直接說明做了什麼事情
+
+#### N5: Use Long Names for Long Scopes
+使用到的 scope 越長則需要取越長的名稱，短的名稱容易隨著距離越遠而失去意義
+
+#### N6: Avoid Encodings
+不要使用 encoding 的名稱，現代 IDE 都有能力做你想做的事，所以不需要加 prefix 之類的 encoding
+
+#### N7: Names Should Describe Side-Effects
+如果有 side-effect 也要在名稱中清楚描述
+
+### Tests
+
+#### T1: Insufficient Tests
+測試要能快速的測試所有可能壞掉的地方
+
+#### T2: Use a Coverage Tool!
+使用 coverage tool 找出沒有測試到的地方
+
+#### T3: Don’t Skip Trivial Tests
+Trivial test 很容易撰寫而且帶來文件化的價值所以不要忽略
+
+#### T4: An Ignored Test Is a Question about an Ambiguity
+當不清楚行為的正確與否可以先寫出 ignore test 當成問題紀錄起來
+
+#### T5: Test Boundary Conditions
+仔細測試 boundary condition
+
+#### T6: Exhaustively Test Near Bugs
+Bug 通常都會聚在一起，所以當發現一個 bug 可以對附近做更密集的測試或許可以找出更多 bug
+
+#### T7: Patterns of Failure Are Revealing
+可以藉由 failed test 找出錯誤的原因
+
+#### T8: Test Coverage Patterns Can Be Revealing
+Passing test 中 code 有執行與沒執行的部分可以提供為何測試失敗的線索
+
+#### T9: Tests Should Be Fast
+慢的測試並不會被執行，所以要讓測試很快速
+
+### Conclusion
+這些清單或許永遠不會完成但卻可以拿來評估一個系統的好壞
