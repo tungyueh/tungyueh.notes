@@ -435,6 +435,686 @@ spec:
 * 討論了開發 microservice architecture 的挑戰，提供一些概念、選擇、好的實作方式跟程式上的建議 
 
 ## Chapter 3: Delinkcious - the sample application
+* Delinkcious 效仿 Delicious 網站，主要功能是管理網路書籤
+* Delinkcious 讓使用者可以在網頁上儲存 URL、為 URL 上 tag 跟支援各種查詢
+* Delinkcious 會 demo 很多的 microservices 跟 K8s 的觀念
+* 本章節會讓讀者知道為何選擇 Go 跟介紹Go microservice toolkit - Go kit，最後藉由 socail graph service 從不同面向剖析 Delinkcious
+* 本章涵蓋下列主題
+    * The Delinkcious microservices
+    * The Delinkcious data storage
+    * The Delinkcious API
+    * The Delinkcious client libraries
+* The code
+    * https://github.com/the-gigi/delinkcious
+    * https://github.com/PacktPublishing/Hands-On-Microservices-with-Kubernetes/
+
+### Choosing Go for Delinkcious
+* Go 對於 microservice 是個優秀的語言
+    * Go compile 成一個 binary 沒有 dependencies
+    * Go 很容易讀也很容易學
+    * Go 對於網路與 concurrency 支援度很高
+    * Go 實作很多 cloud-native data store, queues and framework
+
+### Getting to know Go kit
+* 可以非常簡單的用任何一個語言寫出 microservice 用 API 與其他人互動，但現實中還需要有很多 concern
+    * Configuration
+    * Secret management
+    * Central logging
+    * Metrics
+    * Authentication
+    * Authorization
+    * Security
+    * Distributed tracing
+    * Service discovery
+* Go kit 採用模組化的方式來面對 microservice，把 concern 很高程度的分開
+
+#### Structuring microservices with Go kit
+* Business logic 可以很單純的用 Go libraries 寫好，剩下關於 microservice 的複雜邏輯像是 APIs, serialization, routing, networking 移到另一層
+* 把 Business logic 與 microservice logic 分開後可以在簡單的環境中測試開發，讓整個開發流程變得很好
+* Delinkcious 的 social graph service interface，只單純的 Go 沒有包含 API, microservice, Go kit 的 notation
+``` go
+type SocialGraphManager interface {
+	Follow(followed string, follower string) error
+	Unfollow(followed string, follower string) error
+
+	GetFollowing(username string) (map[string]bool, error)
+	GetFollowers(username string) (map[string]bool, error)
+}
+```
+* 實作的地方也都跟 Go kit 與 microservice 無關
+``` go
+package social_graph_manager
+
+import (
+	"errors"
+	om "github.com/the-gigi/delinkcious/pkg/object_model"
+)
+
+type SocialGraphManager struct {
+	store om.SocialGraphManager
+}
+
+func NewSocialGraphManager(store om.SocialGraphManager) (om.SocialGraphManager, error) {
+	if store == nil {
+		return nil, errors.New("store can't be nil")
+	}
+	return &SocialGraphManager{store: store}, nil
+}
+
+func (m *SocialGraphManager) Follow(followed string, follower string) (err error) {
+	if followed == "" || follower == "" {
+		err = errors.New("followed and follower can't be empty")
+		return
+	}
+
+	return m.store.Follow(followed, follower)
+}
+
+func (m *SocialGraphManager) Unfollow(followed string, follower string) (err error) {
+	if followed == "" || follower == "" {
+		err = errors.New("followed and follower can't be empty")
+		return
+	}
+
+	return m.store.Unfollow(followed, follower)
+}
+
+func (m *SocialGraphManager) GetFollowing(username string) (map[string]bool, error) {
+	return m.store.GetFollowing(username)
+}
+
+func (m *SocialGraphManager) GetFollowers(username string) (map[string]bool, error) {
+	return m.store.GetFollowers(username)
+}
+```
+* Go kit service 就像個洋蔥，核心部分為 business logic，之後的每一層都是一種 concern 像是 routing, rate limiting, logging, metrics, 最後 expose 給其他人用
+* Go kit 主要使用 request-response model 支援 RPC-style communication 
+
+#### Understanding transports
+* Microservice 重要考量在於要透過網路其他人互動所以 Go kit 透過 trnasport 的概念支援 microservice 需要的網路部分
+* Go kit 支援 HTTP, gRPC, Thrift, net/rpc
+* Go kit transport 可以在不改變 code 之下用不同的 transport 方式 export service
+
+#### Understanding endpoints
+* Go kit microservces 其實就是由一堆 endpoints 所組成，每個 endpoint 對應到 service interface 的一個 method
+* Endpoint 一定用一個 transport 跟一個 handler
+* Go kit endpoint 支援 RPC-style communication 跟有 request reqsponse struct
+* Factory function for the `Follow()` method endpoint
+    ``` go
+    func makeFollowEndpoint(svc om.SocialGraphManager) endpoint.Endpoint {
+        return func(_ context.Context, request interface{}) (interface{}, error) {
+            req := request.(followRequest)
+            err := svc.Follow(req.Followed, req.Follower)
+            res := followResponse{}
+            if err != nil {
+                res.Err = err.Error()
+            }
+            return res, nil
+        }
+    }
+    ```
+
+#### Understanding services
+* Code 插入到系統的地方，當 endpoint 被呼叫後則 service 相關的 method 做事
+* Request 跟 respsone 的 encoding 跟 decoding 都被 endpoint wrapper 做完了，我們可以只專注在如何達到最好的 abstraction
+* Implementation of `SocailGraphManager` function `Follow()` method
+    ``` go
+    func (m *SocialGraphManager) Follow(followed string, follower string) (err error) {
+        if followed == "" || follower == "" {
+            err = errors.New("followed and follower can't be empty")
+            return
+        }
+
+        return m.store.Follow(followed, follower)
+    }
+    ```
+    
+#### Understanding middleware
+* Go kit 是組合式的，除了基本的 transport, endpoint, service，也用 decorator pattern 可以透過 wrap service 跟 endpoint 增加 cross-cutting concerns 像是 Resiliency, Authentication and Authorization, Logging, Metric collection, Distributed tracing, Service discovery, Rate limiting
+* Go kit 的 decorator pattern 除了基本需求外可以用同樣的方式增加自己的想要的 concern，這種方式讓人很容易理解與使用
+
+#### Understanding clients
+* Chapter 2 有提到 microservice 最好有 client library 透過 expose interface 與其他 microservice 互動，Go kit 支援寫出 client libraries
+* 透過 interface 就可以使用 microservice 除了方便測試也可以容易將太大的 microservice refactoring 成小的 microservice
+* Go kit 的 client endpoint 跟 service endpoint 很像但是只是反過來而已
+    * Service endpoint
+        1. Decode request
+        2. Delegate work to service
+        3. Encode respsones
+    * Client endpint
+        1. Encode request
+        2. Invoke remote service over the network
+        3. Decode response
+* `Follow()` method of the client
+    ``` go
+    func (s EndpointSet) Follow(followed string, follower string) (err error) {
+        resp, err := s.FollowEndpoint(context.Background(), FollowRequest{Followed: followed, Follower: follower})
+        if err != nil {
+            return err
+        }
+        response := resp.(SimpleResponse)
+
+        if response.Err != "" {
+            err = errors.New(response.Err)
+        }
+        return
+    }
+    ```
+
+#### Generatin the boilerplate
+* 清楚的分離 concern 與 architecture 也要付出代價，就是需要處理一堆翻譯不同的 struct 與 method signature 的 request, response 的 boilerplate
+* 可以了解 Go kit 如何使用 strong-typed interface 通用的支援
+* 對於大型 project 最好使用從 Go interface 與 data type 自動產生 boilerplate，目前 Go kit 有 kitgen 的 project 來做這件事
+
+### Introducing the Delinkcious directory structure
+* 初期階段有三個 service
+    * Link service
+    * User service
+    * Social graph service
+* High-level directory structure 包含下列的 sub directories
+    * `cmd`
+    * `pkg`
+    * `svc`
+* `root` directory 包含一般檔案像是 `README.md` 跟支援 Go module 的檔案像是 `go.mod`, `go.sum`
+* 使用 monorepo 所以整個 Delinkcious 系統都在這個 directory structure 裡面，可以想像成有很多 package 的一個 Go module
+
+#### The cmd subdirectory
+* 支援開發的 tool 跟 command 
+* operation 
+* End-to-end tests 包含 actors, services, external dependencies 像是使用 client library 測試 microservice
+
+#### The pkg subdirectory
+* 所有 `package` 存在的地方
+    * Microservices
+    * Client libraries
+    * Abstract object model
+    * Other support packages
+    * Unit tests
+* 這些 code 以 Go package 的方式存在可以在與 microservice 綁再一起之前方便做開發跟測試
+
+#### The svc subdirectory
+* Microservices 存在的地方
+* 每個 microservice 在 main package 都有自己的 binary
+
+### Introducing the Delinkcious microservices
+* 從裡面的 service layer 慢慢做到 endpoint 最後到 transport
+* 有三種 service
+    * Link service
+    * User service
+    * Social graph service
+
+#### The object model
+* 所有 service implement 的 interface 跟相關的 data types
+* `interfaces.go`: Delinkcious 三個 service 的 interface
+    ``` go
+    package object_model
+
+    type LinkManager interface {
+        GetLinks(request GetLinksRequest) (GetLinksResult, error)
+        AddLink(request AddLinkRequest) error
+        UpdateLink(request UpdateLinkRequest) error
+        DeleteLink(username string, url string) error
+    }
+
+    type UserManager interface {
+        Register(user User) error
+        Login(username string, authToken string) (session string, err error)
+        Logout(username string, session string) error
+    }
+
+    type SocialGraphManager interface {
+        Follow(followed string, follower string) error
+        Unfollow(followed string, follower string) error
+
+        GetFollowing(username string) (map[string]bool, error)
+        GetFollowers(username string) (map[string]bool, error)
+    }
+
+    type LinkManagerEvents interface {
+        OnLinkAdded(username string, link *Link)
+        OnLinkUpdated(username string, link *Link)
+        OnLinkDeleted(username string, url string)
+    }
+    ```
+* `types.go`: interface 的 method 用到的 struct
+    ``` go
+    package object_model
+
+    import "time"
+
+    type Link struct {
+        Url         string
+        Title       string
+        Description string
+        Status      LinkStatus
+        Tags        map[string]bool
+        CreatedAt   time.Time
+        UpdatedAt   time.Time
+    }
+
+    type GetLinksRequest struct {
+        UrlRegex         string
+        TitleRegex       string
+        DescriptionRegex string
+        Username         string
+        Tag              string
+        StartToken       string
+    }
+
+    type GetLinksResult struct {
+        Links         []Link
+        NextPageToken string
+    }
+
+    type AddLinkRequest struct {
+        Url         string
+        Title       string
+        Description string
+        Username    string
+        Tags        map[string]bool
+    }
+
+    type UpdateLinkRequest struct {
+        Url         string
+        Title       string
+        Description string
+        Username    string
+        AddTags     map[string]bool
+        RemoveTags  map[string]bool
+    }
+
+    type User struct {
+        Email string
+        Name  string
+    }
+    ```
+* `object_model` package 使用到基本的 Go types 跟 standard library types 跟自訂定義的 Delinkcious types，因此沒有與 networking, API, microservice, Go kit 的 dependency
+
+#### The service implementation
+* 下一層開始實作 service interface，每個 service 有自己的 package
+    * github.com/the-gigi/delinkcious/tree/master/pkg/link_manager
+    * github.com/the-gigi/delinkcious/tree/master/pkg/user_manager
+    * github.com/the-gigi/delinkcious/tree/master/pkg/social_graph_manager
+``` go
+package social_graph_manager
+
+import (
+    "errors"
+    om "github.com/the-gigi/delinkcious/pkg/object_model"
+)
+
+type SocialGraphManager struct {
+    store om.SocialGraphManager
+}
+```
+* import `object_model` 因為需要實作 `om.SocialGraphManager` interface
+* Define `SocialGraphManager` 的 `struct` 有一個 field 名為 `store` 型態為 `om.SocialGraphManager`
+* `store` field 的 interface 與 manager interface 一致
+* 多一個 `store` field 是為了之後可以方便做 validation logic 跟 delegate the heavy lifting to store
+``` go
+func NewSocialGraphManager(store om.SocialGraphManager) (om.SocialGraphManager, error) {
+    if store == nil {
+        return nil, errors.New("store can't be nil")
+    }
+    return &SocialGraphManager{store: store}, nil
+}
+```
+* `store` field 是個 interface 方便我們用相同 interface 不同 store
+* `NewSocialGraphManager` 回傳一個使用提供的 store 的 SocialGraphManager
+* `SocialGraphManager` 很簡單只有做些驗證後就給 `store` 去做
+``` go
+func (m *SocialGraphManager) Follow(followed string, follower string) (err error) {
+    if followed == "" || follower == "" {
+        err = errors.New("followed and follower can't be empty")
+        return
+    }
+
+    return m.store.Follow(followed, follower)
+}
+
+func (m *SocialGraphManager) Unfollow(followed string, follower string) (err error) {
+    if followed == "" || follower == "" {
+        err = errors.New("followed and follower can't be empty")
+        return
+    }
+
+    return m.store.Unfollow(followed, follower)
+}
+
+func (m *SocialGraphManager) GetFollowing(username string) (map[string]bool, error) {
+    return m.store.GetFollowing(username)
+}
+
+func (m *SocialGraphManager) GetFollowers(username string) (result map[string]bool, err error) {
+    result, err = m.store.GetFollowers(username)
+    if err != nil {
+        log.Printf("Error in GetFollowers(), %v\n", err)
+    }
+    return
+}
+```
+* Social grapth manager 是個很簡單的 library 所以繼續研究 service 
+* `social_graph_service.go` 在 `service` pacakge 裡面
+    ``` go
+    package service
+
+    import (
+        httptransport "github.com/go-kit/kit/transport/http"
+        "github.com/gorilla/mux"
+        "github.com/the-gigi/delinkcious/pkg/db_util"
+        sgm "github.com/the-gigi/delinkcious/pkg/social_graph_manager"
+        "log"
+        "net/http"
+    )
+    ```
+    * Go kit `http` transport 對於使用 HTTP transport 是必要的
+    * `gorilla/mux` package 提供 routing 功能
+    * `social_graph_manager` 實作 service 
+    * `log` for logging
+    * `net/http` serving HTTP
+* 只有一個 function `Run()`
+    ``` go
+    func Run() {
+        store, err := sgm.NewDbSocialGraphStore("localhost", 5432, "postgres", "postgres")
+        if err != nil {
+            log.Fatal(err)
+        }
+        svc, err := sgm.NewSocialGraphManager(store)
+        if err != nil {
+            log.Fatal(err)
+        }
+    ```
+    * 建立一個 dat store 給 socail graph manager 
+    * `socail_graph_manager` 在該 package 實作功能但由 `service` 做出正確的決定後把 config 好的 data store 傳給它
+* Construct 好每個 endpoint 的 handler
+    ``` go
+    followHandler := httptransport.NewServer(
+            makeFollowEndpoint(svc),
+            decodeFollowRequest,
+            encodeResponse,
+        )
+
+        unfollowHandler := httptransport.NewServer(
+            makeUnfollowEndpoint(svc),
+            decodeUnfollowRequest,
+            encodeResponse,
+        )
+        
+        getFollowingHandler := httptransport.NewServer(
+            makeGetFollowingEndpoint(svc),
+            decodeGetFollowingRequest,
+            encodeResponse,
+        )
+
+        getFollowersHandler := httptransport.NewServer(
+            makeGetFollowersEndpoint(svc),
+            decodeGetFollowersRequest,
+            encodeResponse,
+        )
+    ```
+    * `NewServer()` function 建立出每個 HTTP transport 的 endpoint
+        * `Endpoint` factory function
+        * request decoder function
+        * `response` encoder function
+    * HTTP service 通常都會使用讓 request 或 respsone encode 成 JSON
+* 基本上有初始化好的 `SocialGraphManager` 跟 endpoint handler，準備用 `gorilla` router 將 service expose
+    ``` go
+    r := mux.NewRouter()
+    r.Methods("POST").Path("/follow").Handler(followHandler)
+    r.Methods("POST").Path("/unfollow").Handler(unfollowHandler)
+    r.Methods("GET").Path("/following/{username}").Handler(getFollowingHandler)
+    r.Methods("GET").Path("/followers/{username}").Handler(getFollowersHandler)
+    ```
+* 把 router 傳給 HTTP package 的 method `ListenAndServe()`
+    ``` go
+    log.Printf("Listening on port %s...\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
+    ```
+
+#### Implementing the support functions
+* 在 `pkg/social_graph_manager` package 完全與 transport 無關所以需要有人幫忙處理 translation, encoding, decoding，這些都在 `transport.go`
+* Endpoint 都有三個 function 分別傳入 Go kit 的 HTTP transport's `NewServer()` function
+    * The `Endpoint` factory function
+    * The `request` decoder
+    * The `response` encoder
+* The `Endpoint` factory function
+    * 以 `GetFollowing()` operation 為例子
+    * `makeGetFollowingEndpoint()` 接收 `SocialGraphManager` interface 回傳 `endpoint.Endpoint` function
+    * `endpoint.Endpoint` function 接收 `Context` 跟 `request` 回傳 `response` 跟 `error`
+    ``` go
+    type Endpoint func(ctx context.Context, request interface{}) (response interface{}, err error)
+    ```
+    * `makeGetFollowingEndpoint()` 任務是回傳一個可以接收尚未 type assert 的 generic request 的 function 
+    ``` go
+    req := request.(getByUsernameRequest)
+    ```
+    * 我們使用可能從任何 stronglg typed struct 變來的通用的 object 所以需要使用 type assertion 確保都有我們需要的 field
+    ``` go
+    type getByUsernameRequest struct {
+        Username string `json:"username"`
+    }
+    ```
+    * 只含有一個 field 叫 `Username`
+    * 有 JSON struct tag，JSON package 會自動處理 field name 不同的問題
+    * 確保 request 有 Username 就可以使用在 `GetFollowing()` method
+    ``` go
+    followingMap, err := svc.GetFollowing(req.Username)
+    ```
+    * 得到一個有 follow 該 user 的 user map 跟 standard error
+    ``` go
+    type getFollowingResponse struct {
+        Following map[string]bool `json:"following"`
+        Err       string          `json:"err"`
+    }
+    ```
+    * 因為這是 HTTP endpoint 所以需要轉成 JSON
+    * 將 map package 到 `getFollowingResponse` struct
+    ``` go
+    res := getFollowingResponse{Following: followingMap}
+	if err != nil {
+		res.Err = err.Error()
+	}
+    ```
+    * 完整 function
+    ``` go
+    func makeGetFollowingEndpoint(svc om.SocialGraphManager) endpoint.Endpoint {
+        return func(_ context.Context, request interface{}) (interface{}, error) {
+            req := request.(getByUsernameRequest)
+            followingMap, err := svc.GetFollowing(req.Username)
+            res := getFollowingResponse{Following: followingMap}
+            if err != nil {
+                res.Err = err.Error()
+            }
+            return res, nil
+        }
+    }
+    ```
+    ``` go
+    func decodeGetFollowingRequest(_ context.Context, r *http.Request) (interface{}, error) {
+        parts := strings.Split(r.URL.Path, "/")
+        username := parts[len(parts)-1]
+        if username == "" || username == "following" {
+            return nil, errors.New("user name must not be empty")
+        }
+        request := getByUsernameRequest{Username: username}
+        return request, nil
+    }
+    ```
+    * 接收 standard `http.Request`
+    * 需要 extract username 然後回傳 `getByUsernameRequest` struct 讓後續 endpoint 使用
+    ``` go
+    func encodeResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+        return json.NewEncoder(w).Encode(response)
+    }
+    ```
+    * 照理來說每個 endpoint 都有自己的 `response` encoding function
+    * 這邊就使用通用的 encoding function
+    * response struct 都要能 JSON serializable
+
+#### Invoking the API via a client library
+* REST API 讓 caller 需要了解 URL schema 跟 decode 跟 encode JSON payload
+* 提供 client library 可以讓 caller 直接使用，通常在 internal microservice 都是使用相同語言
+* Go kit 提供 client-side endpoint 跟 server-side endpoint 非常相似
+* social graph 在 `pkg/social_graph_client` package 提供 client library
+* `client.go` 與 `social_graph_service.go` 很像
+* `NewClient()` function 建立好 endpoints 然後回傳 `SocialGraphManager` interface
+    * 使用 Go kit 的 HTTP transport 建好 endpoints
+    * 每個 endpoint 都有 URL, a method(GET or POST), a `request` encoder, `response` decoder，就像是 service 的相反
+    * 將所有 endpoint assing 到 `EndpointSet` struct 讓 endpoit 可以 expose
+    ``` go
+    func NewClient(baseURL string) (om.SocialGraphManager, error) {
+        // Quickly sanitize the instance string.
+        if !strings.HasPrefix(baseURL, "http") {
+            baseURL = "http://" + baseURL
+        }
+        u, err := url.Parse(baseURL)
+        if err != nil {
+            return nil, err
+        }
+
+        followEndpoint := httptransport.NewClient(
+            "POST",
+            copyURL(u, "/follow"),
+            encodeHTTPGenericRequest,
+            decodeSimpleResponse).Endpoint()
+
+        unfollowEndpoint := httptransport.NewClient(
+            "POST",
+            copyURL(u, "/unfollow"),
+            encodeHTTPGenericRequest,
+            decodeSimpleResponse).Endpoint()
+
+        getFollowingEndpoint := httptransport.NewClient(
+            "GET",
+            copyURL(u, "/following"),
+            encodeGetByUsernameRequest,
+            decodeGetFollowingResponse).Endpoint()
+
+        getFollowersEndpoint := httptransport.NewClient(
+            "GET",
+            copyURL(u, "/followers"),
+            encodeGetByUsernameRequest,
+            decodeGetFollowersResponse).Endpoint()
+
+        // Returning the EndpointSet as an interface relies on the
+        // EndpointSet implementing the Service methods. That's just a simple bit
+        // of glue code.
+        return EndpointSet{
+            FollowEndpoint:       followEndpoint,
+            UnfollowEndpoint:     unfollowEndpoint,
+            GetFollowingEndpoint: getFollowingEndpoint,
+            GetFollowersEndpoint: getFollowersEndpoint,
+        }, nil
+    }
+    ```
+* `EndpointSet` 定義在 `endpoints.go` 包含 endpoints，這些 endpoits 都是 function 實作 `SocialGraphManager` method
+    ``` go
+    type EndpointSet struct {
+        FollowEndpoint       endpoint.Endpoint
+        UnfollowEndpoint     endpoint.Endpoint
+        GetFollowingEndpoint endpoint.Endpoint
+        GetFollowersEndpoint endpoint.Endpoint
+    }
+    ```
+* `EndpointSet` 的 method `GetFollowing()`
+    ``` go
+    func (s EndpointSet) GetFollowing(username string) (following map[string]bool, err error) {
+        resp, err := s.GetFollowingEndpoint(context.Background(), getByUserNameRequest{Username: username})
+        if err != nil {
+            return
+        }
+
+        response := resp.(getFollowingResponse)
+        if response.Err != "" {
+            err = errors.New(response.Err)
+        }
+        following = response.Following
+        return
+    }
+    ```
+    * Accept username as a string
+    * 呼叫 endpoint 的 `getByUserNameRequest` 拿到有 username 的 request
+    * 因為直接呼叫 endpoint function 發生錯誤不會顯示所以需要 type assert 確保 response 正確，如果有錯則變成一般的 Go error
+
+### Storing data
+* 我們已經知道從 HTTP request 的 JSON payload 變成 Go struct 後開始 service implementation 最後 encode response 成 JSON 回傳給 caller，現在開始更深入的看 persistent storage
+* SocialGraphManager 只負責處理 followed/follower 的關係所以我們對於如何儲存資料有很多選擇，像是 relational database, key-value stores, graph databases，目前選擇 relational database，如果之後要換 data store 或增加 caching 機制是很容易的因為對於 SocialGraphmanger 來說 data store 是被隱藏起來的
+``` go
+package social_graph_manager
+
+import (
+	"errors"
+	om "github.com/the-gigi/delinkcious/pkg/object_model"
+)
+
+type Followers map[string]bool
+type Following map[string]bool
+
+type SocialUser struct {
+	Username  string
+	Followers Followers
+	Following Following
+}
+
+func NewSocialUser(username string) (user *SocialUser, err error) {
+	if username == "" {
+		err = errors.New("user name can't be empty")
+		return
+	}
+
+	user = &SocialUser{Username: username, Followers: Followers{}, Following: Following{}}
+	return
+}
+```
+* `SocialUser` struct 有 username 跟 follower 跟 followed username
+* Data store 名為 `InMemorySocialGraphStore` 包含一個 map，username 對應到 `SocialUser
+    ``` go
+    type SocialGraph map[string]*SocialUser
+
+    type InMemorySocialGraphStore struct {
+        socialGraph SocialGraph
+    }
+
+    func NewInMemorySocialGraphStore() om.SocialGraphManager {
+        return &InMemorySocialGraphStore{
+            socialGraph: SocialGraph{},
+        }
+    }
+    ```
+* `InMemorySocialGraphStore` 實作了 `SocialGraphManager` method，像是 `Follow()`
+    ``` go
+    func (m *InMemorySocialGraphStore) Follow(followed string, follower string) (err error) {
+        followedUser := m.socialGraph[followed]
+        if followedUser == nil {
+            followedUser, _ = NewSocialUser(followed)
+            m.socialGraph[followed] = followedUser
+        }
+
+        if followedUser.Followers[follower] {
+            return errors.New("already following")
+        }
+
+        followedUser.Followers[follower] = true
+
+        followerUser := m.socialGraph[follower]
+        if followerUser == nil {
+            followerUser, _ = NewSocialUser(follower)
+            m.socialGraph[follower] = followerUser
+        }
+
+        followerUser.Following[followed] = true
+
+        return
+    }
+    ```
+* 藉由 interface as abstraction 可以很好的切分出 concern，只專注在系統的特定部分
+* 如果想要換 data store 則 interface 可以省下很多時間
+
+### Summary
+* 本章認識到 Go kit toolkit 跟整個 Delinkcious 系統跟 microservices
+* Go kit 提供清楚的 abstraction 像是 service endpoint, transport
+* 將自己的 code 加入系統中的同時還保持 loosely-coupled
+* 走過從 client 到 service 在回來經過的所有 layer
 
 ## Chapter 4: Setting Up the CI/CD Pipeline
 
