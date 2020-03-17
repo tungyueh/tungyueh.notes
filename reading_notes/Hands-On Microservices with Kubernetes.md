@@ -1117,6 +1117,312 @@ func NewSocialUser(username string) (user *SocialUser, err error) {
 * 走過從 client 到 service 在回來經過的所有 layer
 
 ## Chapter 4: Setting Up the CI/CD Pipeline
+* 本章節描述 CI/CD pipeline 想要解決的問題跟 K8s 有哪些選擇最後幫 Delinkcious 建好 CI/CD pipeline
+
+### Understanding CI/CD pipeline
+* 開發者 commit change 到 source control system 後，這些 change 被 continuous integration(CI) system 偵測到後開始跑測試
+* 在把 code 從 feature branch 或 development branch merge 到 master branch 後 CI system 負責把 Docker image build 出來並且放到 image registry
+* Continuous Delivery (CD) system 負責把 image 部屬到目標機器上面，CD 確保系統有在期望的狀態上面
+* CI/CD pipeline 從偵測 code change 到部屬到 production 的一連串過程，主要由 DepOps 負責 build 跟 maintain pipeline
+* CI/CD pipline 是個由事件觸發的工作流程
+    * Developer commit change 到 GitHub
+    * CI server 跑測試、build Docker image、push image 到 Docker Hub
+    * Argo CD server 偵測到新的 image 後部屬到 K8s cluster
+
+### Options for the Delinkcious CI/CD pipeline
+* 選擇 CI/CD pipline 是對於系統很重要的，但是通常沒有明顯的選擇
+* 一開始想要選一套系統能夠處理整個 CI/CD pipline 但後來決定使用 CircleCI 跟 Argo CD
+
+#### Jenkins X
+* Jenkins X 是隱藏 Jenkins 複雜部分提供給 K8s 的 streamlined workflow
+* 缺點是 trouble shooting 很複雜、自以為是的設計、不支援 monorepo
+
+#### Spinnaker
+* Netflix 的 open source CI/CD solution
+* 缺點是複雜的系統、很難學、不是專為 K8s 打造的
+
+#### Travis CI and Circle CI
+* 通常會將 CI 跟 CD 分開來因為 CI 是負責產生 image 放到 registry 所以不需要與 K8s 有任何關連，但是 CD 就需要所以適合在 cluster 裡面跑
+* Circle CI 功能比較完整而且 UI 比較好
+* CI 在 pipeline 中應該與 K8s 無關因為產生的 image 不一定要用在 K8s cluster
+
+#### Tekton
+* K8s 原生的 project
+* 缺點是因為比較新所以沒有這麼穩定而且功能也沒有像其他人這麼完整
+
+#### Argo CD
+* CD solution 需要與 K8s 合作
+* 優點是有為 K8s 特製、在 general-purpose workflow engine 上面實作、可以跑在 K8s cluster 上面、用 Go 寫的
+* 缺點是不是 CD foundation 或 CNCF 的成員、背後支持的公司不是強大的公司
+
+#### Rolling your own
+* 自己做簡單的 CI/CD pipeline 並不是會太困難但考量到讀者就還是使用現有的工具
+* 認識了眾多 CI/CD solution 最後決定使用 CircleCI 跟 Argo CD 來當作 Delinkcious 的 CI/CD solution
+
+### GitOps
+* Code, configuration, 需要的 resource 都要存在 source control repository
+* 當 push code change 到 repository 後 CI/CD solution 就會開始採取相對應的動作
+* Rollback 可以藉由 revert 到前一個版本來完成
+* Circle CI 與 Argo CD 都支援 GitOps model
+    * 當 git push code change， Circle CI 會開始 build 正確的 image
+    * 當 git push K8s manifest，Argo CD 會開始部屬 change 到 K8s cluster 上面
+
+### Building your images with Circle CI
+#### Reviewing the source tree
+* CI 主要是 building 與 testing，所以第一步是先了解 Deklincious 有什麼是需要 build 跟 test
+* `pkg` 資料夾含有 service 與 command 用到的 package，需要對這些 package 進行測試
+* `svc` 資料夾含有 microservice 所以需要 build service 跟 package，產生 Docker image 然後 push 到 Docker Hub
+* `cmd` 資料夾含有 end-to-end test
+
+#### Configuring the CI pipeline
+* Circle CI 使用 YAML 檔案來設定
+``` yaml
+version: 2
+jobs:
+  build:
+    docker:
+    - image: circleci/golang:1.11
+    - image: circleci/postgres:9.6-alpine
+      environment: # environment variables for primary container
+        POSTGRES_USER: postgres
+    working_directory: /go/src/github.com/the-gigi/delinkcious
+    steps:
+    - checkout
+    - run:
+        name: Get all dependencies
+        command: |
+          go get -v ./...
+          go get -u github.com/onsi/ginkgo/ginkgo
+          go get -u github.com/onsi/gomega/...
+    - run:
+        name: Test everything
+        command: ginkgo -r -race -failFast -progress
+    - setup_remote_docker:
+        docker_layer_caching: true
+    - run:
+        name: build and push Docker images
+        shell: /bin/bash
+        command: |
+          chmod +x ./build.sh
+          ./build.sh
+```
+* 首先定義 build job 跟需要的 Docker images 與環境，接著需要 working directory 讓 `build` command 可以執行
+    ``` yaml
+
+    version: 2
+    jobs:
+      build:
+        docker:
+        - image: circleci/golang:1.11
+        - image: circleci/postgres:9.6-alpine
+          environment: # environment variables for primary container
+            POSTGRES_USER: postgres
+        working_directory: /go/src/github.com/the-gigi/delinkcious
+    ```
+* 接下來是 build 的步驟，首先是 checkout，在 Circle UI 先連結好 Delinkcious GitHub repository 所以就知道要怎麼 checkout，接著 `run` command 把所有 Delinkcious 的 Go dependencies 抓好
+    ``` yaml
+        steps:
+        - checkout
+        - run:
+            name: Get all dependencies
+            command: |
+              go get -v ./...
+              go get -u github.com/onsi/ginkgo/ginkgo
+              go get -u github.com/onsi/gomega/...
+    ```
+* 抓好了所有 dependencies 就可以開始跑測試了，使用 `ginkgo` 測試 framework
+    ``` yaml
+        - run:
+            name: Test everything
+            command: ginkgo -r -race -failFast -progress
+    ```
+* 接下來是 build 跟 push 到 Docker images，`setup_remote_docker` 才可以使用 docker daemon，`docker_layer_caching` option 可以藉由 resue 之前的 layer 來加快速度，`build.sh` 實際 build 跟 push，`chmod +x` 確保可以執行
+    ``` yaml
+        - setup_remote_docker:
+            docker_layer_caching: true
+        - run:
+            name: build and push Docker images
+            shell: /bin/bash
+            command: |
+              chmod +x ./build.sh
+              ./build.sh
+    ```
+
+#### Understanding the build.sh script
+* 開頭加上 shebang 跟會執行 script 的 binary 的路徑
+* 如果 script 需要跨平台執行則需要依賴於路徑或使用其他技巧
+* `set -eo pipefail` 會在任何錯誤發生的時候馬上停下來
+    ``` bash
+    #!/bin/bash
+
+    set -eo pipefail
+    ```
+* 下列幾行只是設好一歇變數跟 Docker image 的 tag
+    * `STABLE_TAB`: major 跟 minor version，每次 build 不會變動
+    * `TAG`: 包含 CircleCI 提供的 `CIRCLE_BUILD_NUM`，每次 build 都會增加代表 `TAG` 永遠會是 unique
+    ``` bash
+    IMAGE_PREFIX='g1g1'
+    STABLE_TAG='0.6'
+
+    TAG="${STABLE_TAG}.${CIRCLE_BUILD_NUM}"
+    ROOT_DIR="$(pwd)"
+    SVC_DIR="${ROOT_DIR}/svc"
+    ```
+* 進到 `svc` 資料夾有所有的 service，接著使用在 CircleCI 設好的環境變數登入 Docker Hub
+    ``` bash
+    cd $SVC_DIR
+    docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+    ```
+* script 會跑過所有 `svc` 內的子資料夾看看有沒有 `Dockerfile`，如果有就開始 build image、上 tags、push 到 registry
+    ``` bash
+    for svc in *; do
+        cd "${SVC_DIR}/$svc"
+        if [[ ! -f Dockerfile ]]; then
+            continue
+        fi
+        UNTAGGED_IMAGE=$(echo "${IMAGE_PREFIX}/delinkcious-${svc}" | sed -e 's/_/-/g' -e 's/-service//g')
+        STABLE_IMAGE="${UNTAGGED_IMAGE}:${STABLE_TAG}"
+        IMAGE="${UNTAGGED_IMAGE}:${TAG}"
+        echo "image: $IMAGE"
+        echo "stable image: ${STABLE_IMAGE}"
+        docker build -t "$IMAGE" .
+        docker tag "${IMAGE}" "${STABLE_IMAGE}"
+        docker push "${IMAGE}"
+        docker push "${STABLE_IMAGE}"
+    done
+    cd $ROOT_DIR
+    ```
+
+#### Dockerizing a Go service with a multi-stage Dockerfile
+* Docker image 在 microservice system 很重要，會 build 很多 image 而且每一個都會 build 很多次
+* 這些 image 會常常傳輸所以容易變成攻擊的目標，所以需要以 lightweight 跟 present minimal attack surface 的原則來 build
+* 使用 base image 可以達成目標，因為最基本的 image 沒有什麼漏洞可以攻擊的
+* 使用標準的 Golang image 來 build，最後一行讓 build 變成 static 跟 self-contained Golang binary
+    ``` dockerfile
+    FROM golang:1.11 AS builder
+    ADD ./main.go main.go
+    ADD ./service service
+    # Fetch dependencies
+    RUN go get -d -v
+
+    # Build image as a truly static Go binary
+    RUN CGO_ENABLED=0 GOOS=linux go build -o /link_service -a -tags netgo -ldflags '-s -w' .
+    ```
+* 複製 binary 到 base image 然後建立最小最安全的 image，expose `8080` port
+    ``` dockerfile
+    FROM scratch
+    MAINTAINER Gigi Sayfan <the.gigi@gmail.com>
+    COPY --from=builder /link_service /app/link_service
+    EXPOSE 8080
+    ENTRYPOINT ["/app/link_service"]
+    ```
+
+#### Exploring the Circle UI
+* 可以設各種 project setting
+* Explore build
+* 看特定 build 的情況
+* 確認 step 的 consol output
+
+#### Considering the future improvements
+* Dockerfiles 很多部分都是重複的，有些假設都可以參數化
+* 只測試跟 build 有變動的 service
+
+### Setting up continuous delivery for Delinkcious
+#### Deploying a Delinkcious microservice
+* 每個 Delinkcious microservice 都有一些定義在 YAML manifests 的 resource 在 `k8s` 裡面
+* `link_manager.yaml` 包含兩個 resource
+    * K8s deployment
+    ``` yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: link-manager
+      labels:
+        svc: link
+        app: manager
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          svc: link
+          app: manager
+      template:
+        metadata:
+          labels:
+            svc: link
+            app: manager
+        spec:
+          serviceAccount: link-manager
+          containers:
+          - name: link-manager
+            image: g1g1/delinkcious-link:0.6
+            imagePullPolicy: Always
+            ports:
+            - containerPort: 8080
+    ```
+    * K8s service
+    ``` yaml
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: link-manager
+    spec:
+      ports:
+      - port:  8080
+      selector:
+        svc: link
+        app: manager
+    ```
+* `db.yaml` 描述 link service 如何在 database 存取狀態，用 `kubectl` 來部署: `kubectl apply -f k8s`
+
+#### Understanding Argo CD
+* Argi CD 是為 K8s 打造的 continuous delivery solution
+* Intuit 創造而 Google, NVIDIA, Datadog 跟 Adobe 都採用
+
+##### Argo CD is built on Argo
+* Argo CD 專為 CD pipeline 特製，建立在 Argo workflow engine
+
+##### Argo CD utilizes GitOps
+* Argo CD 將 state 存在 Git
+* Argo CD 藉由檢查 Git diffs 跟用 Git primitives 去 roll back 跟調整狀態
+
+#### Getting started with Argo CD
+* Argo CD 應該要裝在 K8s cluster 特定的 namespace
+* Argo CD 安裝了四種 object: pods, services, deployments, replica sets
+* Argo CD 安裝了兩個 custom resource dfinitions(CRDs)
+* CRDs 讓 project 可以擴充 K8s API 然後增加自己的 domain object、controller跟其他 K8s resources
+
+#### Configuring Argo CD
+* 支援 Delinkcious monorepo out of the box
+* 會詢問檢查 change 的 Git repository，K8s cluster，之後偵測 repository 的 manifests
+* Argo CD 支援多種 manifest 格式跟樣板像是 Helm, ksonnect, kustomize
+
+##### Using sync policy
+* Argo CD 預設只會偵測 application manifest 不一致的情況而不會自動同步，但這是好的預設因為有時候可能需要再特定環境下跑測試或者人為需要介入
+* 大部分情形都可以自動部署到 cluster 而不需要人為介入，而且 Argo CD 有按照 GitOps 的觀念可以簡單的回到之前的版本
+* 自動同步有幾項限制
+    * Application 在錯誤狀態不會嘗試自動同步
+    * Argo CD 只會嘗試特定 commit SHA 跟 parameters 的自動同步
+    * 自動同步失敗後就不會再嘗試了
+    * 自動同步後無法 roll back
+* Argo CD 提供自動 pruning 的功能，本來預設把不存在 Git 裡面的 resource 不會刪掉，但開啟後就會去刪掉，只要知道自己在做什麼就可以使用
+
+#### Exploring Argo CD
+* Argo CD 把 grouping application 稱為 project
+* Namespace 就是 K8s namespace 也是 application 安裝的地方
+* Cluster 就是 K8s 的 cluster，`https://kubernetes.default.svc` 是 Argo CD 安裝的 cluster
+* Status 分辨是否有與 Git repository 的 YAML manifests 同步
+* Health 顯示 application 狀態
+* Repository 就是 Git repositroy
+* Path 是在 repostiroy 裡相對於 `k8s` YAML manifest 存在的地方
+* UI 可以顯示所有 `k8s` resource 與 application 的關係，包含 application 本身、service、deployments、pods 跟有多少 pods 再跑
+
+### Summary
+* 本章節探討 CI/CD pipeline 對於 microservices-based distributed system 的重要性
+* 介紹各種 best practice
+    * multi-stage builds 來 building Docker image
+    * `k8s` YAML manifest for Postgres DB
+    * Deplyment and service `k8s` resources
 
 ## Chapter 5: Configuring Microservices using Kubernetes ConfigMaps
 
