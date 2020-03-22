@@ -1425,7 +1425,234 @@ jobs:
     * Deplyment and service `k8s` resources
 
 ## Chapter 5: Configuring Microservices using Kubernetes ConfigMaps
+* Configuration 在複雜的分散式系統是很重要的，configuration 涉及系統每個方面所以寫程式必須考慮到 configuration
+* 本章節結束後會知道 configuration 的重要性、知道如何 static 或 dynamic 的 configure 系統、也會知道 Kubernetes 如何彈性管理 configuration
 
+### What is configuration all about?
+* Configuration 是指為了 computing 的 operational data
+* Code 根據 configuration 來處理輸入資料來達成系統所需的功能而不是根據 configuration 指定不同演算法，但也是有特例先不討論
+* 設計 configuration 思考會被誰所更新是很重要的
+
+#### Configuration and secrets
+* 需要存取 database 或 service 的時候需要 secret 來認證，secret 雖然算是 configuration 但由於特殊性質所以會與普通的 configuration 分開管理，會加密存在不同地方來管理
+* 本章節先討論普通的 configuration
+
+### Managing configuration the old-fasioned way
+#### Convention over configuration
+* 有時候根本不需要 configuration，程式只要自己做好決定，好處是結果只要去看程式就好容易預測，壞處是沒有彈性
+* 透過 convention 來減少 configuration 的數量
+
+#### Command-line flags
+* 程式透過 command-line flag 或 argument 來 configure 自己
+* 好處是有彈性、每種語言都適用、已經有好的做法可以遵循
+* 壞處是有空格時後需要 quote、multiline argument 不好支援、arguments 數量有限制、每個 argument 大小有限制
+
+#### Environment variables
+* 當程式跑在設好的環境中從環境拿取需要的資訊方便使用者不需要重複輸入相同的 arugment
+
+#### Configuration files
+* 再有很多 configuration data 的時候適合使用
+* 程式通常會搜尋路徑來找尋 configuration 所以提供很大的彈性去共用 configuration
+* Configuration files 有很多種格式需要思考何種最適合
+
+##### INI format
+* INI files 出現在 Windows 上面，INI 代表 initialization
+* 由 key-value pairs 跟 comment 所組成
+* Windows API 提供讀寫 INI files 的功能所以很多 Windows application 都使用 INI files 來當作 configuration files
+
+##### XML format
+* XML 是 W3C standard
+* **eXtensible Markup Language**
+* 使用在各種地方像是 data, document, APIs(SOAP), configuration files
+* 有自我描述跟自帶 metadata 的特性
+
+##### JSON format
+* **JavaScript Object Notation**
+* 跟著 dynamic web application 跟 REST APIs 常被使用
+* 可以一對一轉成 JavaScript objects
+* 不支援註解
+* 對於格式有嚴格限制，像是不能再 array 後面加 comma, 需要 serialize dates 跟 times 
+* 看起來很累贅，充斥著 quotes, parentheses 跟 需要 escape 很多 characters
+
+##### YAML format
+* YAML 是 JSON 的 superset 但是提供更多精準的 syntax 更容易讓人讀懂像是 reference、autodetection of types、支援 multiline
+
+##### TOML format
+* **Tom's Obvious Minimal Language**
+* 介於 JSON 跟 YAML 之間
+* 支援 autodetection types 跟註解
+
+##### Proprietary formats
+* 有些程式直接使用自己特製的格式
+* 不建議使用自製的格式，應該要在 JSON, YAML, TOML 之間找到適合的格式，因為這樣才有辦法使用 library 來 parse 的 compose
+
+#### Hybrid configuration and defaults
+* 很多程式支援多種 configuration 方式
+* 通常都會有 configuration resolution mechanism 決定 configuration file 的名字跟位置但還是可以透過設定環境變數或 command-line argument 方式改變 configuration file
+* Kubectl 預設去 `$HOME/.kube` 尋找 configuration file 但也可以透過設定 `KUBECONFIG` 來改變 configuration file 的位置，也可以使用 command-line argument `--config` 指定 configuration file 的位置
+* Kubectl 支援多個 cluster/context 在同一個 configuration file 裡面，使用 `kube use-context` 切換
+
+#### Twelve factor app configuration
+* Web service 跟 appliction 應該都要把 configuration 存在環境變數中，但是都 configuration 改變就需要重新啟動，也受到環境變數本來就有的限制
+
+### Managing configuration dynamically
+* Static configuration 改變的時候都需要重新啟動
+* 好處是可以不用擔心 configuration 是否會改變 in-memory state 跟正在處理的 reqeust
+* 壞處是會失去所有收到的 request 跟 warm-up caches 跟初始化的時間
+* 使用 rolling update 或 blue-green deployments 減輕壞處
+
+#### Understanding dynamic configuration
+* Service 使用相同的 code 跟 in-memory state 持續運作的時候可以偵測 configuration 改變進而調整行為，對於 operator 來說只要去改變 configuration 而不需要重啟或重新佈署 code 沒改變的 service
+* Service 可以有些 configuration 需要重新啟動，有些 configuration 不需要重新啟動
+* Dynamic configuration 會改變行為所以需要記錄下來 configuration 做了那些改變
+
+##### When is dynamic configuration useful?
+* 如果 single instance service 重新啟動會造成暫時中斷
+* 如果有 feature flag 常常來回切換
+* 如果 service 對於 initialization 或丟掉收到的 request 處理很複雜得時候
+* 如果 service 不支援進階的部屬像是 rolling update 或 blue-green 或 canary deployments
+* 如果重新佈署可能會加入不相關的 code
+
+##### When should you avoid dynamic configuration?
+* Dynamic configuration 不是萬能的，如果想要完全安全的改變 configuration，則重新啟動會比較好分析處理
+* Microservice 通常簡單到可以讓我們找到所有 configuration 改變的地方
+* 如果有下列情形最好不要使用 dynamic configuration
+    * Service 改變 configuration 需要經過審查
+    * 重要的 service 使用 static configuration 比起 dynamic configuration 有較低的風險
+    * Dynamic configuration 機制不存在而且開發此機制帶來的好處沒有很多
+    * 現存的 service 轉換成 dynamic configuration 的成本沒有少於帶來的好處
+    * 進階部屬方式讓使用 static configuration 需要重新啟動的好處跟 dynamic configuration 差不多
+    * 追蹤 configuration 改動增加的複雜度太高
+
+#### Remote configuration store
+* 全部的 instance 會不斷的查詢 configuration store 看看有沒有改變
+* 常見的選擇為 Relational databases(Postgres, MySQL), Key-value stores(Etcd, Redis), Shared filesystems(NFS, EFS)
+* 不要把 configuration 存在 service-persistent store，會造成 configuration 散佈在各種 data store 讓管理困難
+
+#### Remote configuration service
+* 建立一個 service 提供所有關於 configuration 的需求
+* 優點是方便為每個 service 實作管理機制
+* 缺點是會有 single point of failure(SPOF)
+
+### Configuration microservices with Kubernetes
+* K8s 幫我們跑 container 所以無法為特定的 run 設定不同的環境變數或 command-line arguments
+* 只能透過在 Docker image 包含 configuration files 或改變 run command，這也代表需要為每個 configuration 都作一個 image 才有辦法達成，雖然有辦法做到但會很辛苦
+* 要使用 dynamic configuration 可以使用 Remote configuration store 跟 Remote configuration service
+
+#### Working with Kubernetes ConfigMaps
+* ConfigMap 是 K8s 每個 namespace 所管理的 resource
+* 下列是 `link-manager` 的 ConfigMap
+    ``` yaml
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: link-service-config
+      namespace: default
+    data:
+      MAX_LINKS_PER_USER: "10"
+      PORT: "8080"
+    ```
+* `link-manager` deployment resource 使用 `envForm` import 這個到 pod
+    ``` yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: link-manager
+      labels:
+        svc: link
+        app: manager
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          svc: link
+          app: manager
+      template:
+        metadata:
+          labels:
+            svc: link
+            app: manager
+        spec:
+          containers:
+          - name: link-manager
+            image: g1g1/delinkcious-link:0.2
+            ports:
+            - containerPort: 8080
+          envFrom:
+          - configMapRef:
+              name: link-manager-config
+    ```
+* ConfigMap 的 `data` section 設好環境變數在 `link-manager` 跑的時候
+* ConfigMap 用來設定環境變數所以是 static configuration，如果要改變需要重啟 service，在 K8s 有下列幾項重啟的方式
+    * Kill the pods 會讓 replica set 重新建立 pods
+    * 刪除跟重新部屬跟上面一樣效果但不需要刪除 pod
+    * 作些其他改變後重新佈署
+``` go
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	maxLinksPerUserStr := os.Getenv("MAX_LINKS_PER_USER")
+	if maxLinksPerUserStr == "" {
+		maxLinksPerUserStr = "10"
+	}
+```
+* `os.Getenv` 從環境變數 `PORT` 跟 `MAX_LINKS_PER_USER` 拿取值，讓我們能在非 K8s 環境中測試
+``` go
+func runLinkService(ctx context.Context) {
+	// Set environment
+	err := os.Setenv("PORT", "8080")
+	Check(err)
+
+	err = os.Setenv("MAX_LINKS_PER_USER", "10")
+	Check(err)
+
+	RunService(ctx, ".", "link_service")
+}
+
+func runSocialGraphService(ctx context.Context) {
+	err := os.Setenv("PORT", "9090")
+	Check(err)
+
+	RunService(ctx, "../social_graph_service", "social_graph_service")
+}
+```
+* 在非 K8s 也能透過設定好環境變數就可以測試
+
+##### Creating and managing ConfigMaps
+* K8s 透過 command-line values、一個或多個檔案、整個目錄、直接建立 ConfigMap YAML 檔來建立 ConfigMap
+* command-line: `kubectl create configmap test --dry-run --from-literal=a=1 --from-literal=b=2 -o yaml`
+    * `--dry-run`: 不實際產生檔案而是先看看實際產生內容會是什麼
+    * `--from-literal`: 定義實際的 config item
+* 透過檔案建立 ConfigMap 跟 GitOps 觀念很符合，可以追蹤 source configuration 的歷史
+* 直接建立 ConfigMap 也不難因為只是一堆 key-value pair
+* Pod 以環境變數的方式使用 ConfigMap，改變 ConfigMap 內容需要重啟
+* Pod 以檔案的形式使用 ConfigMap，改變 ConfigMap 內容不需要重啟
+
+##### Applying advanced configuration
+* 當系統有很多 service 跟很多 configuration 的時候會想要有一個 service 來處理很多的 ConfigMap
+* 不同環境有不同的 configuration
+
+#### Kubernetes custom resources
+* K8s 可以增加自己的 resource 同時享有 K8s API 所享有的好處
+* 首先定義好 custom resource (CRD)，包含 endpoints, API, version, scope, kind, name
+* Custom resource 在所有 namespace 都可以使用
+* Custom resource 有 CRUD API 跟 CLI support 跟 persistent storage 所以可以發明自己的 object model 來達成很多事情
+* 對於 configuraiont 因為 custom resource 在不同的 cluster 都可以使用所以可以拿來當成不同 namespace 的 shared configuration
+* CRDs 可以當成集中式的 remote configuration service
+* 建立 controller 來監控 CRDs 然後自動複製到相關 namespace 的 ConfigMap
+
+#### Service discovery
+* K8s 內建支援 service discovery
+* K8s 持續更新每個 service 的 endpoint resource 的所有 backing pod 的 address
+* 正常來說不需要直接處理 endpoint resource，service 會自動 expose 給其他 service
+* 自己需要處理再 K8s cluster 之外的 service discovery，好的作法是加入 ConfigMap 後，當改變的時候更新
+
+### Summary
+* 本章節討論了除了 secret 之外的所有 configuration 的東西
+* 從 classic configuration 到 dynamic configuration 到 remote configuration stores 跟 remote configuration services
+* 研究 K8s 如何使用 ConfigMap 來處理 configuration，知道 pod 可以用環境變數或檔案的方式來處理 ConfigMap，最後介紹 custom resource
 ## Chapter 6: Securing Microservices on Kubernetes
 
 ## Chapter 7: Talking to the World - APIs and Load Balancers
