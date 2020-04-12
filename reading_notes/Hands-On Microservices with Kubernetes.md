@@ -1653,7 +1653,175 @@ func runSocialGraphService(ctx context.Context) {
 * 本章節討論了除了 secret 之外的所有 configuration 的東西
 * 從 classic configuration 到 dynamic configuration 到 remote configuration stores 跟 remote configuration services
 * 研究 K8s 如何使用 ConfigMap 來處理 configuration，知道 pod 可以用環境變數或檔案的方式來處理 ConfigMap，最後介紹 custom resource
+
 ## Chapter 6: Securing Microservices on Kubernetes
+* 對於安全需要很嚴格的看待因為對手總是會嘗試尋找漏洞來獲取敏感資訊、跑 botnet、偷取資料、毀損資料、破壞資料、讓系統不穩定
+* 安全性需要再一開始就考慮進去
+
+### Applying sound security principles
+* 介紹重要的原則背後是如何避免或讓攻擊更困難達到最小化傷害與從傷害中回復
+* Defense in depth: 透過多重的 security 防護讓攻擊者很難知道系統的構成，攻擊者只要不知道其中一層就無法攻破，讓系統更安全、攻擊者需要花更多成本、對於非惡意的錯誤保護更完善
+* Principle of least privilege: 如果不知情就無法洩漏，所以只給最基本的權限可以降低受到傷害的程度
+* Minimize the attack surface: 可以攻擊的點越少則越容易保護，不要 expose 不需要的 API、不要保存不需要的資料、不要提供不同的方式來執行相通任務
+* Minimize the blast radius: component 之間除了合作的之外不要讓其他人可以存取確保不會散布到整個系統
+* Trust no one: 任何人都不該相信因為任何人都有可能犯錯，保持著這個假設會讓受到的傷害降低
+* Be conservative: 不要升到最新版、偏好穩定性、偏好簡單的東西
+* Be vigilant: security 需要持續維護，規律的 patch 系統、變換 secret、使用短期的 keys, tokens, certificate、追蹤 CVEs、紀錄所有事情、測試安全性
+* Be ready: 發現漏洞時要確保設定處理的協議、遵循協議、修補漏洞、回復系統安全、研究漏洞、評估並且學習、更新 process, tools, security 增加安全性
+* Do not write your own crypto: 自製的加密可能會影響效能，加密門檻很高的技術所以就讓專家來做
+
+### Differentiating between user accounts and service accounts
+* 每個經過 K8s API server 的 request 都需要根據 account 來做 authenticate、authorize、admit
+
+#### User accounts
+* User account 是給人類的像是 cluster 的 admin 或 developer，這些人從 K8s 外面使用 kubectl 操作 K8s
+* End user 不需要因為他們只需要 application-level 的 user accounts
+* User credential 存在 `~/.kube/config` 檔案，如果有多個 cluster 則會有多個 cluster, user, context 存在裡面
+
+#### Service accounts
+* 每個 pod 都有連結到一個 service account，pod 裡的 workload 都使用 service account 來當作 identity
+* Service account 的 scope 是 namespace
+* 如果 create pod 沒有給 service 就用 namespace 預設的 service account
+* 每個 service account 都有 secret 用來與 API server 溝通
+
+### Managing secrets with Kubenetes
+* K8s 把 secret 存在 etcd
+
+#### Understanding the three types of Kubernetes secret
+* Service account API token: 用來與 API server 溝通的 credential
+* Registry secret: 從 private registries pull image 的 credential
+* Opaque secret: 自己的 secret
+
+#### Creating your own secrets
+* 最簡單也是最好用的建立 secret 的方式是從有 key-value pair 的 `env` 檔案建立
+
+#### Passing secrets to containers
+* 將 secret 放在 image: 任何人都可以從 image 知道 secret
+* 將 secret 放在環境變數: 可以使用各種指令看到 secret，通常環境變數都會被 log 下來
+* 將 secret 當成檔案 mount: 最常見的方式，沒有設好 permission 則任何人都可以進去看所有檔案
+
+#### Building a secure pod
+* 不需要與 API server 溝通
+* 提供從 private registries pull image 的功能
+* Generic secret mount 成檔案
+
+### Managing permissions with RBAC
+* RBAC 在 requst 進到 API server 會按照下列步驟處理
+    1. Authenticate request 的 user credential 或 service account credential
+    2. 檢查 RBAC policy authorize requester 是否可以對於 target resrouce 採用 operation
+    3. 跑過 admission controller 看看是否有需要因為任何理由拒絕 request
+* RBAC model 包含 identities,  resource, verbs, roles, role binding
+* Role 有一堆 rule，每條 rule 決定哪些 verb 可以到 API group 跟 resource
+* RBAC role 只在被創造出來的 namespace  有效
+* `ClusterRole` 的 permission 在每個 cluster 都有效
+* Role 都是只有列出 permission，真正使用上會綁定 account
+
+### Controlling access with authentication, authorization, and admission
+#### Authentication microservices
+* Service account 跟 RBAC 雖然是個好的 solution 去管理 K8s object identity 跟 access 但是在 cluster 裡面比較不會受到攻擊所以可以使用簡單一點的方式
+* 使用 private key infastructure(PKI) 跟 certificate authority(CA) 來處理 issue, revoke, update certificate，但有點複雜
+* 使用 K8s secret 並使用 shared secret 給允許溝通的 microservice，當 microservice 收到 request 就去檢查 secret 是否正確
+
+#### Authorization microservices
+* Authorize 可以很簡單也可以很複雜，最簡單就是 authenticate 過的就可以執行任何動作
+
+#### Admitting microservices
+* Admission 是在 authorize 完根據當下情況再決定是否可以允許 request，通常都是 server side 有 rate limit 或其他關係導致暫時不允許 request
+
+### Hardening your Kubernetes cluster using security best practices
+#### Securing your images
+##### Always pull images
+* `ImagePullPolicy` 決定什麼時候要 pull image，預設是不存在才去 pull
+    * 如果使用 tag 才永遠不會去 pull 更新的 image
+    * 可能會在相同 node 上與其他 tenant 發生衝突
+    * 相同 node 上面其他 tenant 可以跑我們的 image
+* `AlwaysPullImages` 會每次都去 pull image
+
+##### Scan for vulnerabilities
+* 去 vulnerability database 學習新的漏洞與如何管理
+* 使用 tool 掃描 service
+
+##### Udate your dependencies
+* 修好漏洞時候要去更新 dependency
+* 在安全性與保守之間要取得平衡
+
+##### Pinning the versions of your base images
+* 固定好 base image 才能確保每次 build 都是我們所想要的
+
+##### Using minimal base images
+* 最小化可以被攻擊的地方會使我們盡量使用 minimal base image
+* 除了安全性之外也可以享受快速 pull 跟 push image 的好處
+
+#### Dividing and conquering your network
+* 透過 namespace 跟 network policy 限制 service 可以溝通的範圍
+* Cluster 裡的 pod 都可以互相溝通，不論是在哪個 node
+* 每個 pod 都會有自己的 IP
+* Network policy 是一堆規則限制跨 cluster 的溝通
+* Netwokr policy 是以 pod 為單位來限制的，所以要把 pod 分好不同的 group 後上好 label 之後才能拿來使用
+
+#### Safeguarding your image registry
+* 使用 private registry，不要公開含有自己 code 的 container 因為會被逆向工程找出漏洞
+    * 可以使用 third part 管理的 private registry
+    * 用自己的 private registry
+
+#### Granting access to Kubernetes resources as needed
+* 只提供需要的權限的原則讓我們知道要讓 service 只有權限讀取需要的 K8s resource
+* RBAC 先把所有全線都關掉後再增加特定的需求
+
+#### Using quotas to minimize the blast radius
+* Limits 跟 quotas 是 K8s 用來控制有限資源的方式
+* 如果 workload 有預算限制則可以使用 limit 跟 quotas 更好預測
+* 從安全性來看就算讓 attacker 獲得 workload 也可以藉由 limit 來限制可以使用的資源
+* Network policy 藉由限制 pod 之間的溝通來減少受影響的 workload，而 resource quota 藉由限制 resrouce 來減少跑在 node 上的 pod 受到的影響
+* 有幾種 quota 的型態
+    * Compute quota (CPU and memory)
+    * Storage quota (disks and external storage)
+    * Objects (K8s object)
+    * Extended resrouce (non-K8s resrouce like GPU)
+* Resource quota 都差不多，重點是 unit 跟 scope 還有 request 跟 limit
+    * Request: container 要滿足條件才能啟動，workload 確保有訂好的 memory 與 CPU 可以使用
+    * Limits: workload 可以使用資源的上限，超過就有可能被 kill 或導致整個 pod 被 node 趕出去，K8s 會重新啟動 container 
+* 通常都會把 request 跟 limit 的限制設成一樣，workload 可以確保有足夠的資源可以使用也不用擔心超過會怎麼樣
+* Resource 都是限定於每個 container，如果 pod 有很多 container 才需要考慮整個 pod 所需要的 resrouce
+##### Units for requests and limits
+* Suffix of memory request and limit: E, P, T, G, M and K
+* CPU unit: 1 AWS vCPU, 1 GCP Core, 1 Azure vCore, 1 IBM vCPU, 1 hyperthread on a bare-mental Intel processor with hyperthreading
+
+#### Implementing security contexts
+* 有時候需要讓 pod 跟 container 可以有權限存取 node，雖然這情況很少見但是 K8s 還是有 securoty context 的觀念來實作 Linux security
+* Security context 方便集中化管理 pod 跟 container 的 security，但在大的 cluster 中使用 third-party packages 很難確保每個 pod 跟 container 都使用正確的 security context，所以需要 pod security policy
+
+#### Hardening your pods with security policies
+* Pod security policy 讓我們可以設定 global policy 在新建立的 pod 上
+* Pod security policy 可以為 pod 加上 secuirty context 或只允許符合 security context 的 pod 建立
+
+#### Hardening your toolchain
+* Argo CD 提供關於 security 的功能
+##### Authentication of admin user via JWT tokens
+* Argo CD 有 build-in admin user，其他 user 需要 Single-sign on (SSO)
+* 對 server 做 authentication 使用 JSON Web Token (JWT)
+##### Authorization with RBAC
+* Argo CD authorize request 使用對應使用者的 JWT group 到 RBAC role
+##### Secure communication over HTTPS
+* 所有 communication 都在 HTTPS/TLS 之上
+##### Secret and credential management
+* Argo CD 需要管理很多敏感性資料
+    * K8s secrets
+    * Git credentials
+    * OAuth client credentials
+    * Credentials to external cluster
+* Argo CD 決不會在 response 或 log 把敏感性資料洩漏出去
+##### Audits
+* 藉由查看 git commit log 可以檢查所有活動因為 Argo CD 都是由 git commit 來驅動的
+* Argo CD 另外也送出多種 event 讓 cluster 裡面的活動能被看見
+##### Cluster RBAC
+* Argo CD 使用 cluster-wide admin role
+
+### Summary
+* Microservice-based architecture 對於大型企業分散式系統適合的架構，系統需要能夠支援處理敏感性資訊，開發過程中需要減少讓攻擊者可以攻擊的目標
+* 我們需要採取嚴格跟最好的方式來保護使用者與資料，介紹了 security 的基本原則跟如何用 K8s 實現
+* 介紹 authentication, authorization, admission, secure communication inside and outside cluster, strong secret managment
+* Security 永遠無法做好但是遵循最佳實踐方法可以找到安全性與需求上的平衡
 
 ## Chapter 7: Talking to the World - APIs and Load Balancers
 
