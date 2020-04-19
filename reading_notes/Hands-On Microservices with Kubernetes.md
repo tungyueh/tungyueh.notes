@@ -1824,6 +1824,118 @@ func runSocialGraphService(ctx context.Context) {
 * Security 永遠無法做好但是遵循最佳實踐方法可以找到安全性與需求上的平衡
 
 ## Chapter 7: Talking to the World - APIs and Load Balancers
+* 需要將 Delinkcious 給外面的世界使用，因為 Delinkcious user 無法使用跑在 cluster 裡的 service
+* 增加 python-based 的 API gateway service 增加 Delinkcious 的功能並 expose 出去
+* 增加 gRPC-based news service 讓 user 可以知道 follow user 的 news
+* 增加 message queue 來讓 service 之間的溝通不會 coupling
+
+### Getting familiar with Kubernetes services
+* Pods 是 K8s 裡的工作基本單位
+* K8s service 是將 pod expose 給相關的 sevice 或者外部的世界
+* K8s service 有固定的 identity 跟一對一的對應到 application service
+* K8s 可以使用環境變數或 DNS-based 的方式找到 service
+    * K8s 提供使用 DNS-based 的 discovery，可以使用 `<service name>.<namespace>.svc.cluster.local` 來存取在 cluster 裡面的 service
+    * 使用環境變數好處是可以把 service 跑在 K8s 之外的時候測試
+* K8s 使用 labled selector 把 service 跟備用的 pod 連結起來後使用 `endpoint` resource 管理符合 label selector 的所有 pod 的 IP address
+#### Service types in Kubernetes
+* ClusterIP(default): 只有 cluster 裡的 service 能讀取
+* NodePort: 將 service 透過特定 port expose 到外面
+* LoadBalancer: K8s cluster 跑在 cloud platform 上的 service 提供 load balancer 的功能
+* ExternalName: 處理 request 送往在 cluster 外的有提供 DNS name 的 service
+
+### East-west versus north-south communication
+* East-west communication 是指 cluster 裡 service 的溝通
+* North-south communication 是指 expose service 與外部的溝通
+
+### Understanding ingress and load balancing
+* K8s 裡的 ingress 概念是指控制外部對於 service 的 request
+* Ingress resource 定義 routing rule，分配所有 request 到目標的 service
+* Ingress controller 是 cluster-wide 的 load-balancer 跟 router
+
+### Providing and consuming a public REST API
+* 創建一個用 python 的 API gateway servie
+* 增加使用 OAuth2 的 user authentication
+* Expose API gateway service 到外面
+#### Building a Python-based API gateway service
+* API gateway service 接收所有外面來的 request 後 route 到正確的 service
+##### Implementing social login
+* 使用 GitHub 來實作
+    * `login()` method 去到 GitHub 要求驗證 user 後給 Delinkcious 權限
+    * `logout()` method 移除 access token
+    * `authorized()` method 被 GitHub 驗證完後呼叫，提供 access token
+##### Routing traffic to internal microservices
+* get link request 後 route 到 link microservice 適當的 metdho
+##### Utilizing base Docker images to reduce build time
+* Go microservice image 大約只需要 10MB 但 API gateway 需要 500MB
+* API gateway 需要安裝 C/C++ toolchain 後 build library 需要 15 分鐘以上，但 Docker 可以重複使用 layer 跟 base image，所以將 heavyweight 的事情放到 base image，之後再使用這個 base image 來加上 code 來 build image，好處是 build 速度變快跟只有 API gateway code 的變動
+#### Adding ingress
+* Minikube 要 enable ingress
+* 寫好 ingress manifest 給 API gateway service 就可以讓整個 cluster 都用單一 ingress 讓 request 都導到 API gateway service
+#### Verifying that the API gateway is available outside the cluster
+##### Finding the Delinkcious URL
+* Production cluster 會有 DNS name 但 minikube 要自己拿到 URL
+* 把 URL 設在環境變數以便後續使用
+##### Getting an access token
+1. 去 login endpoint 去登入 GitHub
+2. GitHub 詢問是否要授權給 Delinkcious 拿到 email 跟 name
+3. 同意後被導向有個人資訊的頁面後把 access token 存在環境變數
+##### Hitting the Delinkcious API gateway from outside the cluster
+* 使用 HTTPie 呼叫 endpoint 為了驗證需要再 header 加入 access token
+
+### Providinng and consuming an internal gRPC API
+* 實作 new service，功能是追蹤 link event，像是 link 的新增跟更新還有回傳所有新的 event 給 user
+#### Defining the NewsManager interface
+* `GetNews()` method 來得到所追蹤 user 的 link event
+#### Implementing the news manager package
+* `NewsManager` 裡面的 `InMemoryStore` 實作 `GetNews()`
+#### Exposing NewsManager as a gRPC service
+* gRPC 集合 wire protocol, payload format, conceptual framework, code genereation facilities 給跨 service 跟 application 使用
+* 因為使用 Go-kit framewok 也支援 gRPC
+##### Defining the gRPC service contract
+* gRPC 需要定義好 service 的 contract
+##### Generating service stubs and client libraries with gRP
+* `protoc` 產生 servie stub 跟 client library
+* 需要產生 Go code 跟 new service 跟 python code 給 API gateway
+##### Using Go-kit to build the NewsManager service
+* import library 包含產生的 gRPC code 跟 gRPC library
+* 建立 TCP listner
+* 初始化 news manager，建立 gRPC server，建立 news manager object，把 news manager 註冊到 gRPC server
+* 最後 gRCP server 開始接收從 TCP listner 拿到的東西
+##### Implementing the gRPC transport
+* gRPC transport 與 HTTP trsnport 很像但細節有點不一樣
+
+### Sending and receiving events via a message queue
+* news service 儲存 link event 但是 link service 才知道 link 被新增、更新或刪除
+    * news service 增加 API 給 link service 去通知，但會讓這兩個 service 綁的很死
+    * Link service 送 event 給通用的 message queue service，news service 訂閱後從 message queue 得到 message，這樣就不會綁太死了 
+#### What is NATS?
+* Open source message queue service
+* 支援 Publish-subscribe, Reqeust-reply, Queueing 的 model
+#### Deploying NATS in the cluster
+* 安裝 NATS operator
+* NATS operator 提供 NasCluster Custom Resource Definition(CRD)
+#### Sedning link events with NATS
+* 當 Link 被新增更新或刪除時 LinkManager 會呼叫相對應的 method
+* 把 event sender 在初始化 LinkManager 的時候放進去，之後當 method 被呼叫就會送出 event 給 NATS
+#### Subscribing to link events with NATS
+* news service 使用 `Listen()` method 來訂閱 link events
+#### Handling link events
+* news maanger 訂閱 link event 後，結果當 `OnLinkAdded()` 或 `OnLinkUpdated()` 被呼叫時把 event 加進 store
+* 之後 user 呼叫 `GetNews()` 就會把 store 存的 event 回傳回去 
+* NATS service 就是 command query responsibility segregation(CQRS) pattern
+
+### Uderstanding service meshes
+* Service mesh 是另一種層面來管理 cluster
+* Service mesh 對於 ingress controller 也可以發揮作用
+* Built-in ingress resource 有以下缺點
+    * 沒有好的方法驗證 rule
+    * Ingress resource 互相 conflict
+    * 使用特定 ingress controller 滿複雜而且需要客製化的註解
+
+### Summary
+* 實作 API gateway 跟 CQRS 兩種 microservice design pattern
+* Cluster 中增加 Python 寫的 service, gRPC service, message queue system
+* 目前為止 Delinkcious 已經很接近 production 的階段
 
 ## Chapter 8: Working with Stateful Services
 
