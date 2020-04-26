@@ -1938,6 +1938,143 @@ func runSocialGraphService(ctx context.Context) {
 * 目前為止 Delinkcious 已經很接近 production 的階段
 
 ## Chapter 8: Working with Stateful Services
+* 對於 stateless service 可以跑在任何地方但如果分散式系統需要管理資料則存 data 的 host 失效的時候不能直接啟動新的 instance 因為 data 會不見
+* Redundancy 可以避免 data lost，Kubernetes 提供 storage model concept 與相關的 resrouce 來增加 redundancy
+
+### Abstracting storage
+* K8s 是個管理 containerized workload 的 engine，從最一開始只支援 Docker 到現在提出 Container Runtime Interface (CRI) 讓符合 CRI 的 runtime 都可以支援
+* 網路用 Container Network Interface (CNI) 讓不同 networking solution 使用 CNI plugin 來支援
+* 之後介紹 K8s storage model 了解 in-tree out-of-tree plugin 的差異跟 Container Storage Interface (CSI)
+#### The Kubernetes storage model
+##### Storage classes
+* 描述可以支援的 storage type，沒有指定就使用預設值
+* 不同的 storage class 有不同的參數綁定到實體的 storage
+##### Volumes, persistent volumes, and provisioning
+* Volumn 的 lifetime 都跟 pod 一樣，當 pod 消失則 storage 也跟著消失
+* 之前看過的 ConfigMap 與 secret volumn 也是種 volumn type，其他還有用來 reading 跟 writing
+* K8s 支援 persistent volumn 用來存需要 persistent 的資料，需要由 administrator 提供並不受 K8s 管理
+* Dynamic provsioning 是一種在動態 create volumes 的過程
+##### Persistent volume claims
+* Workload 可以 create persistent volumn claim 來使用 storage
+* Persistent volumes 可以被用來在不同 instance 分享資訊，因為 persistent volumes 會被使用相同 persistent storage claim 的 container mount 起來
+#### In-tree and out-of-tree storage plugins
+* Storage plugin 分成兩種 in-tree 跟 out-of-tree
+* In-tree 代表 storage plugin 是 K8s 的一部份，當 provider 需要新增或修改 plugin 都需要改動 K8s
+* Out-of-tree 是 K8s 定義了一套 interface 跟一套提供 plugin 的方式，支援 FlexVolume 跟 CSI 但 FlexVolume 已經不建議使用了
+#### Understanding CSI
+* CSI 是為了解決 in-tree plguing 跟 FlexVolume 的問題
+* CSI 不只是 K8s 的標準同時也是工業界的標準，所以寫一個 driver 就可以適用很多地方
+* K8s team 提供 Driver registrar, external provisioner, external attacher 三個 component 來支援 CSI
+* 這三個 component 的任務是 interface 成 API server，storage provider 會 package sidecar container 到 storage driver，之後可以用 K8s DaemonSet 部屬到 node 上面
+##### Standardizing on CSI
+* CSI 比起 in-tree plugin 好，但是目前都是用 hybrid 的方式，未來 K8s 會慢慢將 in-tree plugin migrate 到 CSI
+
+### Storing data outside your Kubernetes cluster
+* K8s 不是 closed system，跑在 cluster 裡面的 workload 可以存取外面的 storage，通常使用在要 migrate 現有的 application 的時候，先將 workload 從外面移到裡面後讓 container 可以去存取原本在無外面的 storage 最後思考值不值得把外部的 storage 帶到裡面
+* 其他適合使用外部 storage 的情況
+    * Storage cluster 使用 exotic hardware 或者 networking 沒有合適的 in-tree 或 CSI plugin
+    * 在 cloud provider 跑 K8s 但 migrate 的成本跟風險都太高
+    * 其他 application 都使用相同 storage cluster，migrate 進 K8s 不實際
+    * 因為需求所以需要自己管理 data
+* 以下是自己管理外部 storage 的缺點
+    * Security
+    * 自己需要實作 scaling, availability, monitoring, configuration of storage cluster
+    * 改動 storage cluster 需要跟著改動 K8s
+    * Performance 下降，因為多出外部網路跟需要 authentication, authorization, encryption 的時間
+
+### Storing data inside your cluster with StatefulSets
+* 最好是將資料存在 K8s 裡面因為有提供一站式的管理，另外可以整合 storage 到自己的 streamline monitoring
+* 如果將資料存在 node 上面但是 data store pod 在不同的 node 上啟動則資料就會消失，可以自己使用 pod-node affinity 或其他方法但最好是使用 StatefulSet
+#### Understanding a StatefulSet
+* StatefulSet 是個 controller 負責管理一群 pod 的額外屬性像是 ordering 跟 uniqueness
+* StatefulSet 允許部屬 pod 的時候保留特殊屬性
+##### StatefulSet components
+* StatefulSet metadata and definition: 
+* A pod template
+* Volumn claim templates
+##### Pod identity
+* StatefulSet pod 有 stable identity 包含 stable network identity, ordinal index, stable storage，名稱為 `<statefuleset name>-<ordinal>`
+* StatefulSet 提供的 stable network identity 的 DNS name: `<service name>.<namespace>.svc.cluster.local`
+* 對於每個 pod 的 DNS name 就是 `<statefuleset name>-<ordinal>.<service name>.<namespace>.svc.cluster.local`
+##### Orderliness
+* StatefulSet 確保 pod initialized, scaled up, scaled down 都會依照順序執行
+* K8s 1.7 放寬限制讓 pod 可以同時操作，在 `podPolicy` field 做設定，預設是依照順序操作
+#### When should you use a StatefulSet?
+* 在 cloud 上 管理 data store 或需要對 data store 有良好管控就適合使用 StatefulSet
+##### Comparing deployment and StatefulSets
+* Deployment 設計來管理一群 pod 但也可管理一群 data store
+* StatefulSet 特別設計來支援分散式 data store
+* Deployment 不需要連結到 storage 但 StatefulSet 需要
+* Deployment 不需要連結到 servicae 但 StatefulSet 需要
+* Deployment pod 沒有 DNS name 但 StatefulSet pod 有
+* Deployment 可以以任何順序啟動跟中止 pod 但 StatefulSet 需要依照規定好的順序
+* 建議先用 deployment 直到分散式的 data store 需要 StatefulSet 的 special properties
+#### Reviewing a large StatefulSet example
+* Cassandra 是分散式 data store，很強大但需要很多背景知識
+##### A quick introduction to Cassandra
+* Cassandra 是 Apache open source project，是 columnar data store 所以適合管理 time series data
+* Cassandra node 使用 distributed hash table (DHT) 分享資料，許多複製的資料都分散在不同 node
+* 當有 node 失效則其他 node 會負責處理 query，當有 node 新加入則會重新分配資料給它
+##### Deploying Cassandra on Kubernetes using StatefulSets
+* Cassandra 需要讓 node 彼此不斷溝通，所以需要 seed provider 設定好 IP 給 seed nodes，這些 seed nodes 會通知其他的 nodes
+* Seed provider 需要一個 custom class 因為 seed node 也有可能被移除掉
+* `KubernetesSeedProvider` class 與 API server 溝通，可以每次都回傳  seed nodes 的 IP address
+
+### Achieving high performance with local storage
+* Data 在 processor 附近則可以快速拿來處理，如果需要放在網路上就會變慢
+* 主要是將 data 存在記憶體或 local drive 來達成 local storage
+#### Storing your data in memory
+* Performance 最好的方式
+* 缺點是: node 有更多相較於硬碟的限制、memory 很貴、memory 是 ephemeral
+* 如果需要將整個 dataset 放在 memory，通常是 dataset 很小或可以分散在不同機器上，可以利用保存 persistent copy 或 Redundancy 來應付 memory ephemeral 的特性
+#### Storing your data on a local SSD
+* Local SSD 雖然沒有像 memory 這麼快但也足夠了
+* 當需要速度但 memory 又不夠大就適合使用
+
+### Using relational database in Kubernetes
+* 目前為止使用的 relational database 都不是真正的 persistence
+* 先是看資料怎麼儲存的，再來讓它可以 durable，最後 migrate 到 StatefulSet
+#### Understanding where the data is stored
+* 對於 PostgreSQL 來說，都會有個 `data` 資料夾，根據 mounted 的方式來決定資料是否 persistent
+#### Using a deployment and service
+* 當 database pod 被 kill 的時候可能會在不同 node 被重新啟動所以之前的資料都會不見
+* Delinkcious service 需要將資料存在 PostgreDB container 來保存好資料
+#### Using a StatefuleSet
+* Data 資料夾是被 mount 在 container 但 storage 是在外部，所以只要外部的 storage 沒問題則我們的資料就沒問題，不管 container, pod, node 發生什麼事情
+* 之前介紹過使用 headless service 來定義 StatefulSt 給 user storage，但 headless service 接到 StatefulSet 卻沒有 cluster IP
+#### Helping the user service locate StatefuleSet pods
+* 雖然 headless 沒有 IP 但卻有 endpoint，endpoint 就是 cluster 裡的 IP 給其他 pod 知道
+* 需要找到 headless service endpoint 的人都需要查詢 K8s API，雖然這樣會增加 service 跟 K8s 的 coupling 讓我們難以直接測試，但可以利用 config map 來騙 user service 跟 populate `USER_DB_SERVICE_HOST` 跟 `USER_DB_SERVICE_PORT`
+#### Managing schema changes
+* 使用 relational database 常常遇到的問題是改變 schema 的時候需要處理 migrate 與否的問題
+* 如果可以短暫關機則流程比較簡單
+    1. 關掉相關所有受到影響的 service 後執行 DB migration
+    2. 部屬新的 code 知道蓋如何處理新 schema
+    3. 一切都恢復正常
+* 如果需要保持系統持續運作則需要更多步驟，藉由把 schema change 拆解成很多向後相容的 change
+    1. 保持原本的 table
+    2. 新增兩個 table
+    3. 部屬可以讀懂舊跟新 table 的 code
+    4. Migrate 所有 data 從舊 table 到新 table
+    5. 部屬只讀得懂新 table 的 code
+    6. 刪除舊 table
+
+### Using non-relational data stores in Kubernetes
+* K8s 跟 StatefulSet 不限於 relational data store，non-relational data store 也很好用
+* Redis 是出名的 in-memory data store
+#### An introduction to Redis
+* Redis 通常被形容成 data structure server，因為它將所有 data store 存在 memory 中而且可以有效率的進行很多進階的操作
+* Redis 可以被用來當成快速分散式的 cache 給 hot data 使用
+* Redis 支援 clusters 分散資料在不同 node 上面
+##### Persisting events in the news service
+* `NewRedisNewStore` 建立一個 Redis client 然後 ping 確認 Redis 有啟動
+* `RedisNewsStore` 儲存 event 在 Redis list，`GetNews` method 照順序去擷取 event
+
+### Summary
+* 本章節談到 storage 與 data persistence 的概念
+* 學習到 K8s storage model, common storage interface 與 StatefulSets
+* 如何在 K8s 管理 relational 與 non-relation data，然後 migrate Delinkcious service 使用 persistence storage
+* 最後使用 Redis 為 news service 實作 non-ephemeral data store
 
 ## Chapter 9: Running Serverless Tasks on Kubernetes
 
