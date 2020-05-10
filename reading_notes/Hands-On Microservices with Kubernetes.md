@@ -2078,6 +2078,95 @@ func runSocialGraphService(ctx context.Context) {
 
 ## Chapter 9: Running Serverless Tasks on Kubernetes
 
+### Serverless in the cloud
+* Serverless in the cloud 通常有兩個定義
+    * 不需要自己管理 cluster 的 nodes
+    * Code 不用 deploy 成為 long-running service 但是 package 成 function 在被 invoke 或 trigger
+#### Microservices and serverless functions
+* 相同的 code 可以以 service 的方式或 serverless function 的方式跑來，主要差別是 operational 方面
+* 下列情況比較適合使用 microservice
+    * Workload 無法中斷
+    * 每個 request 需要較久的時間，無法用 serverless function 支援
+    * Workload 使用 local cache
+#### Modeling serverless functions in Kubernetes
+* K8s 是跑 container 所以 serverless function 會被包在 container 裡面
+##### Functions as code
+* 單純提供 function
+* 好處是開發者可以不管 building image, tagging, pushing to registry 跟 deploy 到 cluster 所有關於 K8s 的事情
+##### Functions as containers
+* 使用 serverless framework build 成一般的 container
+* 雖然跟之前 build microservice 一樣但比較 lightweight，可以不用做 HTTP 或 gRPC server 或 listen events
+#### Building, configuring, and deploying serverless functions
+* 做好 serverless function 需要 deploy 到 cluster 的時候需要做設定
+* 設定包含 scale limit, 怎麼 invoke 跟 trigger
+#### Invoking serverless functions
+* Serverless function 被 deploy 到 cluster 後就會休眠
+* Controller 會監聽 request 後去 trigger function
+
+### Link checking with Delinkcious
+* Delinkcious 是個 lin management system，確保 link 的好壞是重要的事情
+#### Designing link checks
+* Link 有可能暫時或永久壞掉、檢查 Link 可能會是 heavyweight operation、Link staus 可能會隨時改變
+* Delinkcious 每個 user 都各自存 link，因此會檢查到重複的 link，也可能有不同 user 有不同的 link status
+* 為了把重點擺在 serverless function 所以先接受這些限制，未來在改善
+* 設計 link check 有以下幾種選項
+    * 當新增 link 的時候，只跑 link service 裡的 link checking code -> 不容易定期檢查 link、檢查 link 是不同的責任應該要分開
+    * 當新增 link 的時候，呼叫不同的 link checking service -> 檢查 link 不需要一直跑所以不需要用到 service
+    * 當新增 link 的時候，invoke link checking serverless function
+    * 當新增 link 的時候，先 pending，定期去檢查最近新增的 link
+* 檢查 link 流程
+    1. 新增 link 的時候，link manager 會 invoke serverless function
+    2. 新增的 link 一開始是 pending state
+    3. Serverless function 只會檢查 reachable
+    4. Serverless function 送 events 到 NATS system，NATS system 送給有訂閱的 link manager
+    5. Link maanger 收到 event 後 update link status 成 valid 或 invalid
+#### Implementing link checks
+* 增加 `Status` 的 field 到 `Link` object，有 `pending`, `invalid`, `valid` 的值
+* 定義 `CheckLinkRequest` object 有 user name 跟 url field
+* 定義 interface 給 `LinkManager` 實作當收到 link 已經被檢查後的 event
+* 建立一個新 package 用來獨立出來，只有一個 `CheckLink()` function
+* HEAD method 只會回傳少量資訊，可以足夠判斷 reachable
+* 建立新的 package `link_service_events` 來與 NATS system 整合，負責送出與訂閱 link checking events
+
+### Serverless link checking with Nuclio
+#### A quick introduction to Nuclio
+* Nuclio 是個 open source platform 提供 high performance serverless functions
+#### Creating a link checker serverless function
+* Serverless function 有兩個部分: function code 跟 function configuration
+* 把 serverless function 放在 `fun` 因為都不屬於任何現存分類
+* `link_checker` function 負責被 trigger 的時候檢查 link 後 publish event 到 NATS
+* 實作 Nuclio serverless function 就是要實作 certain signarture 的 handler function
+#### Deploying the link checker function with nuctl
+* Nuclio deploy function 實際上是 build Doecker image 後 push 到 registry
+#### Deploying a function using the Nuclio dashboard
+* Nuclio 有 web UI dashboard 可以 view, deploy, test serverless function
+#### Invoking the link-checker function directly
+* 使用 `nuctl` invoke function 只要提供 function name, namespace, cluster IP address 跟 body
+#### Triggering link checking in LinkManager
+* 在 production 環境中需要使用 HTTP endpoint 當成 trigger
+
+### Other Kubernetes serverless frameworks
+* AWS Lambda function 讓 serverless function 變得很流行
+#### Kubernetes Jobs and CronJobs
+* K8s Job 跑 pods 直到其中一個 pod 成功為止
+* K8s Cron Job 類似 Job 但是會被定期啟動
+#### KNative
+* 設計得非常 pluggable 所以可以使用自己的 builder 或其他 event source
+#### Fission
+* 支援多種語，還有準備好的 container
+* Fission workflows 可以 compose 跟 chain function
+#### Kubeless
+* K8s 原生 framework
+* 無法 scale to zero
+#### OpenFaas
+* 跨平台
+* 有完整的 GitOps-based CI/CD pipeline 管理 serverless function
+
+### Summary
+* 介紹 serverless 的概念跟什麼時候適合使用
+* 實作 link checking serverless function
+* 介紹不同 serverless function framework
+
 ## Chapter 10: Testing Microservices
 
 ## Chapter 11: Deploying Microservices
