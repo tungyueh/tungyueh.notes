@@ -2168,6 +2168,137 @@ func runSocialGraphService(ctx context.Context) {
 * 介紹不同 serverless function framework
 
 ## Chapter 10: Testing Microservices
+* Software 很複雜而且 programmer 寫的 code 常常有錯誤，分散式系統有很多 而且與很多 component 互動，隨著時間過去還有變動的需求
+* 適當的測試確保系統如預期運作跟快速驗證問題是否正確解決，microservices-based architecture 讓測試更困難因為有不同 microservice 組成 workflow
+
+### Unit testing
+* Unit testing 是測試中最簡單的方式
+* Ginkgo test framework 是 Go 的 unit testing
+#### Unit testing with Go
+* Go 鼓勵每個檔案都有相對應的 test.go
+* Go command 使用 test 來跑測試
+* 單純使用 testing package 難以管理複雜的測試
+#### Unit testing with Ginkgo and Gomega
+* Ginkgo 是 behavior-drive development (BDD) testing framework
+* Gomega 是 assertions library
+#### Delinkcious unit testing
+* 以 `LinkManager` 作為示範，因為有管理 data store、呼叫其他 microservice、trigger serverless function、回應 link check events
+* 從測試出發來設計會容易達成 high level 的測試
+##### Designing for testability
+* 測試的時候對於所有相依的東西提供另一種實作讓我們可以完全控制環境跟結果
+#### The art of mocking
+* 理想上所有 object create 的時候應該都要有 dependencies injected
+##### Bootstrapping your test suite
+* Ginkgo build 在 Go testing package 上面所以可以使用 `go test` 跑 Ginkgo 的測試
+* `ginkgo bootstrap` 會產生 `<package>_suite_test.go`，這個檔案會把 Ginkgo test 包成標準 Go testing，另外 import `ginkgo` 跟 `gomega` packages
+##### Implementing the LinkManager unit tests
+* Ginkgo `Describe` 描述所有測試的檔案跟定義變數
+* `BeforeEach()` 會在每個測試前被呼叫
+#### Should you test everything?
+* 不需要測試所有的東西，因為測試的邊際效應會隨著測試增加而減少，測試也需要成本所以要做到好的取捨
+* Unit test 很好但還不夠，對於 microservice-based 架構來說還需要測試各部分組合後的行為
+
+### Integration testing
+* Integration testing 是將多個部分組合後一起測試，通常使用少量的 mock 與實際環境盡量一樣
+* 以 `link_manager_e2e` 為例
+    1. 以 local process 的方式啟動 socail graph service 跟 link service
+    2. 啟動 Postgres DB 在 Docker container 裡面
+    3. 跑測試
+    4. 檢查結果
+#### Initializing a test database
+* `initDB()` 呼叫 `RunLocalDB()` 來製造新的 DB
+#### Running services
+* 設置好環境變數後呼叫 `RunService()`
+#### Running the actual test
+* Integration 不是自動的而是設計成互動式的，因為這方便讓開發者用來 debug 不同 service
+#### Implementing database test helpers
+* 製造一個 local empty database 後跑在 Docker container
+#### Implementing service test helpers
+* 建立 `test_util` package 單純使用 Go 標準 package
+##### Checking errors
+* Go 需總是要做 explicit error checking 導致有點煩
+* 使用 `Check()` 當有 erro 就 panic 讓 code 看起來稍微精簡一點
+##### Running a local service
+* Microservice 通常 depend 其他 microservice 所以測試一個 service 的時候通常需要跑相關的 service
+##### Stopping a local service
+* 呼叫 context 的`Done()` 就可以停止 service
+
+### Local testing with Kubernetes
+* K8s 可以將同一個 cluster 在任何地方跑起來
+#### Writing a smoke test
+* 最好將 smoke test 做成自動化
+* `smoke.go` 使用 exposed REST API 來使用 Delinkcious
+* 測試會預期 Minikube cluser 會有 Delinkcious 安裝在上面並且跑起來
+* Smoke test 跑過 Delinkcious 的功能 
+##### Running the test
+#### Telepresence
+* Telepresence 讓 service 雖然是跑在 local 但會像是在 K8s cluster 裡面
+* 發現失敗的時候希望加很多 log 來找到 root cause 後修正後驗證是否正確，但 deploy 到 K8s 步驟很繁瑣
+* Telepresence 讓我們能直接在 loca 改 code 後由 Telepresence 確保 local service 是完整的 service
+* Telepresence 安裝 proxy 在 cluster 裡面讓 cluster 裡的 service 可以與 local service 溝通
+##### Installing Telepresence
+##### Running a local link service via Telepresence
+* 雖然 K8s 以為 local srvice 跑在 cluster 裡面但 output 不會出現在 K8s log
+##### Attaching to the local link service with GoLand for live debugging
+* 將 GoLand interactive debugger 接到 local service 可以讓 debuggin 更簡單
+
+### Isolating tests
+* 測試與環境要能彼此獨立，測試之間也要能獨立，才能讓測試不受到干擾
+#### Test clusters
+* 測試用的 cluster 獨立出來，困難點事如何保持與實際環境一致，但可以用好的 CI/CD system 來解決
+##### Cluster per developer
+* 每個 deveploper 都有自己的 cluster 好處是不用怕影響其他人的環境，壞處是提供每個人一個 cluster 成本太高、與實際環境可能不同、需要另外的整合環境來測試整合的 change
+* K8s 使用 Minikube 當成每個人的 cluser 避免壞處
+##### Dedicated clusters for system tests
+* 建立測試專用的 cluster 可以整合 changes
+* 測試 cluster 可以跑更多的仔細的測試
+* 測試 cluster 可以 depend external resource 跟 third-party service
+* 測試 cluster 成本高昂需要好好管理
+#### Test namespaces
+* Test namesapce 是輕量化的獨立方式，在實際環境中切出 test namespace，還可以使用實際環境的 resrouce
+* 缺點是 test namespace 多了一些相依性，預設 service 在不同 namespace 依然可以彼此溝通，但 test namespace 需要仔細確保與實際環境獨立
+##### Writing multi-tenant systems
+* Multi-tenant system 完全區分共用的 resource
+* K8s namespaces 提供不同的機智支援 multi-tenant，可以自己定義 network policy 來避免 namespace 之間連線，定義 resrouce quota 跟 limit
+#### Cross namespace/cluster
+* 如果系統是會部署在多個 namesapce 或多個 cluster 則需要更仔細設計測試來模擬實際的架構
+
+### End-to-end testing
+* End-to-end test 對於複雜的分散式系統是很重要的
+* 週期性的跑在特定的環境，因為耗時較久
+* 測試很複雜也需要較高成本，最困難的是管理測試資料
+#### Acceptance testing
+* 測試系統行為符合預期，由負責人決定怎樣算是符合預期行為，最理想是由 business stakeholder 能夠撰寫 acceptance test
+* 很多系統都有 web application 所以可以在網頁上跑 acceptance test 
+#### Regression testing
+* 用來確定新系統與舊系統的行為一致
+* 如果 acceptance test 很完整就只要確認新系統有通過所有測試就好
+* 當 acceptance test 不完全可以使用隨機 input 來驗證新舊系統的 output 一致來增加信心
+#### Performance testing
+* 測試系統的效能而不是正確性，錯誤會顯著影響效能，如果會重試錯誤
+* Microservices architecture 通常使用 asynchronous processing, queue 跟其他機制來讓測試效能變得困難
+* 效能並不只是 response time 還包含 CPU, memory utilization, extrenal API calls, access to network storage 等等
+
+### Managing test data
+* K8s 可以間單的部署軟體，但資料通常比較少變動
+* 有不同的方法可以產生跟管理測試資料
+#### Synthetic data
+* 使用程式產生測試資料
+* 好處: 容易控制與更新、容易產生壞資料、容易產生大量資料
+* 壞處: 需要寫 code、與實際資料不同
+#### manual test data
+* 手動產生資料
+* 好處: 完整的控制、可以根據範例資料作微調、容易開始、不需要 filter
+* 壞處: 容易出錯、難以產生大量資料、難以產生多個 microservice 的相關資料、需要手動更新資料
+#### Production snapshot
+* 記錄實際的資料然後使用到測試系統
+* 好處: 跟實際資料相關、重新收集確保測試資料與實際資料相符
+* 壞處: 需要過濾 sensitive data、資料可能不支援所有的測試情境、可能難以收集所有相關的資料
+
+### Summary
+* 介紹不同的測試方式
+* 測試需要成本而越多的測試並不會讓系統更好的品質，需要取捨
+* 測試需要以系統一同演化，如果越多人使用在重要的時候則需要更嚴謹的測試
 
 ## Chapter 11: Deploying Microservices
 
