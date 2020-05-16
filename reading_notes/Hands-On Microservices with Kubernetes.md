@@ -2301,6 +2301,116 @@ func runSocialGraphService(ctx context.Context) {
 * 測試需要以系統一同演化，如果越多人使用在重要的時候則需要更嚴謹的測試
 
 ## Chapter 11: Deploying Microservices
+* Deployment 分為 production 與 development 兩種
+* Production deployment 要求系統保持穩定、有可以預測的 build 跟 deployment、可以確認 bad deployment 後 rollback
+* Development deployment 要求每個 developer 的環境獨立、快速部屬、有暫時版本的 CI/CD 系統
+
+### Kubernetes deployments
+* Deployment 是 K8s resource 藉由 ReplicaSet 管理 pods
+* ReplicaSet 是有相同 lable 的 pods
+* ReplicaSet 使用 pod's metadat `ownerReferences` 欄位與 pods 連結
+* `Deployment` object own ReploicaSet
+* `Deployment` object encapsulate deployment 的概念，包含 deployment strategy 跟 rollout history
+
+### Deploying to multiple environments
+* 建立 staging namespace 給 Delinkcious 在 staging environment
+* `staging` namespace 是完全複製 default namespace 用來當成 production environment
+
+### Understanding deployment strategies
+* Deployment service 新版代表要把 service 的 N 個 backing pods 換成某些跑新版的 pods
+* 只有在 deployment spec's pod template 改變時才會 rollout new pods，通常發生在改變 image version
+* Scaling 不適用 deployment strateg 因為都是同樣版本
+#### Recreating deployment
+* 停止所有跑 version X 的 pods 後建立一個新環境跑 version X+1 pods
+* 缺點: service 會暫時中斷直到新 pods 上線、新版本出現問題需要等到 process reversed
+* 可以允許暫停中斷服務、不希望有兩個版本共存、改變 API 成無法向後相容的時候
+#### Rolling updates
+* 慢慢用新的 pod 替換掉舊得 pod
+* 新舊 pods 總數最多 replica count 加上 max surge
+* `maxUnavailable` 允許 pods 數量在 deployment 的時候低於 replica count 的數量
+* 新版本與舊版本相容時使用
+#### Blue-green deployment
+* 建立一個有新版本的全新環境，測試好後切換舊版本的 traffic 到新版本，當有問題可以立即切換回去，如果確定沒有問題就把舊版本移除
+* 好處可以避免 update 多個 service 但其中幾個 service 沒有 update 成功後需要全部還原回去
+* Load balancer 將 traffic 從 blue 導到 green
+##### Adding deployment - the blue label
+* 加入 `deployment: blue` label
+* 因為改變 lable 所以會 trigger redeployment
+##### Updateing the link-manager srvice to match blue pods only
+* 確保所有 pods 都有 `deployment blue` label
+##### Prefixing the description of each link with \[green\]
+* 加上 prefix [green] 後 commit 讓我們有新 version
+##### Bumping the version number
+* 在 `build.sh` 改變 TAG version
+##### Letting Circle CI build the new image
+* Publish change 到 GitHub 後 CircleCI 會開始 build new code 後 create new image 後 push 到 Docker Hub registry
+##### Deploying the new (green) version
+* 把 Docker Hub 新版本的 image deploy 到 cluster
+##### Updating the link-manager service to use green deployment
+* 先確定 service 使用 blue deployment
+* Patch green yaml
+##### Verifying that the service now uses the green pods to serve requests
+* 確認 service selector 是 green
+* Get link 看看有沒有 green prefix
+* 刪除 blue deployment
+#### Canary deployments
+* Production 太過複雜而且難以複製的時候可以使用
+* 讓小部分的 production traffic 流到改變的地方測試是否正常
+* 需要能新舊版本可以同時存在
+##### Employing a basic canary deployment for Delinkcious
+* 跟 blue-green deployment 很像，使用 deployment yellow
+* 目標是 10% requet 到新版本所以 scale 目前版本到九個 replica 後加入一個新版本
+* Drop service selector deployment label 才能 select 兩種 pod
+##### Using canary deployments for A/B testing
+* 可以用來支援 A/B testing
+* 可以多版本，每個版本有自己獨特的 log 來用分析
+
+### Rolling back deployments
+* Deploy 在 production 失敗的時候最好的方法是 roll back change 回到原本的版本
+#### Rolling back standard Kubernetes deployments
+* K8s 會保存 deployment history
+#### Rolling back blue-green deployments
+* K8s 不支援，但只要把 `Service` selector 的 green 換成 blue
+#### Rolling back canary deployments
+* 直接刪除新版本的 deployment
+#### Dealing with a rollback after a schema, API, or payload change
+* 需要根據 change 的內容決定該如何 deploy，這樣才容易處理 rollback 導致無法相容的問題
+
+### Managing versions and dependencies
+#### Managing public APIs
+* Public API 是 cluster 外使用者使用的 network API
+* 通常都用 V1, V2 來當成 versioning scheme
+#### Managing cross-service dependencies
+* 通常使用 internal API 來定義跟文件化
+#### Managing third-party dependencies
+* Libraries 跟 packages 用來 build software
+* 使用 API 來 access third-party service
+* 使用的 service 跟跑 system
+* 使用 third-party dependency 需要考量當 unavailable 的情況
+* 升級 third-party library 或 API version 不應該改變 service API 或 public interface
+* 升級 third-party libraries 需要確認所有用到的 service 一併更新
+#### Managing your infrastructure and toolchain
+* CI/CD pipeline 有很多自動的 script 所以需要做好版本控制
+
+### Local developments deployments
+* Developer 希望能快速的 iteration 來找到問題，但在 K8s 中需要打包 iamge 在部屬到 cluster 會讓 iteration 變慢
+#### Ko
+* Go-specific tool 目標是隱藏 build image 的過程
+#### Ksync
+* 直接同步檔案到 cluster 裡面的 container 的 remote directory
+#### Draft
+* 很快的 build image 但不用 Dockerfile
+* Depend on Helm
+#### Skaffold
+* 有完整的解決方案
+* 支援 local development 與 CI/CD integration
+#### Tilt
+* 以 Tiltfile 為中心是用 Starlark 語言撰寫，是 python sub set
+* 提供 live development environment，highlight evetns 跟 errors
+
+### Summary
+* 介紹不同的 deployment 跟 roll back 的方式
+* 介紹讓 local development 快速 iteration 的 tool
 
 ## Chapter 12: Monitoring, Logging, and Metrics
 
