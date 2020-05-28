@@ -2413,6 +2413,191 @@ func runSocialGraphService(ctx context.Context) {
 * 介紹讓 local development 快速 iteration 的 tool
 
 ## Chapter 12: Monitoring, Logging, and Metrics
+* K8s 提供 self-healing, auto scaling, resource managment
+* Developer 需要平衡 high availability, robustness, performance, security, cost
+* Monitoring 可以提供對於系統的了解進而採取相對應的平衡
+    * Logging: 特別將 application code 裡的資訊記錄下來
+    * Metrics: 收集系統資訊例如 CPU, memory, disk usage, disk I/O, network
+    * Tracing: attach ID 追蹤 reqeust 在不同的 microservices
+
+### Self-healing with Kuvernetes
+* Self-healing 對於大型分散式系統很重要，確保整個系統不會 fail 即便裡面的 components fail
+* Redundancy 代表沒有 single point of failures (SPOFs)，可以跑多個 components 的 replica 或者 deploy 系統到不同的 cloud platforms 但成本很貴
+* Observability 是發現到錯誤的能力，是 recovery 的第一步
+* Auto-recovery 並不一定需要因為可以使用人力來監控修復，但是人類反應緩慢而且容易出錯，雖然一開始可以用人力但之後為了減少成本會需要自動修復
+#### Container failures
+* K8s 在 pods 裡面跑 container 當 container 失敗則會立即重新啟動
+* `restartPolicy` 檔案控制 K8s 對於 container 失敗的時候的行為分為 `Always`, `OnFailure`, `Never`
+* Pods 裡的所有 container 都適用相同的 restart policy
+* Container 持續 fail 後重啟一段時間會進入 `CrashOff` 狀態，K8s 會開始使用 exponential backoff delay 的方式重啟
+#### Node failure
+* Node 失敗則上面所有的 pods 會無法使用，K8s 會 schedule 這些 pods 到其他 node 
+#### Systemic failures
+* Total networking failure
+* Data center outage
+* Availability zone outage
+* Region outage
+* Cloud provider outage
+* 遇到以上情形會讓系統失效，但重要的是不要讓資料毀損能夠回復到先前狀態
+* 可以將 K8s cluster 放在不同的 data center 或 availability zone 或不同 region 或不同 cloud provider
+
+### Autoscalling a Kubernetes cluster
+* Autoscaling 是為了讓系統適應目前的需求
+    * 系統配置不足會讓 request 等待太久最後 timeout
+    * 系統配置過剩會浪費資源
+* 與 self-healing 一樣需要先偵測到系統需要 scale 才去做 scale
+#### Horizontal pod autoscaling
+* Horizontal pod autoscaler 是個 controller 控制 pod 的數量
+* 根據 metric 來控制 pod 的數量
+* autoscaler 在 standard K8s deployment 之上所以 pod 不會察覺自己被 scale
+##### Using the horizontal pod autoscaler
+* Autoscaler 需要 heapster 跟 metrics
+#### Cluster autoscaling
+* 當 scale up 超過 cluster capacity 則會 fail
+* `auto-scaler` cluster project 可以讓 cluster auto scale
+    * 當 K8s 因為 insufficient resource 無法 schedule pods 就會 trigger 改變 cluster size
+    * cluster autoscaler 不管為什麼無法 schedule pods 就會調整 cluster size
+#### Vertical pod autoscaling
+* 微調 pod 要求的 CPU 或 memory
+* Pod 要求太多資源會排擠到其他 pod 導致無法 schedule
+* 需要監控 CPU 與 memory 所以要安裝 metrics server
+
+### Provisioning resources with Kubernetes
+* 配置資源的責任應該是 operator 但 developer 常常負責資源配置
+#### What resources should you provision?
+* 資源有兩種，一種是 K8s resources 另一種是 infrastructure resource
+* Automatic provisioning 定義好合理的 quotas 跟 resource 限制很重要
+#### Defining container limits
+* K8s 可以定義 container 的 CPU 與 memeory
+    * 避免同個的 pod 上的 container 互相競爭
+    * 讓 K8s scedule pods 更有效率因為知道 pod 最多會用多少資源
+* 設定 container limmit 無法解決 runaway allocation resources
+#### Specifying resrouce quotas
+* K8s 可以定義 namesapce 的 quota
+* 有很多 option 定義 resource quota 像是可以根據情況來定義不同的 quota
+#### Manual provisioning
+* 手動調整配置雖然聽起來不太好但是許多情況可以使用
+    * 管理內部的 cluster 的時候
+    * 開發 automated provisioning 實驗何種比較好的時候
+#### Utilizing autoscaling
+* 雲端上建議使用 autoscaling
+#### Rolling your own automated provisioning
+* 如果有更複雜的需求可以使用自己的自動配置
+
+### Getting performance right
+* 需要在正確的時間才去調整效能，先確定可以動、行為正確才去調整效能
+* 調整效能需要 profiling 跟 benchmarking，不然無法確定是否有往正確的方向邁進
+* 當影響使用者體驗就需要調整效能但往往要付出更多成本，但隨著系統演化跟使用者人數增減很難找到平衡點
+#### Performance and user experience
+* User experience 由觀察到的現象來感覺效能
+* 雖然透過升級硬體、平行處理、改善演算法可以改善但其實可以使用不同的機制來改善像是增加 cache 在不改變原本架構的情形下達到差不多的效能又可以節省成本
+#### Performance and high availability
+* Timeout 會影響效能所以在 highly available 系統下可以減少 timeout 次數來達成較好的效能
+* 另外一方面 highly available 系統需要處理同步問題，要確認使用最新的回復
+#### Performance and cost
+* 效能與成本息息相關
+* 需要先找到效能的瓶頸再去改善不然可能白費力氣
+#### Performance and security
+* 效能與安全性常常站在對立面，但有時候安全性會藉由最小化 system surface 達到較好的效能或避免不需要的 feature
+
+### Logging
+* Logging 在操作系統的時候紀錄 log 下來
+* Log 通常有結構跟時間戳記，對於分析問題很有幫助
+#### What should you log?
+* 需要徹底了解系統需要記錄下那些資訊來
+* 可以從記錄 incoming request, microservice 之間的 ineratcion 下手
+#### Logging versus error reporting
+* 程式可以處理的錯誤可以不用 log 像是 retry 
+* 不需要立即處理的錯誤可以先記錄下來之後處理或者或者使用 error report service 記錄特定的 error
+* Log error 要包含 stack trace 
+#### The quest for the perfect Go logging interface
+* Go 的 logger 是個 struct，不支援 log levels 跟 structed logging
+#### Logging with Go-kit
+* Go-kit 有簡單的 interface 提供單一 `Log()` 可以傳進一連串的 key and value
+* Go-kit 不管 log message 全部由使用者用 key value 來決定
+##### Setting up a logger with Go-kit
+* Logger 需要 JSON formatter 跟 sync writer
+    * JSON formatter 把 key 跟 value format 成 JSON
+    * sync write 允許讓多個 Go routine 同時使用
+* 加入預設的欄位像是 service name, current timestamp
+* 增加 `Fatal()` method 導到 `log.Fatal()`
+##### Using a logging middleware
+* 需要考慮 logger 會在哪邊 instantiate 跟使用來 log message
+* 確保所有需要 log message 都能使用 logger
+* Go-kit 提供 middleware 觀念，讓我們能夠 chain 多個 component
+* Middleware 可以預先處理 input 後才傳到下個 component 也可以對 output 處理完在傳給下個 component，也可以當成 short curcuit 直接回傳
+#### Centralized logging with Kubernetes
+* K8s container 寫到 standard output 跟 error stream 的東西可以使用 `kubectl logs` 看的到但是如果 pod 被 reschedule 則裡面的 container 的 log 就會消失
+* Centrilized logging 是利用 log agent 及時收集所有的 logs 到一個地方
+* 最簡單跟穩定的方式適用 demon set，在每個 node 上都有 agent，不需要改任何東西，只要 code 寫到 standard output 就會被收集起來
+
+### Collecting metrics on Kubernetes
+* Metrics 是 self-healing, autoscaling 或 alerting 的關鍵
+* K8s 提供 metrics API
+* 之前版本的 K8s 透過 cAdvisor 跟 Heapster 支援 metrics，目前版本使用內建的 metrics API 跟 metrics server
+#### Introducing the Kubernetes metrics API
+* K8s metrics API 支援 node 跟 pod metrics
+* Metric 有 usage, timestamp, window field
+#### Understanding the Kubernetes metrics server
+* K8s metric server 實作 metrics API 跟提供 nodes 跟 pods metrics
+* metrics-server 是標準的 K8s metrics solution 但如果想要更客製化的 metrics 可以使用 Prometheus
+#### Using Prometheus
+* 實際上大家都使用的 metrics collection solution
+##### Deploying Prometheus into the cluster
+* Prometheus 有很多功能所以不容易 deploy 跟 manage
+* Prometheus operator 可以幫助 configure Promethes
+##### Recording custom metrics from Delinkcious
+* 需要提供 metric 的 service 需要 expose /metrics endpoint，使用 Go-kit 來加入 metrics middleware
+
+### Alerting
+* 無法打造不會 fail 的系統所以設計系統的時候需要認知到 fail 可能會發生
+* 當 failure 發生的時候需要能夠警告對的人來分析處理
+* 設計系統的時候能夠好好處理 failure 的方式可以讓系統繼續執行而不是直接壞掉，如果 failure 嚴重到會讓效能降低就應該去找出原因來解決 
+#### Embracing component failure
+* 需要認知到所有 components 隨時都有可能 fail
+#### Grudgingly accepting system failure
+* System failure 有不同的程度，outage 時間的長短之類的
+* Redundancy, backup, compartentalization 是通常避免 system failure 的手段，但成本高昂
+#### Taking human factors into account
+* 主要都是有人來處理意外的發生
+* 有些 critical system 會有人全天候監視以便及時處理問題，但這類系統還是需要有 alert 來讓人可以快速了解目前的狀態
+##### Warnings versus alerts
+* 使用 warning 監控狀態避免等到危機降臨才去處理
+##### Considering severity levels
+* Alert 分不同的 level 來對應到不同的處理方式
+##### Determining alert channels
+* Alert channels 與 severity level 息息相關
+* 通常一個 incident 會被 broadcast 到多個 channels
+##### Fine-tuning noisy alerts
+* 太多的 low-priority alert 會干擾到重要的 alert
+    * 讓所有人分心
+    * 讓人會忽略 alerts
+* Fine-tuning alert 避免太多 noisy alerts 讓人忽略到重要的 alert
+#### Utilizing the Prometheus alert manager
+* Alert 通常根據 metric 來判斷是否要產生 alert
+* Alert manager
+    * Grouping: 把相關的 signal 聚集成同一個通知
+    * Integration: notification targets
+    * Inhibition: 忽略已經收到的 alert
+    * Silences: 暫時 mute 某些 alert
+##### Configuring alerts in Prometheus
+* 可以根據某些條件來決定是否要發 alert
+
+### Distributed tracing
+* Alert 可能過於模糊不容易 troubleshooting
+* 有幾種可以減少懷疑範圍的方式
+    * 檢查最近關於 deployments 跟 configuration 的變動
+    * 檢查 third-party dependencies 是否有 outage
+    * 想想是否有尚未修正 root cause 類似的 issue 
+#### Installing Jaeger
+* 使用 Jaeger-operator 是最好安裝 Jaeger 的方式
+#### Integrating tracing into your services
+* 紀錄 request 橫跨多個 microservices 的相關 log
+
+### Summary
+* 介紹了關於 self-healing, autoscaling, logging, metrics, distributed tracing
+* 管理 monitor service 跟 service 支援 logging 跟 tracing 增加了另外一層複雜度
+* Monitoring 所有系統的資料後如何得到需要的東西又是另一種挑戰
 
 ## Chapter 13: Service Mesh - Working with Istio
 
