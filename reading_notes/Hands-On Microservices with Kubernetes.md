@@ -2598,7 +2598,145 @@ func runSocialGraphService(ctx context.Context) {
 * 介紹了關於 self-healing, autoscaling, logging, metrics, distributed tracing
 * 管理 monitor service 跟 service 支援 logging 跟 tracing 增加了另外一層複雜度
 * Monitoring 所有系統的資料後如何得到需要的東西又是另一種挑戰
-
 ## Chapter 13: Service Mesh - Working with Istio
+* Service mesh 把 service 中複雜的工作放到了獨立的 proxy 對於不同語言開發的環境中非常有幫助
+### What is a service mesh?
+* 從 service mesh 如何解決 microservice 相較於一般 service 有的問題來了解
+#### Comparing monoliths to microservices
+* 如果使用一般 service 打造 Delinkcious 比較簡單但隨著功能越多會讓缺點越複雜，但使用 microservice 需要安裝許多額外的工具跟寫很多額外的 code
+* Security 需要再不同 service 都做好互相的加密解密功能
+* Distributed tracing 在一般 service 用 stack trace 可以追蹤呼叫的過程，但是 microservice 需要另外安裝 service 來達成
+* Cetralized logging 在一般 service 很 trivail
+* Microservice 雖然有很多好處但也不容易管理
+#### Using a shared library to manage the cross-cutting concerns of microservices
+* 使用 shared library 處理 cross-cutting concerns，所有 service 使用 library 來處理 cross-cutting aspects
+* 缺點是 microservice 好處就是在於可以適用不同的語言但如果使用 shared library 就只能使用一種語言或多種語言的 library 或者接受不同語言的 library 有不同行為
+* 沒有現成的 library 可以提供需要的功能，所以需要 update shared library 而其他使用到 library 的 service 也需要 update。就算使用 rolling update 也會有服務中斷的問題，因為管理 secret authentication 的 library 可能無法向後相容
+#### Using a service mesh to manage the cross-cutting concerns of microservices
+* Service mesh 是一群 intelligent proxies 跟 control infrastructure component 所組合起來的
+* Proxies 被安裝在 cluster 裡每個 node 上面，proxies 會攔截所有 service 之前的溝通然後根據期望的行為來做事
+#### Understanding the relationship between Kubernetes and a service mesh
+* K8s 與 service mesh 很像都是有 proxy 在 node 上面而另外有 control plane
+* Service mesh 像是 K8s 的一個 component，service mesh 可以提供更 fine-grained 的方式接管 service-to-service communication
+* K8s 與 service mesh 互相獨立，不一定要搭配使用
 
-## Chapter 14: The Future of Microservices and Kubernetes
+### What does Istio bring to the table?
+#### Getting to know the Istio architecture
+* Istio 分為 control plane 跟 data plane
+    * Control plane 包含負責設定 proxies 跟收集監控的資料
+    * Data plane 包含在每個 pod 都有的 proxies
+##### Envoy
+* Envoy 是個 high-performance proxy
+* Envoy proxy 在 Istio 的 data plane 使用但也可以獨立使用
+* Istio inject Envoy side container 到每個 pod 上
+* Envoy proxy 控制所有出入 pod 的 communication
+##### Pilot
+* 負責 platform-agnostic service discovery, dynamic load balancing, routing
+* 把 high-level routing rules 轉換成 Envoy configuration
+* 使用 Envoy data plane API 把 Envoy data plane configuration 設定到每個 Envoy proxy
+* Pilot 設定都以 custom resrouces definitions 存在 etcd，所以是 stateless
+##### Mixer
+* 負責 metric collection 跟 policies
+* 原本是由 service 讀取特定 backend 的方式，但透過 Mixer 可以讓 service developers 減少負擔跟把控制權還給 operator，更可以替換 backend 而不用改 code
+* 處理 request 之前 Envoy proxy 先送到 Mixer 做檢查
+* 處理 request 之後 Envoy proxy 對 Mixer 報告 metric
+##### Citadel
+* 負責管理 certificate 跟 key
+* Citadel 產生 certificates 跟 key pair 給現存的 service accounts
+* Citadel 監控 K8s API server 如果有新的 service accounts 就給 certificates 跟 key pair
+* Citadel 把 certificates 跟 key pair 當成 K8s secrets
+* K8s mount secret 到每個新 pod 到相關的 service account
+* Citadel 當 certificates 過期時自動 rotate K8s secrets
+* Pilot 產生 service account 相關的 secure naming information 然後傳給 Envoy proxy
+##### Galley
+* 負責不同平台使用者的 configuration
+#### Managing traffic with Istio
+* Istio 以 network level 的方式操作 service 的 traffic
+##### Routing requests
+* Istio 使用 CRD 產生自己的 virtual service
+* Virtual service 有 version 觀念，相同 image 可以 deploy 成不同 version 的 service
+* Pilot 送 ingress 跟 egress rules 到 proxies 來決定 request 是否要被處理
+##### Load balancing
+* Istio 透過 adapter 去 service discovery 底下的 platform service
+* Istio 透過 platform 所管理的 service 來註冊跟移除掉壞掉的 instances 來更新 load balancing pools
+* Istio 支援 Round robin, Random, Weighted least request
+* Istio 週期性的檢查確保 pool 的 instance 是可用的，會移除掉不合規定的 instances
+##### Handling failures
+* Istio 提供 Timeouts, Retries, Rate limiting, Health checks, Circuit breaker 等錯誤處理的機制
+##### Injecting faults for testing
+* 處理錯誤的機制並無法真正修正錯誤，自動重試可能可以修正某些錯誤，但有些錯誤需要由 application 或 human operator 來修正
+* 可以藉由主動插入錯誤到系統來測試系統在錯誤發生時候的行為
+##### Doing canary deployments
+* 先前做 canary deployments 需要根據比例來部署適當的 pods 但是 Istio 因為在 network level 上操作所以比例可以與 pod 數量脫鉤
+#### Securing your cluster with Istio
+##### Understanding Istio identity
+* Istio 管理自己的 identity model
+* Istio 使用 K8s service account 當作 identity
+* Istio 使用 PKI 來為每個 pod 做 identity 加密
+* Istio 為每個 service account 建立 X.509 certificate 跟 key pair 當成 secret 放到 pod 上
+* 當 client 呼叫 service 會檢查 service identity
+##### Authenticating users with Istio
+* Istio authentication 是基於 policy，分別是 namespace policies 跟 mesh policies
+    * Name policy 只適用於一個 namespace
+    * Mesh policy 適用於整個 cluster
+* 可以設定 peer authentication 跟 origin authentication
+##### Authorizing requests with Istio
+* Service 通常會 expose 多個 endpoints，可能只給某些 serivce 特定 endpoints
+* Istio 藉由擴充 role-based access control (RBAC) 來支援此功能
+#### Enforcing policies with Istio
+* Mixer 有一群 adapter 負責在 request 處理之前跟之後做處理
+* 可以建立 Mixer adapter 來使用自己的 policies，目前內建有 Check, Quota, Report
+#### Collecting metrics with Istio
+* Istio 在每個 request 之後收集 metrics
+* Metrics 會被送到 Mixer
+* Envoy 負責產出 metrics
+#### When should you avoid Istio?
+* 使用 Istio 需要注意是否或的效益比起成本高
+* 使用 Istio 的缺點
+    * 學習曲線高，有很多額外的概念跟管理系統建立在 K8s 上面
+    * Troubleshooting configuration 很困難
+    * 難以整合其他 project
+    * Proxies 增加 latency 跟消耗 CPU 跟 memory 資源
+
+### Delinkcious on Istio
+* 把 application domain code 與 operational code 分開比較容易 troubleshoot 也不需要常常因為改了 operational code 而要重新 build
+#### Removing mutual authentication between services
+* 把 `link-manager` service 跟 `social-graph-manger` service 的互相驗證拿掉
+* 互相驗證流程先去 encode secret 跟 mount 到 container 上面，然後 link manager 拿到 secret 後 inject 到 header，最後 socail graph manager 檢查 header 裡的 secret
+* 互相驗證的流程與 service 幾乎沒有關係，而且如果很多不同的 service 則這種方法會很難做
+* Istio 可以使用 role 跟 role binding 把這件事獨立出來
+    * 先設定一個 role 可以 GET /following endpoint
+    * 為了讓 link service 可以呼叫所以把 role bind 到 link service account 當成 subject user 
+#### Utilizing better canary deployments
+* 使用 pod 數量跟版本來控制 canary deployments 的比例雖然可以運作但也把 canary deployment 與 scaling deployments 綁在一起，成本也很高
+* Istio 可以直接使用 virtual service 將 traffic 分成期待的比例所以不需要額外的 pods
+#### Automatic logging and error reporting
+* 當把 Delinkcious 跑在 GKE 並且使用 Istio add-on 則自動會有與 Stackdriver 的整合
+* Stackdriver 是個 one-stop shop 來監控集中 logging, error reporting 跟 distributed tracing
+#### Accommodating NATS
+* 使用 Istio 會無法使用 NATS 因為 proxy 把 communication 給攔截掉了
+* 解法是避免 Istio 攔截 NATS 的 communication
+#### Examining the Istio footprint
+* Istio control plane 是獨立在 `istio-system` namespace，但 CRD 是 cluster-wide
+* 除了 CRD Istio 也有安裝自己的 component 在自己的 namespace 裡
+* Istio 在每個 pod 都安裝了 sidecar proxies，所以 pod 在 default namespace 都有兩個 container
+
+### Alternatives to Istio
+#### Linkerd 2.0
+* Lightweight design 跟 tighter implementation 所以比 Istio 消耗較少的資源
+#### Envoy
+* Istio 的 data plane
+* 覺得 Istio control plane 太複雜想使用自己的 control plane
+#### HashiCorp Consul
+* 雖然 Consul 沒有 service mesh 所有的功能但是有提供 service discovery, service identity 跟 mTLS authorization
+#### AWS App Mesh
+* 如果把 infrastructure 跑在 AWS 上面，可以使用 AWS App Mesh，跟 AWS 整合較好
+#### Others
+* Aspen Mesh, Kong Mesh, AVI Networks Universal Service Mesh
+#### The no mesh option
+* Go kit, Hystrix, Finagle
+* 如果 srvice 都使用同一種語言則可以使用 library 的方式
+
+### Summary
+* 本章介紹了 service mesh 跟 Istio
+* Istio 在 K8s 上藉由安裝在 pod 上 proxies 建立 cluster shadow
