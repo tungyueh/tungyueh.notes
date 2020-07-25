@@ -145,3 +145,49 @@
 ### Summary
 * Architect 要有 technical vision、了解所做的決定的影響、能夠與大家合作構築 vision、vision 能夠隨需求改變、找到標準與自治的平衡、管理團隊有依照 vision 實作
 * Architect 能夠理解 feature 都是一連串的取捨之下才產生的，要能夠好好平衡這些取捨
+
+## CHAPTER 3 How to Model Services
+* 思考怎麼樣的 microservice boundary 可以使 microservice 帶來的好處多過於壞處
+
+### What Makes a Good Service?
+#### Loose Coupling
+* Loosely coupled 的 services 代表改動其中一個 service 的時候不需要同時改變其他的 service
+* 一個 loosely coupled service 對於合作的 service 了解很少，盡量減少 service 對外溝通的管道，太多的管道容易造成 tight coupling
+#### High Cohesion
+* 我們希望將相關的行為放在同一個地方，因為當我們需要改變行為需要同時改變很多地方會需要 release 多個 service 造成 deploy 的困難
+* 找到 problem domain 的 boundary 來幫助我們將行為放在附近，也讓不同 boundary 的溝通 loose coupling
+
+### The Bounded Context
+* Domain 由許多 bouded context 組成，bounded context 裡面的東西不與外界溝通，bounded context 有特定的 interface 來決定與外界如何溝通
+* Bounded context 也可以定義為在特定 boundary 中具有特定責任的單位
+#### Shared and Hidden Models
+* Shared model 不一定要 expose 所有的東西，可以只 expose 該 bounded context 所需要的東西，所以 shared model 會有內部與外部的 representation
+* Shared model 有可能相同名字在不同 context 行為不同，context 要各自處理好 shared model 的處理行為
+#### Modules and Services
+* 藉由思考避免其中一個會造成 tight coupling 的方式來釐清 model shared 的範圍，也可以用 business domain 類似的行為聚在一起來釐清 boundary 達到 high cohesion
+* Bounded context 在 codebase 中以 module 來呈現
+* 通常 Modular boundary 就是切出 microservice 好的方法，雖然熟練的人會忽略把 bounded context model 成 modular 的過程，但是搞錯 service boundary 的代價是很高的
+* Serice boundaries 與 bounded context 一致就算是好的開始，代表 microservice 都代表 bounded context，彼此 looosely coupling 與 strongly cohesive
+#### Premature Decomposition
+* 對於該 domain 熟悉後才去切成 microservice，不然切錯 microservice 的代價滿高的
+* 從現有的 codebase 切成 microservice 比起從頭開始打造 microservice 簡單許多
+
+### Business Capabilities
+* 不只要想 shared data 還需要思考 context 需要提供什麼資訊給 domain
+* 從 context 需要做些什麼再來想 data 需要提供些什麼，如從 data 思考起會容易讓 service 單純變成 CRUD-based service 而已
+
+### Turtles All the Way Down
+* Microservice boundary 先大一點，之後有好處在慢慢變小
+* 有可能 bounded context 底下有 hidden bounded context，只是外面沒有察覺，如果把覺得把 higher-level bounded context 的 boundary 取消比較合理就把直接把 hidden bounded context 變成 service 讓外面可以溝通，可以由組織架構來決定要採取何種方式
+*  Nested approach 方便測試
+
+### Communication in Terms of Business Concepts
+* 系統需要改變通常都是因應商業需求，所以依照 domain 切分的 bounded context 需要改變就只需要改動其中一個 bounded context 而不需要改動很多地方
+* Microservice 之間的溝通應該也需要用商業概念來思考，不應只是將商業改變套用在 bounded context 上，
+
+### The Technical Boundary
+* 依照組織或地區切分 microservice 是合理的選擇，但依照技術切分而不是依照商業邏輯切分可能會造成 service 無法達到 loosely coupling
+* 依照技術區分不一定是錯的，像是為了效能而做出的區分
+
+### Summary
+* Bounded context 是一種工具幫助我們區分好問題後根據 boundary 切好 microservice
