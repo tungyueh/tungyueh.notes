@@ -191,3 +191,115 @@
 
 ### Summary
 * Bounded context 是一種工具幫助我們區分好問題後根據 boundary 切好 microservice
+
+## CHAPTER 4 Integration
+* 正確的整合 microservice 可以保持其自主性，讓我們可以獨立改變跟部屬而不影響其餘部分
+
+### Looking for the Ideal Integration Technology
+* Microservice 之間的溝通有很多方式可以選擇，但首先需要先思考我們想要達成什麼目的
+#### Avoid Breaking Changes
+* 盡量避免本身與 consumer 同時需要一起改動
+#### Keep Your APIs Technology-Agnostic
+* 讓 microservice 溝通的 API 與技術無關才能不受限制容易採用新技術適應快速變動的環境
+#### Make Your Service Simple for Consumers
+* 讓 consumer 可以自由選擇想要採用的技術或者提供 client library，但 client library 可能會造成 coupling 的成本
+#### Hide Internal Implementation Detail
+* 讓 consumer 知道內部實作容易增加 coupling 與改動的成本
+
+### Interfacing with Customers
+* Customer 依靠直覺容易做出 CRUD operation 而已，但實際上複雜的多
+* 建立一個 customer 需要有帳單跟歡迎信，改變或刪除 customer 也會牽涉很多商業邏輯
+
+### The Shared Database
+* Database 是最常用來整合的工具，service 都把資訊存在 DB 讓其他 service 可以存取更改
+    * 所有 service 都可以看到 internal implementation 所以改變 schema 容易讓 consumer 壞掉，也導致需要大量的 regression test
+    * Consumer 被迫使用特定的技術讓 service 無法輕易改用其他技術來儲存資訊，也容易讓 consumer 對於內部實作依賴太深無法維持 loose coupling
+    * Constomer 改變的時候相關的邏輯會散布在不同地方，因為 consumer 可以直接操作 DB 也就知道相關邏輯所以有多個 consumer 就會散布在各處，無法維持 cohension
+* Database integration 讓 services 容易 shared data 但沒有 shared behavior，內部實作暴露在外讓人很難避免改壞掉
+
+### Synchronous Versus Asynchronous
+* Service 使用同步或非同步的溝通方式會影響到以後的實作而且無法反悔
+* 同步的溝通方式可以知道結果是否成功，而非同步溝通則是用在處理時間過長或者需要反應速度快的時候
+* 通常使用 request/response model 來實作同步溝通方式，而 event-based 用來實作非同步溝通方式
+* Event-based 本質上就是非同步的，發送 event 給訂閱者讓他們自己處理 event，可以很好的 decoupling business logic
+
+### Orchestration Versus Choreography
+* Orchestration 代表有一個中央的指揮處理過程，清楚知道每個步驟的成功與否，缺點是邏輯會集中在特定 service 身上
+* Choreography 代表告知系統不同的部分的工作讓他們自己負責實作細節，缺點是 business process 不明顯，需要額外的監控追縱確定是否有照想像中執行
+* 系統通常比較傾向於 choreography approach，比較容易修改、保持彈性跟更加 loossely coupled
+* 同步比較接近我們的思考方式所以比較簡單，而非同步讓我們有辦法採用 choreography approach
+
+### Remote Procedure Calls
+* Remote procedure call 是一種在 local 可以呼叫執行程式在 remote service 上就像是在 local 上面
+* RPC 讓人可以快速上手使用，因為只要正常的呼叫 method 而理論上可以忽略背後如何跨越網路的 boundary 的細節
+#### Technology Coupling
+* 有些 RPC implementation 與平台綁的很死進而限制可以使用的技術
+* 技術的 coupling 造成 expose implementation detail
+#### Local Calls Are Not Like Remote Calls
+* RPC 的核心思想是隱藏 remote call 的複雜度但太多的 implementation 藏的太深，local call 與 remote call 本質上就很不同，使用者需要對兩者有不同的認知，直接把 remote call 當成 local call 會造成許多問題
+* 對於網路需要假設為不可信任而且會失敗，要能分辨 bad call, server error 不同的問題進而處理，remote server 回應緩慢的時候該如何處理
+#### Brittleness
+* 新增 method 需要重新產生 client stub 因為 client 要能讀懂新的 method 但不需要讀懂新的 metho 的 client 也需要更新，RPC endpoint 最後都會有大量的 method 用來跟 object 互動
+* 更新 object 的 field 也需要同時更新所有的 server 跟 client stub
+* Object 需要 serialization 可以想成只能擴充，這樣會造成無法移除不需要的 field 使 field 越來越混亂
+#### Is RPC Terrible?
+* 雖然 RCP 有很多缺點但也不用馬上斷定 RCP 很糟糕，有很多情境很適合 RPC-based modle 而且現在的 mechanism 有減少過去的缺點
+* 挑選 RCP 後要注意缺點，不要把 remote call 關於網路的部分完全隱藏起來，確保 server interface 改變的時候不需要升級 client
+* 相較於 database integration，RPC 是比較好的方式但還有不同的選擇
+
+### REST
+* Resource 是 service 所認識的東西
+* Server 定義 resource 在不同 request 的 representation
+* Resource 外部與內部的是完全無關的
+* Client 知道 resource 的 representation 後就可以使用 request 去改變
+* REST 不管下面的 protocols 但通常都是 HTTP
+#### REST and HTTP
+* HTTP 定義的東西與 REST 很契合，像是 HTTP verbs 定義與 resource 如何互動跟 REST 規定 method 對於所有的 resource 的動作需要一樣的想法一致
+* HTTP 帶來許多支援的工具與技術，像是 caching proxies, monitor tools
+#### Hypermedia As the Engine of Application State
+* Hypermedia As the Engine of Application State 的概念讓 client 與 server 避免 coupling
+* Hypermedia 是一段包含連結到其他內容的內容
+* Client 自己藉由 link 來找到自己需要的東西，不需要透過固定的 interface 來與 server 溝通
+* 缺點是 client 需要不斷與 server 反覆溝通來找到自己需要的東西
+#### JSON, XML, or Something Else?
+* 使用標準的 textual format 讓 client 可以有很多彈性來處理 resource
+* JSON 比起 XML 更流行但對於 link control 的支援不足，所以 Hypertext Appllication Language 補足 JSON 這部分的不足
+#### Beware Too Much Convenience
+* Framework 可以快速打造 RESTFul web service 但會為了快速上手讓 internal representation expose 到外部造成 coupling 讓長期的開發變得困難
+* 如何儲存資料跟 expose 給 comsumer 很容易主宰思考，可以嘗試直到 interface 穩定下來才去實作內部的細節，確保由 consumer 的需求來驅動設計與實作方式
+#### Downsides to REST Over HTTP
+* 無法像 RPC 一樣產生 client stub 來簡化 consumption，如果想要實作 hypermedia control 應該要自己做而不是跑在 HTTP 之上
+* Web server framwork 不一定支援所有 HTTP verbs
+* 效能比不上 binary protocol 因為每個 HTTP request 都有 overhead
+* HTTP 不適合 low-latency communication
+* Server 之間溝通要求 low-latency 或 message 都很小則 HTTP 不適合
+* 處理 payload 需要額外的 work 而 RPC 用 serialization 的方式解決
+
+### Implementing Asynchronous Event-Based Collaboration
+#### Technology Choices
+* Microservice 要能 emit event 跟 consumer 要能知道 event 發生
+* Message broker 可以處理兩種需求，producer 用 API publish event 給 broker，broker 處理 subscription 把 event 通知 consumer
+* 不要把太多邏輯放到 middleware 上面，盡量保持 middleware 簡單而把邏輯放在 endpoint 上面
+* 用 HTTP 來 propagate event，但 consumer 需要自己管理收到的 event 跟自己去 polling
+#### Complexities of Asynchronous Architectures
+* Event-driven architecture 讓系統更 decoupled 跟 scalable 但複雜度也跟著提高，除了需要處理 publish/subscribe message 還要思考 long-lived async 管理方式
+* 採用 async 技術要很小心，需要有監控工具來追蹤問題
+
+### Services as State Machines
+* 不管是用 REST 或者 RCP，核心概念為 service 是個 state machine，customer microservice 有所有的邏輯相關的行為在 context 裡面
+* Constomer service 完整控制 customer 本身的 lifecycle 不受外面控制保有 cohesion
+
+### Reactive Extensions
+* Rx 是一種把多個呼叫收集再一起後執行 operation 的機制
+* Rx 反轉了一般先拿資料後再來操作的方式，而是發現到操作過後的 oepration 後才去反應變化
+* Rx implementation 適合在 distributed system，觀察 downstream service 的結果後去反應的方式讓人可以不用管是用 blocking 還是 non-blocking call
+* 如果使用多個 call 來執行單一 operation 則可以考慮 Rx 技術
+
+### DRY and the Perils of Code Reuse in a Microservice World
+* DRY 更精確來說是不要重複行為跟知識，當行為改變的時候不容易找出所有應該修改的地方
+* DRY 讓我們建立 shared code 來避免 duplicated code 但是在 microservice 的世界是滿危險的行為
+* Shared code 加深了 microservice 與 consumer 的 coupling
+* 不要再 microservice 裡面違反 DRY 但 microservice 之間可以允許違反 DRY，因為 coupling 比起 DRY 更危險
+#### Client Libraries
+* Client library 雖然可以避免 code duplication 跟讓人容易使用 service 但容易讓 server 的邏輯滲透到 client 形成 coupling
+* 可以使用不同的人來寫 client library 避免邏輯從 server 滲透到 client 的問題
