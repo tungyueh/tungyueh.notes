@@ -303,3 +303,89 @@
 #### Client Libraries
 * Client library 雖然可以避免 code duplication 跟讓人容易使用 service 但容易讓 server 的邏輯滲透到 client 形成 coupling
 * 可以使用不同的人來寫 client library 避免邏輯從 server 滲透到 client 的問題
+
+### Access by Reference
+* 當我們收到 service 給的 resource 我們所看到的是當前狀態，隨著時間過去，真正的狀態會與當前狀態漸行漸遠
+* 使用存在記憶體裡的 resource 去改變需要包含 original resource 的 reference 能夠拿到最新狀態
+* 與其命令 email service 去寄信倒不如送 Customer 跟 Order resource URI 讓 email server 去檢查是否需要寄信比較好，因為狀況隨時可能改變，一但寄信的 event 被放到 queue 就比較難改變了
+* 當 resource 改變了則我們需要知道目前的狀態，所以需要有 reference 才能知道目前狀態
+* 查看 reference 會造成 service 太過忙碌，如果 client 可以知道 resource 更新時間則可以使用 caching 減少負擔
+
+### Versioning
+* 通常都會覺 service interface 會改變所以需要 versioning
+#### Defer It for as Long as Possible
+* 最好降低改變得時候壞掉的機率是鼓勵 client 的好行為跟避免與 server 綁的太死
+* Client 只讀需要的資料並且要預期 server 的資料結構都有可能改變，讓 code 對結構改變有一定容忍度
+#### Catch Breaking Changes Early
+* 如果 change 會造成 consumer 壞掉要確保儘早壞掉
+* 如果無法避免 consumer 壞掉則避免所有的 consumer 一起壞掉或者與 consumer 溝通
+#### Use Semantic Versioning
+* Semantic versioning 讓 client 可以看到 service 的 version 判斷是否能夠整合
+* MAJOR.MINOR.PATCH: MAJOR 數字遞增代表與之前不相容，MINOR 數字遞增代表可以與之前相容，PATCH 代表功能性的修正
+* Semantic versioning 將很多資訊與預期放在簡單的三個欄位省去很多溝通成本
+#### Coexist Different Endpoints
+* 為了避免 client 需要一起在 lock-step 升級，可以使用 service 同時包含新舊版本的 endpoint，讓新的 interface 可以推出而且給 consumer 時間去從舊的換到新的，當所有 consumer 都沒有用到舊的就可以把舊的 code 移除
+* 當有多個版本的時候要區分好 request，將所有 request 到 V1 endpoint 轉成 V2 request，然後送到 V3 endpoint，這樣才能清楚的刪掉不需要的 code
+#### Use Multiple Concurrent Service Versions
+* 同時有不同版本在線上服務 consumer，缺點是修 bug 需要在不同版本修正後部屬、需要將正確的 consumer 導流到正確的 endpoint、需要將不同版本的資料一起呈現出來，這些都增加了系統複雜度
+* 短時間同時存在不同版本是合理，有可能需要做 blue/green deployment 或 canary release，不同版本共存時間如果過長應該要考慮用不同 endpoint 而不是同時存在不同版本
+
+### User Interfaces
+* User interface 需要以整合的方式來思考因為終究是 user interface 把 microservice 集合起來呈現有意義的東西給 customer
+* Desktop client 通常都比較大而 Web client 通常比較小因為主要都在 server 上去處理，但隨著 JavaScript 興起有些 application 也會變得跟 desktop 差不多大小
+#### Toward Digital
+* 因為無法預期 customer 會如何使用服務所以採用 granular API，組合不同 service 的功能 expose 不同的方式來提供不同的體驗
+* User interface 應該要用不同層的組合方式來思考
+#### Constraints
+* User 與系統互動的時候在不同裝置會有不同的限制
+* Interface 提供的核心功能都是一樣的但要能找到方式讓 interface 能夠適應不同的限制，
+#### API Composition
+* Service 透過 HTTP 使用 XML 或 JSON 與彼此溝通才 user interface 很合理就直接使用這些 API，如果使用 binary protocol 則 web-based client 整合比較困難
+* 這種方法無法為不同 device 打造適合的內容，client 只能自己說想要那些欄位來製造自己想要的回應但 service 需要支援這項功能
+* Client 需要使用很多 API call 來與 service 溝通，雖然可以使用 API gate way 來 aggregate 但有缺點
+#### UI Fragment Composition
+* 與其讓 client 不斷呼叫 API 打造出 UI 倒不如由 service 把提供的功能組合成 client 方便做出 UI 的樣子
+* 這種方式適用於使用 coarser-grained fragment 組合成 UI
+* Fragment 最好與 team ownership 一致
+* 需要 assembly later 把不同部分組合起來
+* 優點是負責 service 的 team 也負責 UI 的這個部分
+* 使用者體驗需要一致，不同部分的風格要一致
+* Client 不是使用 Web 則無法使用此方法
+* Web 需要在不同地方使用互動式的功能時則此方法無法提供功能只能回到原本的 API call
+#### Backends for Frontends
+* Server-side aggregation endpoint 或 API gateway 把多個 backend calls 組合起來提供給不同 device 來減少 backend service 收到過多的 API calls，缺點是 servder-side endpoint 可能會包含太多行為與邏輯在裡面然後由不同 team 維護，所以當改變功能的時候這邊也需要更改
+* 一個太巨大的 layer 在所有 service 上面會導致所有東西都放進裡面開始失去獨立性，藉由限制 backend 只服務一個特定 user interface 可以改善問題
+* Backends for Fromtends(BFFs) 讓 team 可以專注在特定 UI 上面處理 servder-side components，這些 backend 當成 UI 的一部分嵌入在 server 上
+* BFFs 也有把邏輯放進不應該放的位置的問題，business logic 應該只待在 service 上面，BFFs 應該只有對特定 interface 的行為 
+#### A Hybrid Approach
+* 不一定只能採用其中一個方法，可以依據不同方法在不同 interface 上面，只要確保要維持 cohesion 的前提下提供 user interface
+
+### Integrating with Third-Party Software
+* 有時候需要整合很少控制權的軟體
+* 如果軟體是很獨特才自己打造不然就買，這樣 CP 值比較高
+#### Lack of Control
+* 如果要擴充或整合 COTS 產品通常都由 vendor 決定如何擴充或整合
+* 不管好不好整合都有部分控制權掌握在別人手上，重點在於如何把控制權找回來
+#### Customization
+* 購買現成品再要求高度客製化的成本會比從頭客製化來的高，所以與其要求高度客製化倒不如改變組織的運作方式
+* 現成品的升級可能會導致客製化的東西失效
+#### Integration Spaghetti
+* 整合 tool 必須使用產品的溝通方式，所以需要整合不同的溝通方式造成困難
+* Tool 如果可以直接使用 data store 可能會造成 coupling
+#### On Your Own Terms
+* 全部東西都從頭打造是不合理的，使用 COTS 或 SaaS 產品整合重要的是要把東西移回自己的 team 裡
+* 客製化要坐在自己的平台上面然後限制 tool consumer 的數量
+#### The Strangler Pattern
+* 想要擺脫不受控制的 legacy platform 可以使用 Strangler Application Pattern
+* 攔截送往舊系統的呼叫後，決定繼續送往舊系統還是新系統，這樣就可以不用大量改寫就可以慢慢換掉功能
+* Microservice 可以使用一連串的 microservice 來達成攔截呼叫的功能
+
+### Summary
+* 介紹不同整合的方式，使用保持 microservices decouple 的方式來整合是最好的
+    * 不要使用 database
+    * 最好使用 REST 而不是 RPC
+    * Choreography 比 orchestration 好
+    * 避免需要同時改動 client 跟 server 的 change
+    * Reader 要能適應 server 回應的改動
+    * User interface 用 compositional layer
+* 整合外部產品需要注意控制權在自己身上
