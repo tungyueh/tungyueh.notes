@@ -389,3 +389,149 @@
     * Reader 要能適應 server 回應的改動
     * User interface 用 compositional layer
 * 整合外部產品需要注意控制權在自己身上
+
+## CHAPTER 5 Splitting the Monolith
+* 目前已經知道好的 service 的模樣但現存的 codebases 沒有遵守好的 pattern，需要在不重頭改寫的情況下分解
+* Monolith 會隨著時間成長大到大家都不敢改動，但使用正確的工具可以好好處置
+
+### It’s All About Seams
+* Monolith 通常無法達成 highly cohesion 跟 loosely coupled，雖然只改一行 code 但就需要重新佈署整個系統
+* Seam 概念原本是一段 code 可以獨立運作而不影響剩下 codebase 的 code，但在這邊使用 service boundaries 來代表
+* Bounded context 可以用來當作 seam，因為根據定義就是在組織裡有 cohesion 但夠 loosely coupled boundaries，所以第一步先要找出 code 之中的 boundaries
+* 大部分的程式語言都有 namespace 的概念來幫助我們把相似的 code 放在一起
+
+### Breaking Apart MusicCorp
+* 假設我們有一個 monolithic service 包含所有 MusicCrorp's online system 功能，為了拆分首先需要釐清 high-level bounded context，主要可以分成四大類
+    * Catalog: 任何銷售產品的 metadata
+    * Finance: 帳戶、付款、退款的報告等等
+    * Warehouse: 處理客戶訂單跟管理庫存等等
+    * Recommendation: 嶄新的推薦系統裡面有由 PhDs 寫出的很多複雜的 code 
+* 首先建立 namespace 代表 bounded context 然後把相關 code 放進去，需要測試確認搬移 code 是否導致壞掉，剩下不知道搬去哪邊的 code 很有可能是遺忘的 bounded context
+* Code 代表組織而 package 代表 bounded context，所以 package 之間的互動要跟現實中一樣，如果發現不一致就可以找到問題並解決
+* 不需要把所有 code 都放到相對應的 package 才能開始切分出 service，可以先把重要的切分出來，之後慢慢一步一步慢慢切分
+
+### The Reasons to Split the Monolith
+* 不用一次把 monolith 切成多個 service，慢慢的切分出來可以減少出錯的機率也可以學習到 microservice 的概念
+* 從能得到最多好處的 service 開始慢慢切分出來，不要只是為了切分而切分
+#### Pace of Change
+* 切分出來的 service 可以更快的改動
+#### Team Structure
+* 切分出來的 service 可以讓 team 有完全的控制權
+#### Security
+* 切分出來的 service 可以增加更多安全性的機制
+#### Technology
+* 切分出來的 service 可以採用不同的技術
+#### Tangled Dependencies
+* 從最低 dependency 的 seam 切分出來幫助釐清複雜的 dependencies
+
+### The Database
+* 因為用 databases 來整合 service 會有很多困難點所以為了不要用 databases 要找出 databases seam 以方便切分
+
+### Getting to Grips with the Problem
+* 第一步找出 code 去存取 DB 的部分，通常使用 repository layer 跟 framework 來把 code bind 到 DB 方便對應 object 或 data structure 到 DB
+* Database mapping code 跟使用的 code 放在一起方便理解 code 使用到 DB 的部分
+* 知道 code 使用哪個 table 但無法知道 table 之間的關係，所以要利用工具來視覺化 table 之間的關係，然後切開這些 coupling 變成 service boundaries
+
+### Example: Breaking Foreign Key Relationships
+* 原本不同領域的 code 需要存取其他人的 table 得到想要的資訊在 mircorservice 世界中要變成使用 API 來獲取資訊才能切開 coupling
+* 讀取 DB 速度會快於用 API 但如果使用 API 的速度是可接受的則用速度降低來交換 decoupling 是值得的
+* Foreign key relationship 會因為使用 API 喪失掉，所以要轉由 service 來負責管理關係，根據使用者期望的行為來做出適當的管理
+
+### Example: Shared Static Data
+* Table 複製多份到不同的地方，缺點是不容易維持一致
+* Property file deploy 到 service，雖然還是有需要維持一致性的缺點但比起改 DB 改檔案比較容易
+* Push static data 到 service 
+
+### Example: Shared Data
+* 不同類別的 code 使用同一個 DB，這就是典型的 domain concept 沒有對應到 code，而是把 domain concpet 放進 DB 裡面
+* Domain concept 的 DB 拉出來成一個 service 讓不同類別的 code 使用 API 來存取資訊
+
+### Example: Shared Tables
+* 不同類別的 code 使用同一個 table 的時候要把 table 分開變得更專屬於該類別的 table
+
+### Refactoring Databases
+#### Staging the Break
+* 找出 databases seams 先 release monolithic service 但用不同 schema，之後才把 service 切開
+* Schema 分開後需要更多對 DB 的操作，可能在 join 資料用到更多 memory，可能破壞掉 transactional integrity，所以先維持 monolithic service 可以 revert 到之前狀態
+
+### Transactional Boundaries
+* Transaction 確保所有動作都完成或都失敗，讓我們可以對多個 table 同時 update 但只要有一個失敗又會回到之前狀態，確保狀態可以正確的改變
+* Monolithic schema 下所有 create 或 update 都在一個 transactional boundaries 之下，當我們切開成不同 schema 則失去一個 transaction 確保的狀態
+#### Try Again Later
+* 當失敗的時候可以之後再嘗試做一遍操作，這樣可以達到 eventual consistency
+#### Abort the Entire Operation
+* 回朔之前成功的操作回到先前的狀態，還要考慮到 service 是否有做好回朔的處理
+* 回朔的操作也有可能失敗
+* 如果要回朔多個操作會變得很困難
+#### Distributed Transactions
+* 透過 transaction manager 來編排不同的 transactions，確保狀態保持一致，橫跨不同系統透過網路溝通
+* Two-phase commit 是一種演算法處理短期的 distributed transactions，第一階段 voting phase 詢問大家 local transaction 是否可以 commit，如果大家都說可以則會通知大家可以 commit，只要有一個說不行就通知大家 rollback
+* Two-phase commit 缺點是大家都需要停下來等回應，所以很容易壞掉，只要 manager 或一個人在 voting phase 不回應就會 block 大家，另外回答了可以但實際失敗會讓其他人誤會操作已經 commit 成功了
+* Distributed transactions 已經有在特定的技術上實作了而且邏輯很複雜所以不要自己做，找別人已經做好的
+#### So What to Do?
+* Distributed transactions 很難做對而且讓系統不易規模化，回朔操作的邏輯不容易理解而且需要額外的行為來修正不一致的狀態
+* 遇到商業邏輯的操作出現在 single transaction，思考是否一定要這樣做，看看是否可以用 local transaction 或 eventually consistency 的概念
+* 如果一定要保持一致性則盡量避免切分，但如果還是需要切出來則創造一個 concrete concept 代表的這個 transaction，如此一來讓我們能夠監控管理這些複雜的 transaction
+
+### Reporting
+* Service 切成多個部分會讓資料分散所以 report 變得不容易產生
+* 改變架構不應該捨棄 reporting，要把使用 report 的人也是跟一般使用者一樣考量需求
+
+### The Reporting Database
+* Report 通常都是要從不同的地方收集資料後形成有意義的內容
+* Monolithic service architecture 把資料都存在一個 DB，產生 report 的時候用 SQL queries 就可以拿到想要的資料，通常為了避免加重 DB 的負擔會使用另一個 DB 定期同步，從該 DB 拿取資料
+* 資料都集中在同一個地方很容易查詢但也造成 monolithic service 跟 report system 跟 DB schema 綁死，改變 schema 需要特別注意所以沒有人會想改動
+* 資料都集中在同一個地方讓可以優化的選項不多，running system 跟 reporting system 所使用的 data structure 一樣，所以改變 data structure 可能會造成其中一方變慢
+* 現在 DB 的選擇有很多，running system 跟 reporting system 如果想要用不同的 DB 來讓自己更好就無法辦到
+
+### Data Retrieval via Service Calls
+* 使用 API call 對 source system 拿取需要的資料
+* 如果要拿取大量的資料時候會讓操作變得緩慢，也不能先把資料存在 local 因為就算是歷史資料也可能會改變
+* Reporting system 通常會用 thir-party tool 去拿取資料，所以提供 SQL interface 方便整合
+* Microservice expose API 通常不是為 report 所設計，所以為了拿取需要的資訊會用很多 API call 也會增加 service 的負擔
+* Cache header 可以加速資料拿取的速度但通常 reporting system 拿取的資料都是第一次所以會造成很多 cache miss
+* Expose batch API 讓 reporting 更簡單
+* 作者不太喜歡 batch 的方式，覺得應該要更間單的方式可以更有效率的規模化
+
+### Data Pumps
+* 與其讓 reporting system 不斷用 API call 去拿取資料不如直接把資料送給 reporting system，直接定期從 service 的 database 拿資料後送給 reporting system DB
+* 直接使用 DB 整合會造成 coupling 但為了讓 reporting system 容易實作還是可以接受的
+* Data pump 由該 service 的團隊所實作，減少跟 schema coupling 的問題
+* Data pupmp 需要知道 service 跟 report 的 schema，負責對應 service 到 report
+* 建議將 service 跟 data pump 的 version-control 放在一起，把 data pupmp 當成 service 的一部分
+* Report schema coupling 還是存在著，但我們要把它當成 publish API 不會輕易改變
+* 有些 DB 提供 materialized view 去建立 aggregate view 為每個 service 建立專屬的 schema，這種做法可以減少 data pump 與 report schema coupling
+#### Alternative Destinations
+* Data pump populate JSON file 到 Amazon S3 用 S3 當成 data mart
+* Data pupmp 可以改成 populate cude 讓 Excel 或 Tableau 可以整合
+
+### Event Data Pump
+* State change event 發生的時候 event data pump 送資料到 reporting database
+* 避免與 source service database 產生 coupling，改成跟 service 的 change event 產生 coupling，change event 本來就是 expose 給大家知道所以比起與 database 產生 coupling 與 change event 產生 coupling 是更好的選擇
+* 可以更及時的傳送資料到 reporting database 比起定時送資料好
+* 如果有把處理過的 event 存下來則只需要處理新 event 就可以了，不像 data pump 需要自己管理要送那些資料
+* 不跟 service internal 綁再一起所以可以由別的 team 來負責，可以更獨立的發展
+* 缺點是所有需要的資訊都要變成 event 廣播出來，不容易規模化
+* 如果已經有 expose event 則可以考慮這種方式所帶來的 looser coupling 跟即時的資料
+
+### Backup Data Pump
+* Netflix 結合現有 backup solution 跟規模化的問題所使用的選擇
+* Netflix 複製 Cassandra data 成 SSTables 存在 Amazon S3 object store
+* Netflix 需要從這些資料產生 report 所以使用 Hadoop 用 SSTable 當作來源產生 report
+* 使用備份資料作為 data pump 來源 
+
+### Toward Real Time
+* Report 大部分都是從不同地方收集資料產生，但不同的 report 對於資料的精準度與即時性有不同的要求，所以可能用不同技術來產生 report
+
+### Cost of Change
+* 了解每次改變的代價與目的，這樣才能讓我們能夠減少改變發生錯誤的機率
+* 不同的改變會有不同的風險，盡量在風險小的時候嘗試錯誤
+* 思考如何讓改變所產生的錯誤最小化，先提出設計再用 use case 看看情況如何
+* class-responsibility-collaboration (CRC) cards 列出 service 的職責跟合作的 service，用 use case 慢慢知道該如何把所有東西串再一起
+
+### Understanding Root Causes
+* 要在 service 成長到很難分割之前就去分割，但雖然知道大的 service 不好但往往還是很難再適合的時機分割
+* 讓分割 service 變得容易，像是使用 framwork 或有環境讓人測試之類
+
+### Summary
+* 一點一滴的找出系統的 seams 後切分出來，這期間還是可以讓系統正常的成長應付需求，也因為慢慢的改變所以不用害怕去改變它
