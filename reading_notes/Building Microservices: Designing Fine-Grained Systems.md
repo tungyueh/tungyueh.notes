@@ -535,3 +535,160 @@
 
 ### Summary
 * 一點一滴的找出系統的 seams 後切分出來，這期間還是可以讓系統正常的成長應付需求，也因為慢慢的改變所以不用害怕去改變它
+
+# Building Microservices: Designing Fine-Grained Systems Ch6
+## CHAPTER 6 Deployment
+* Microservices 比起 monolithic application 部署更為困難，如果沒有採取好的方式會一團混亂
+* 使用 CI 跟 CD 的觀念幫助我們做出如何部署的決定
+
+### A Brief Introduction to Continuous Integration
+* CI 目的是讓所有人保持同步，確保新進的 code 可以跟現有的 code 整合好
+* 進行 CI 過程中會產生 artifact 用來做更進階的驗證，用來部署那個版本的 code，這樣可以確保部署的跟測試的是同一個
+* CI 讓我們快速得到目前 code 的品質，自動產生 binary artifacts，build artifact 所需要的 code 都有版本控制，可以從 artifact 回推 code
+#### Are You Really Doing It?
+* 要經常檢查有沒有與其他人的 change 整合好，不然越晚整合會越難
+* 如果 CI 沒有檢查行爲的正確性則無法知道整合的正確性
+* 當發現 build 失敗後要馬上停止整合，先把當次整合失敗的問題修正後再繼續整合，不然堆積越多的 change 會導致修正時間快速增長
+
+### Mapping Continuous Integration to Microservices
+* Single source code repository: 當有任何 check-in 時則跑過所有驗證後把所有 artifact build 出來
+    * 優點: 很直覺
+    * 缺點: 需要接受 lock-step release，全部 service 要一起 deploy，不需要驗證的地方都重新驗證過讓時間拉長，無法知道哪些 artifact 是需要 deploy，如果 build 失敗則全部的人都無法做任何 change 直到修正完畢
+* 另一種變形是 CI 只看部分 source tree，如果結構有設計好很容易對應 build 跟 code，缺點是容易同時 commit 多個 service 造成 coupling
+* 一個 micorserve 用一個 source code repository 跟一個 CI build，可以快速驗證後 deploy
+* microservice tests 要放在 source control 確保知道跑了哪些測試
+
+### Build Pipelines and Continuous Delivery
+* Build 過程中可能會有好幾個階段，例如測試可能有快慢之分，分階段可以更快得到回饋，不必等全部的測試都跑完才知道，build 中分為不同階段稱為 buld pipeline
+* Build pipeline 幫助追蹤進度，當 build 出來的 artifact 通過越多階段則越有可能在 production 可以正常運作
+* CD 讓我們可以持續得到每個 check-in 的回饋，可以把每個 check-in 都當成 release candidate
+* CD 標準流程是 compile&fast tests -> slow tests -> UAT -> Performance testing -> Production
+* 使用以 CD 為概念所設計的工具，不要使用其他工具來做 CD 的事情這樣會讓系統變的很複雜
+* CD tool 要能夠讓人自己定義跟視覺化 pipelines，某些階段可以是手動的，像是做完手動測試後標註該階段通過後 CD 發現到會自動往下走流程
+* 藉由 modeling 從 source code 到 production 可以視覺化軟體品質，減少 release 之間的時間
+* Microservices 期望可以獨立 deploy 所以一個 service 會有一個 pipeline
+
+#### And the Inevitable Exceptions
+* 一個 microservice 一個 build 是目標但有時候可能會有例外，像是初期的 microservice 可能對於 service boundaries 還不清楚就先保持大的 microservice 後等徹底理解在慢慢往目標前進
+* 釐清 service boundaries 的時期讓所有 service 都在一個 build 減少跨 services changes 的成本
+* 把所有 service 綁在一起 build 等到穩定後開始讓 serivce 有自己的 build，如果又不穩定則可以在 merge 回去，讓自己有足夠的時間摸清楚 domain
+
+### Platform-Specific Artifacts
+* 很多語言都有 artifact 跟 tool 可以建立跟安裝，Ruby->gems, Java->JAR, Python->eggs
+* Microservice 運用自動化的設定管理工具可以使用 artifact 直接提供服務
+* 缺點是 artifact 綁定在特定技術，如果使用多種技術會變得很困難
+* 自動化可以把不同 artifact deployment 的差異隱藏起來但還是有更簡單的 artifact 可以使用
+
+### Operating System Artifacts
+* 使用原生於系統上的 artifact 可以避免綁定特定技術的問題
+* 優點在於我們不需要知道底下使用何種技術，只需要安裝在 OS 上面就可以使用
+* 缺點是不容易產生 OS artifact，另外如果要 deploy 在不同 OS 則管理變得困難
+* 使用 OS-based package management 可以簡化部署的流程
+
+### Custom Images
+* Automated configuration management systems 挑戰在於需要花很久的時間在機器上跑 script，隨著需要安裝的軟體則時間會越久
+* 雖然有些工具會檢查已經安裝過就不用安裝但檢查還是需要花時間，如果機器會需要常常開開關關也會很耗時間
+* 同樣的工具不斷的被重新安裝會讓 CI 流程變慢，downtime 時間變長
+* 使用已經安裝好常用的工具的 virtual machine image 可以減少安裝時間
+* 因為已經在 image 當裝好常用的工具所以大大節省時間，只需要安裝最新版本的 service，可以不斷重複利用這些 base image
+* 缺點是 build image 需要很久，image 也有可能變很大造成用網路需要傳很久
+#### Images as Artifacts
+* 除了把常用的工具放到 image 也可以直接把 service 放進 image 讓部署可以更節省時間
+* OS-specific package 讓我們不用在乎是用何種技術提供服務，我們需要的只是可以運作就好，接著我們就可以把注意力放在自動建立部署這些 image
+#### Immutable Servers
+* 藉由把 configuration 放進 source control 可以讓我們不斷自動產生出 service，但如果有人做了不再 source control 裡面得修改就會造成 configuration drift 讓 code 不跟 running host 一樣
+* 為了避免對於 running host 做修改，所有修改都需要進入 build pipeline 後產生新 machine，為了確保不能被修改可以關掉 SSH
+* 確保我們需要的資料都有存在別的地方讓我們更直覺部署跟理解環境
+
+### Environments
+* CD piepline stages 可以是不同的環境，這些不同的環境差異會有一些問題
+* Service 在測試環境中部署在單一機器上沒有問題但部署在 production 環境上用兩台機器做備援就可能會發生 replication session state 失敗的情形
+* Service 部署在不同環境有著不同的需求，個人電腦需要快速的部署，production 上需要有多個 service 互相備援
+* 從 laptop 到 build server 到 UAT environment 到 production 需要越來越接近實際的環境才能儘早找到問題，但接近實際環境成本很高需要做取捨，另外使用接近 production 的環境會造成 feedback loop 變慢
+
+### Service Configuration
+* Service configuration 理想上要盡量少而且在不同環境都是一樣的，如果不同的環境都有不同的 configuration 則 service 的行為會不同會造成很多問題
+* 雖然可以為每一個環境都做出包含 configuration artifact 但是就違反 continuous delivery 將每個 build 當成 release candidate 的原則，因爲不同環境用不同 build 所以無法確保在測試環境通過也會在 production 通過測試
+* 需要更多時間去 build artifact，另外還需要處理 sesitive configuration 的問題
+* 比較好的方式是一個 artifact 但不同的 configuration 跟 properties file 來管理不同環境
+
+### Service-to-Host Mapping
+* 用 host 來代表 unit of isolation，如果直接跑在 physical machine 則就是一台 host，使用 virtualization 則可以有多個 host 跑在 physical machine 上
+* 多少個 microservice 跑在 host 上是合理的？ 以下是不同的因素可以考量要用何種 model 也要注意某些 model 會限制 deployment 選擇
+#### Multiple Services Per Host
+* 多個 service 跑在一個 host 上容易管理而且成本較低
+* 部署多個 service 在一個 host 上跟開發的環境類似
+* 監控變的困難，不知道是哪個 service 造成 workload
+* Service 會互相影響
+* 部署變困難，需要確認 deployment 不會影響到其他 service，雖然可以將所有 service 綁在一起部署但就失去 microservice 的好處
+* 不同 team 部署 service 在同一個 host 需要花費協調的成本，讓 team 的自主性變低
+* Scaling 變得困難，如果有特定 service 需要不同的環境則無法辦到
+* 很多部署跟 host 管理都是為了好好利用稀少的 resource
+#### Application Containers
+* 多個 service 在一個 application container 之中便於管理
+* 減少 language run times 的 overhead
+* Application container 有很多缺點需要確定是必須使用才用
+* 需要綁定特定技術，除了限制可能的選擇還會影響到自動化管理工具的使用
+* 特定平台上也會對於管理不容易，無法監控個別 service
+* 這種方式也是為了優化使用的 resource，建議使用 self-contained deployable microservice as artifacts
+#### Single Service Per Host
+* 一個 host 只有一個 service 避免 single points of failure 跟 host 斷掉就整個 service 失效
+* 如果沒有可用的 PaaS 就可以用這種方式可以有效的減低複雜度
+* 需要管理更多 server 跟需要更多成本，但還是推薦這種方式
+#### Platform as a Service
+* 多數 platform 依賴於特定技術的 artifact
+* Heroku 是不錯的 PaaS solution
+* PaaS solution 如果沒問題就可以用的很好，如果有問題就難以解決
+* PaaS solution 通常都是設定成一般 application 使用，所以如果 service 不是一般就容易無法使用
+
+### Automation
+* 當機器數量不多得時候可以使用手動管理，但數量一多就需要自動化管理
+* 手動管理的難度會隨著 host 數量增加而變能導致無法使用 single-service-per-host setup，如果用自動化管理則不用擔心 host 數量的增加
+* 就算不增加 host 還是會有很多 service 所以還是需要自動化處理 multiple deployments 
+* 自動化可以確保開發者保持生產力，理想上開發用的 tool chain 要跟 production 上的一樣才能儘早發現問題
+* 使用自動化才能控制 microservice architecture 複雜度
+#### Two Case Studies on the Power of Automation
+* 一開始花時間去找尋正確的工具的成本可以在後期做回收
+
+### From Physical to Virtual
+* 透過找出把 physical machine 切分是讓我們能夠管理大量 hosts 的關鍵
+#### Traditional Virtualization
+* Virtualization 讓我們能夠把 physical server 分成好幾個 host 以節省成本
+* 無法無限制的切分機器因為切分越多需要更多管理資源
+#### Vagrant
+* Vagrant 是好用的 deployment platform 通常用於開發跟測試，不再 production 使用
+* Vagrant 提供 virtual cloud 在 laptop 上面，透過定義 VM 之間的網路在檔案就可以幫我們設定好
+* 簡單模擬出 production 環境，還可以測試各種 failure mode
+* 缺點是對系統效能負擔很重，如果太多 VM 可能會無法建立好環境
+#### Linux Containers
+* Linux container 建立一個不同的 process space 讓其他 process 活在裡面
+* Lunux container 是整個 system process tree 的一個 subtree，有 physical resources 配置
+* 不需要 hypervisor，每個 container 用自己的 OS 但 kernel 是共用的
+* Linux container 速度比起完整的 virtual machines 還要快
+* Container 天生輕量化的特性讓我們可以跑很多在同一個 host，也就可以一個 container 跑一個 service
+* 外面需要 route 到 container 裡面，需要設定 IPTables 將 container expose 出來
+* Container 不是完全獨立，設計上或 bug 都會讓 container 之間可以溝通
+#### Docker
+* Docker 是建立在 container 上的 platform 幫忙處理 container 的事情
+* 在 Docker 上我們建立部署 apps，也就是 image
+* Docker app 幫我們隱藏底下的技術還可以存在 Docker registry
+* 可以在 Vagrant 起一個 VM 跑 Docker 後，用 Docker 快速的跑個別 services
+* CoreOS 只提供最基本的功能讓 Docker 可以跑起來減少需要的資源
+* Docker 就像是 PaaS 運作在 single machine 上，如果需要管理多個 Docker instance 就需要找另外的軟體來管理
+* PaaS solution 都會把 abstraction level 搞錯但 Docker 做得很正確
+* Docker 已經被使用在很多公司因為提供lightweit container 增加效率跟快速的部署
+
+
+### A Deployment Interface
+* 一致化的 interface to deploy 是很重要的，我們希望不管是 dev test prod 都是使用相同的方式
+* 最合理去啟動 deployment 是一行有參數的指令
+* 要知道我們 deploy 哪個 build 所以需要給名稱，也需要知道我們想要何種版本
+* 要知道我們要 deploy 到哪種環境
+* Python Fabric 很好的支援 commnad-line calls
+#### Environment Definition
+* 要能夠知道目前環境是如何跟 service 在環境裡看起來怎麼樣
+
+### Summary
+* 先是讓一個 service 可以穩定獨立的 release
+* 一個 host 只放一個 service，自動化是管理的關鍵
+* 確保 deployment 過程是簡單的，使用 tool 才能容易 deploy 到不同環境
