@@ -536,7 +536,6 @@
 ### Summary
 * 一點一滴的找出系統的 seams 後切分出來，這期間還是可以讓系統正常的成長應付需求，也因為慢慢的改變所以不用害怕去改變它
 
-# Building Microservices: Designing Fine-Grained Systems Ch6
 ## CHAPTER 6 Deployment
 * Microservices 比起 monolithic application 部署更為困難，如果沒有採取好的方式會一團混亂
 * 使用 CI 跟 CD 的觀念幫助我們做出如何部署的決定
@@ -692,3 +691,142 @@
 * 先是讓一個 service 可以穩定獨立的 release
 * 一個 host 只放一個 service，自動化是管理的關鍵
 * 確保 deployment 過程是簡單的，使用 tool 才能容易 deploy 到不同環境
+
+## CHAPTER 7 Testing
+* 了解測試的種類考量上架速度與軟體品質的平衡
+
+### Types of Tests
+* 技術面向的測試是開發人員對於系統第一線的測試，像是 unit tests 跟 performance tests，通常為自動化的測試
+* 商業面向的測試提供非技術人員了解系統如何運作，end-to-end tests 或者手動測試
+* 不同面向的測試都有其地位端看系統的特性，最近趨勢都是朝向自動化測試才能快速有效率測試軟體，如果還大量使用手動測試就應該先轉成自動測試再繼續往下走
+
+### Test Scope
+#### Unit Tests
+* 通常只對於一個 function 或 method 做測試，是 TDD 過程中產生出來的，過程不會啟動 service、限制使用外部檔案、不使用網路，速度非常快通常不到一分鐘
+* 幫助開發者快速發現 bugs，涵蓋 service 中小範圍的獨立測試
+* 主要可以得到快速的反饋也可以無後顧之憂的 refactoring
+#### Service Tests
+* Service tests 主要用來測試 user interface 跟 service 本身
+* 讓測試可以不受其他 service 影響方便找出跟修復問題
+* 如果不使用真實 database 跟通過網路與其他 service 溝通則測試速度還是很快
+* 比起 unit test 測試的範圍大，所以發現問題比較難修復
+#### End-to-End Tests
+* 測試整個系統
+* 通過測試可以對於整個系統很有信心
+#### Trade-Offs
+* 測試的範圍越大我們會越有信心但反饋的速度很慢也難以找到問題點
+* 大範圍測試失敗會先想寫出快速的 unit test 來抓到問題點，這樣可以不斷增加反饋的速度
+#### How Many?
+* 範圍越小的測試要越多，有不同種類的測試
+* 當大範圍的測試太多可以用 test coverage 的方向換成小範圍的測試
+
+### Implementing Service Tests
+* Service test 測試整個 service 的功能為了要獨立測試需要 stub out 其他合作的 service
+* CI build 第一步是 create binary artifact 才能 deploy
+* Service test 需要 launch stub service 並且設定好 service 到 stub service 的連線，接著設定 stub service 的 response 模仿現實的 response
+#### Mocking or Stubbing
+* Stub service 只會回應固定 response，如果需要回傳變動的 response 則需要使用 mock
+* 使用 mock 的時候要注意如果預期的呼叫沒有出現則 test 就會失敗，如果過度使用 mock 會讓測試變得容易壞掉
+* 有時候 mock 再確認預期 side effect 的時候很有用，stub 跟 mock 的平衡要抓好，通常 stub 會用的比 mock 多
+#### A Smarter Stub Service
+* Mountebank 像是個小型 software appliance 可以控制需要的回應，只用一個就可以 stub 多個合作 service
+
+### Those Tricky End-to-End Tests
+* Microservice 系統的功能都是透過 user interface 由許多 service 合作提供的
+* End-to-end tests 需要把所有 service 都跑起來才有辦法測試，測試的範圍大帶來的信心高但速度慢難以診斷問題點
+* 假設其中一個 service 有新版要做 end-to-end test 需要把所有 service 跑起來但不知道其他 service 要用哪種版本，因為其他 service 可能也有新版本要上到 production
+* 如果有一堆 service test 需要 deploy 其他很多 service 會造成重複的測試
+* 用 multiple pipelines 就可以當有 service build 就會 trigger end-to-end tests
+
+### Downsides to End-to-End Testing
+* End-to-end testing 有很多缺點
+
+### Flaky and Brittle Tests
+* 當測試範圍變大則影響的因素就越多，有時候雖然功能沒有壞掉但因為其他因素讓測試失敗
+* 越多影響因素越容易讓測試失敗，這種測試容易因為重跑就好所以對於該測試不太信任，這類測試稱為 flaky test，這類測試失敗也無法告知太多訊息，透過不斷重跑期待下次會好會慢慢累積 check-in code 最後發現很多功能都壞掉了
+* 當我們發現 flaky test 就要試著移除，因為人類很容易習慣成自然就把測試失敗當成常態而不去理會
+* 如果無法修正 flaky test 則先記錄下來後從目前測試移除，之後嘗試改寫移除不穩定因素或者換成小範圍測試，有時候直接改系統讓測試變得容易也是方法之一
+#### Who Writes These Tests?
+* 每個 team 為自己的 service 寫測試是很正常的，但 end-to-end test 測試包含很多 team 所以不知道該由誰來寫測試
+* 所有 team 都可以來寫的話變成測試會太多，如果失敗大家都會認為是別人的錯所以最後就會忽略
+* 有些組織會讓一個 team 專門負責寫測試，缺點是開發 code 的人需要等別人來寫測試，而且寫測試的人也不太知道該如何修正測試
+* 不想 double effort 跟讓開發與測試的距離太遠，可以把 end-to-end test suite 當成 shared codebased 加上 ownership，大家都可以
+#### How Long?
+* End-to-end test 需要跑一段時間，但很少人會去減少 overlap 跟加速
+* 速度慢加上 flaky test 是個嚴重的問題，測試時間長而且失敗後可能功能是正確的，就算功能失敗大家早就將注意力放到其他事情上，還需要再轉回來處理
+* 可以藉由平行跑測試來解決但不是移除不需要的測試的替代方式
+* 移除重複的測試是不容易的事情，很難說服大家帶來的好處比壞處多
+#### The Great Pile-up
+* 當修正整合測試後會有越多的 check-in 堆積起來讓 building 越來越困難
+* 越大範圍的 deployment 則 release 越危險，所以盡量頻繁的 release 就會讓小的 change 準備好就 release
+#### The Metaversion
+* 既然 end-to-end tests 通過代表整個系統成功，為何不給所有 services 一個版本後一起 release?
+* 雖然沒有 microservice 的好處但也是可以接受一起 release 的方式
+* 一起 release 容易造成 coupling，這些 coupling 會造成比 single monolithic application 更嚴重的問題
+
+### Test Journeys, Not Stories
+* 雖然 end-to-end test 有很多缺點但在只有一到兩個 service 的情形下還是有辦法管理，但太多 service 管理困難度會陡升
+* 每實作一個功能就增加一個 end-to-end test 就會使測試數量爆炸很難很快的得到 feedback
+* 最好專注於小數量測試整個核心系統，任何沒在核心系統測試到的需要另外測試該 service ，主要測試 service 之間的互動
+
+### Consumer-Driven Tests to the Rescue
+* End-to-end test 主要想解決 deploy 到 production 的 service 不會讓 consumer 無法使用，所以可以用 consumer-driven contract (CDC) 來讓我們不需要真實的 consumer 幫忙測試
+* CDC 定義 consumer 對於 service 期待的行為，CDC 成為 CI 的一部分確保改動沒有讓預期行為壞掉，重點是要個別 service 進行 CDC 測試才能快速的得到 feedback
+* 最好與實際 consumer 的 team 一起寫測試
+* 因為 CDC 是 customer service 該有的行為所以可以跟 customer service 一起測試就好，所有 downstream dependencies 都可以 stub out
+* 如果 CDC 測試壞掉也代表 customer service 也會壞掉，這時候可以修好問題或與 customer 討論解決方法
+* CDCs 幫助我們不需要 end-to-end tests 就可以找出 breaking change 
+#### Pact
+* Pact 是個 consumer-driven testing tool
+* Consumer 先用 Ruby DSL 定義好 producer 的預期行為後跑 local mock server 產生 Pact specification file，這些檔案讓我們能夠跑 mock server 之後用來獨立測試 consumer
+* Producer 用 Pact specification file 產生 API call 後驗證 response
+* Pact specification file 由 consumer 所產生所以要把這些給 producer 使用，可以利用 CI/CD 或 Pact Broker 來把這些檔案放到不同的 repository 裡面
+#### It’s About Conversations
+* CDC 是 service API 討論的結果，如果壞掉可以觸發關於 API 要如何演化的討論
+* CDC 只有在 consumer 與 producer service 互相信任下才有辦法運作良好，有時候需要自己扮演 consumer
+
+### So Should You Use End-to-End Tests?
+* 大家慢慢傾向使用 CDC 類型的 tool 或 monitoring 來取代 end-to-end tests
+* 不斷增進各種技巧像是 CDC, monitoring, deployment 後 end-to-end test 變成只是用來用 cycle time 變成換取降低危險，如果不危險就可以把不需要的 end-to-end test 移除掉
+* 就算在開發環境中把所有問題排除也不能保證上到 production 會沒有問題，所以 production 還是需要 monitoring 跟 remediation
+
+### Testing After Production
+* Systen 進入 production 之前都會根據期待的行為做好測試，但如果有未預期到的行為就會造成問題
+* 改善方式為不斷定義更多的測試企圖在production system 減少錯誤，但到某個時間點會發現很難再減少錯誤
+#### Separating Deployment from Release
+* 透過在部屬環境跑測試可以抓到更多在尚未部屬之前測試的問題，smoke test suite 就是部屬之後跑測試確保部屬成功，所以部屬之後應該要自動跑 smoke test suite
+* Blue/green deployment 讓我們部屬不同版本的 service，只有其中一個 version 接受實際的 requests
+* 部屬新版 service 後跑 smoke test 成功就把 request 從舊版導到新版，舊版留一段時間讓我們發現新版本有問體可以快速 fallback 回來
+* Blue/green deployment 需要做到可以把 production traffic 導到不同 hosts，另外需要配置足夠的 hosts 讓不同版本可以同時跑起來
+* Blue/green deployment 除了可以在 production 測試還可以達成 zero-downtime 的 deployment
+#### Canary Releasing
+* 分流一些 production traffice 到新版本的 service 上面觀察是否運作正確，包含功能面、效能面、結果面，錯誤率是否和舊版差不多
+* 如果新 release 壞掉可以趕緊把流量導到舊版，如果運作良好就可以逐漸增加流量，比起 blue/green deployment 版本共存的時間更久
+* 使用 canary releasing 需要考量要分流 production request 還是複製到兩個 service，好處是可以比較 respsonse，壞處是更複雜而且對那些不是重複的 reqeust 結果會不同的 service 來說更加複雜
+* Canary deployment 是很好用的技巧來驗證新 service 對於 production traffic 的反應，同時可以管理 release 壞掉 service 的風險，雖然比較複雜而切需要更多設備來應付不同版本長時間的共存 
+#### Mean Time to Repair Over Mean Time Between Failures?
+* Blue/green deployment 或 cananry releasing 都是讓測試更接近於 production 環境而且可以管理壞掉的情況
+* 有時候把時間花在如何快速修復問題比起更多測試還要有效益，mean time between failures(MTBF)跟 mean time to repaire(MTTR) 要互相取捨
+* 減少 recovery 的時間只要有好的監控機制就可以快速 rollback，也可以部屬新版本後跑測試來及早發現問題
+* 大部分的公司都把時間花在建立 functional test suite 但很少把時間花在 monitoring 跟 recovering 上面，所以常常第一時間發現有問題但無法修復
+* 有人實際使用的時候才去做測試，要先提出東西來證明概念可行
+
+### Cross-Functional Testing
+* 有一些非功能面的需求無法單純用 feature 來呈現，像是 acceptable latency, 支援 user 的上限，interface 對於 disabilites 的支援，資料安全性
+* Cross-functional requirement(CFR) 更適合用來呈現以上的需求
+* CFR 只能在 production 達成，被分類再 property testing 裡面
+* 某些 CFR 我們可能想要追蹤每個 service level，其中會有 trade-offs
+* CFR 測試也要 follow pyramid too，有些可能是 end-to-end test 有些則不是
+* 提早檢視 CFR 並定期 review
+#### Performance Tests
+* Performance tests 可以幫我們確認符合某些 CFR，而且對於 microservices 更為重要因為會有更多跨 network boudary 的呼叫所以會更慢，而且在 synchronuous call 的情形下只要其中一個部份出問題就會讓效能顯著下降
+* 從 core journey 開始做 performace test
+* 為了產生有價值的結果需要漸漸增加模擬的 customer 這樣可以讓我們觀察不同數量造成的 latency，就算無法接近 production 可以幫助我們找出 bottleneck
+* 定期跑 performance tests 才容易找出問題點
+* 要去看結果，要把結果用通過或失敗來表現，不然單純看數據無法知道是否正確
+
+### Summary
+* 測試要能快速得到 feedback，不同種類的測試要分開
+* 使用 consumer-driven contracts 取代 end-to-end tests
+* Consumer-drive contracts 提供不同 team 該注意的重點
+* 了解該如何取捨要花時間做測試還是花時間監控偵測問題
