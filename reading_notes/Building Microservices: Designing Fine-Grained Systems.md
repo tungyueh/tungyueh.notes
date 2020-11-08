@@ -830,3 +830,97 @@
 * 使用 consumer-driven contracts 取代 end-to-end tests
 * Consumer-drive contracts 提供不同 team 該注意的重點
 * 了解該如何取捨要花時間做測試還是花時間監控偵測問題
+
+## CHAPTER 8 Monitoring
+* 雖然把系統分成 microservice 帶來許多好處但也讓監控在 production 上的系統變得困難，本章會講解遇到的困難跟提供解法
+* 發生問題時如果是 monolithic application 就容易調查，但 microservice 有太多可能的原因變得難以調查
+* 監控 microservice 需要監控多個 server 所以會有很多 logfiles 另外有很多個地方像是網路會造成問題，可以監控細節後用 aggregation 看到 big picture
+
+### Single Service, Single Server
+* 監控 host 本身的 CPU 跟 memory，需要知道正常情形的數值，如果超過就可以警告
+* 我們需要能從 server 上拿到 log 來釐清問題，因為只有一個 host 所以可以直接登入用 command-line tool scan log
+* 監控 application 本身，至少可以記錄 response time 
+
+### Single Service, Multiple Servers
+* 當 CPU 很高的時候，要能知道所有 hosts 的整體情況也要能知道個別的情況
+* 使用 tool 像是 ssh-multiplexers 讓我們能夠在每一台 hosts 能執行相同動作收集 log
+* Response time 可以透過 load balancer 來得知，但有可能 load balancer 的資訊有問題就會誤導我們，這時候我們應該把心力放在正常的 service 應該是如何來讓 load balancer 可以移除不正常的 service
+
+### Multiple Services, Multiple Servers
+* 如何從分散在多個 hosts 上的成千上萬的 log 找出問題?
+* 如何知道是 server 有問題還是系統的問題?
+* 如何追蹤橫跨多個 hosts 的 call chain 來找到問題點?
+* 答案是盡可能收集所有的 log 後集中 aggregation
+
+### Logs, Logs, and Yet More Logs…
+* 當越來越多的 hosts 則收集 log 會越來越困難，所以需要用特別的子系統收集 log 後集中放在一起
+* Kibana 可以讓我們用 query syntax 來找 log
+
+### Metric Tracking Across Multiple Services
+* 收集夠多 log 後困難的是如何知道狀態是好是壞，需要等系統跑一陣子之後才會有 pattern 出現
+* 複雜的系統上我們會常常配置新的 instance 給 service 因此需要能夠簡單收集新的 hosts log 也要能夠知道全面系統的 metric 或者 service 的所有 instance 或者特定 service 的特定 instance，之類的各種需求
+* Graphite 能夠及時送 metric, 查詢 metric 產生圖表, 還可以降低舊 metric 的資料詳細度避免佔用太多空間
+* 如果能夠了解 usage pattern 就能讓系統的 infrastrure 剛好符合需求，所以了解系統的趨勢是很重要的
+
+### Service Metrics
+* OS 可以藉由安裝工具來產生 metrics
+* 建議 service 要有最基本的 metric 例如 web service 就要有 response time 跟 error rate
+* 需要有 metric 的理由如下
+    * 大約有 80% 功能從沒被用到所以有 metric 才能知道那些功能會被使用
+    * 了解使用者的習慣來改善系統
+    * 不知道有什麼資料是有用的所以先收集所有資料再來分析
+* 有很多 libraries 讓我們 service 送 metric 到系統
+
+### Synthetic Monitoring
+* 設定 service 正常狀態的數值後當數值異常就發出警告
+* 設定正常的數值並不能代表系統正常運作，還有許多因素會影響到系統
+* 藉由 fake event 來檢視結果是否正常來測試系統是否運作正常
+* Fake event 稱為 synthetic transaction
+* 使用 synthetic transaction 來測試系統是否正常稱為 semantic monitoring
+* Semantic monitoring 不像 low-level metric 常常有 noise 可以比較貼近系統正常運作，但還是需要 low-level metric 來幫助我們找出問題點
+#### Implementing Semantic Monitoring
+* 使用 end-to-end testing 的 subset 來做 semantic monitoring
+* 測試資料需要貼近實際的資料
+* 確保假資料不會走到正常流程
+
+### Correlation IDs
+* 一個 initial call 會觸發需多的 service call 當出現問題的時候就難以分析
+* 要能夠從許多 service call 還原出 stack trace 來分析問題
+* 使用 Corelation IDs 把 initial call 上一個 GUID 後傳下去每個之後的 call，把 log 結構設計好就可以用 log aggregation tool 來追蹤 event 
+* 常見問題是當狀況發生時候才想要引入 corelation IDs 但要增加這個功能需要每個 service 的配合，所以建議盡量早點加入這個功能
+* 為了讓每個 service 都可以簡單使用 corelation IDs 可以建立 shared client wrapper libraries，隨著規模擴大會越難保證 service 都有用正確的方式呼叫，如果決定要用 in-house client library 讓 service 不須要使用特定方式呼叫則要注意不用與特定 producer service couple
+
+### The Cascade
+* 當 service 網路不通但狀態正常會讓我們沒有發現問題，雖然用 synthetic monitoring 可以發現問題但還是需要 report 來知道哪個 service 不通
+* Serice 也需要 expose 所用到的 database 跟 service 的狀態才能讓我們還原出 big-picture 找出問題點
+
+### Standardization
+* 對於 monitoring 來說有一個標準化的規定是很重要的，這樣才能讓我們看到系統的整體性
+* 需要依照規定的方式寫 log 才能讓 metric 集中分析
+* 可以準備好一台設定好的 VM 包過 logstash 跟 collectd 讓人可以快速上手
+
+### Consider the Audience
+* 資料的目標是提供給人來使用，所以了解人們如何使用資料是很重要的
+* 馬上告知需要立即知道的事情，對於之後可能想要的資料提供簡單找到的方式，花時間了解想要那些資料來解讀
+
+### The Future
+* 很多組織都把 metric 分散在不同的系統，application-levle metric 使用特定分析系統導致能能分析部分，也無法提供即時的報告，system-level 就可以即時產生報告來讓人採取行動
+* 以前因為很久在 release 一版所以 business metric 一到兩天才產生是沒關係的，但現在一天可以 release 很多版所以需要即時的產出 metric 來做評估
+* System metric 跟 business metric 其實都是 event 所以可以使用同一種方式來處理就可以得到更簡單的架構
+
+### Summary
+* Service
+    * 至少要能夠知道 response time，之後再來做 application-level metric
+    * 追蹤使用的 service 的 response 正常與否
+    * 標準化 metrics
+    * 用一致的格式寫 log
+    * Monitor OS 才能找出 rogue process 跟 capacity planning
+* System
+    * Aggregate host-level metric 跟 application-level metrics
+    * 確保 metric storage tool 可以 aggregate 整個系統、單一 serice 到單一 host
+    * 確保 metric storage tool 可以讓我們有足夠的 log 來分析系統的走向
+    * 有一個查詢 aggregating 跟 storing log
+    * 使用 Corelation IDs
+    * 知道什麼時候要採取行動進而規劃 alerting 跟 dashboards
+    * 研究整合不同 metrics 
+* Monitoring 的目的是讓我們能夠看見系統的全貌
