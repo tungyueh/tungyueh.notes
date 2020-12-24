@@ -924,3 +924,129 @@
     * 知道什麼時候要採取行動進而規劃 alerting 跟 dashboards
     * 研究整合不同 metrics 
 * Monitoring 的目的是讓我們能夠看見系統的全貌
+
+## CHAPTER 9 Security
+
+### Authentication and Authorization
+* Authentication 代表確認某人確實是某人的過程
+* Authorization 代表此身份可以做的事情
+* Single monolithic application 會有 framewok 來幫我們處理這些事情但到分散式系統就需要有更多進階的方案來處理
+#### Common Single Sign-On Implementations
+* Single sign-on (SSO) solution 通常用來處理 authentication 跟 authorization
+* 需要存取 resource 會先向 identity provider 請求需可，identity provider 審核通過身分跟想要的動作後將資訊提供給 service provider 讓使用者能夠存取 resource
+* Identity provder 可以是外部提供的服務或者組織內的服務
+#### Single Sign-On Gateway
+* Microservice 中如果每個 service 都可以與 identity provider 互動會有很多重複的部分，所以 shared library 可以幫助解決這個問題但要小心不要造成 coupling
+* 使用 gateway 避免每個 service 都與 identity provider 溝通，集中化 redirecting 跟 handshaking
+* Downstream serivce 可以在 HTTP header 傳遞 username 跟 role 之類的訊息
+* 使用 gateway 要確保 service 能夠簡單的就跑在 gateway 之後不會使開發者需要做太多努力
+* 使用 gateway 容易讓人把所有關於安全性的東西放在裡面，但雞蛋不能放在同一個籃子裡要分散風險
+* Gateway 盡量不要用來做太多事情，不然會變得太大讓攻擊點變多
+#### Fine-Grained Authorization
+* Gateway 可以用來做更細緻的 authentication
+* 太過細緻的劃分 role 會讓管理變得不容易
+* 將 role model 到現實組織的人員，也是之前提到將 software model 成實際組織運作的樣子
+
+### Service-to-Service Authentication and Authorization
+#### Allow Everything Inside the Perimeter
+* 信任所有內部 service 的呼叫
+* 好處是當 service 溝通不需要多作任何事情，不過被攻擊者滲透就很難抵擋 man-in-the-middle attack
+#### HTTP(S) Basic Authentication
+* Client 將 username 跟 password 放在 HTTP header 讓 server 做驗證
+    * 好處是很好理解而且 protocol 也很好的支援
+    * 壞處是 username 跟 password 沒有在安全的情況下傳輸，所以通常都在 HTTPS 之上使用
+* HTTPS 讓 server 更能確保 client 的身份也避免其他人的監聽
+    * Server 需要管理 SSL certificates
+    * Traffic 無法被 reverse proxies cache，所以需要做到 server 或 client 裡面
+* Server 只知道 client 有 username 跟 password 並不知道是從哪邊送過來的
+#### Use SAML or OpenID Connect
+* 如果已經有在使用 SAML 或 OpenID Connect 可以直接用在 server 之前的溝通
+* 好處是可以使用現存的架構並且集中化管理
+* Client 都需要 account 所以 service 也需要，service account 不要塞額外的東西進去才不會讓 revoking/changing access 變得很複雜
+* 壞處是需要自己保護存好 credentials
+#### Client Certificates
+* 使用 Transport Layer Security (TLS) 來驗證 client
+* Certificate 的管理很繁重，除錯也很困難
+#### HMAC Over HTTP
+* 使用 HTTP 的驗證方式在 HTTPS 上面會無法做 cached 跟增加負擔
+* Amazon's S3 API 提出用 hash-based messaging code (HMAC) 來 sign the request
+* Client 把 body 用 private key hashed 後放在 request 裡面，server 收到後用 private key hashed body 檢查 body 是否一樣
+* Client 跟 server 需要先說好 secret 又不能在網路上傳輸，通常 hardcoded 但無法 revoke
+* 這種方法沒有標準所以有各種實作的方式
+* 只能保證沒有其他人改過 request 但內容還是會被看到
+#### API Keys
+* API key 讓 service 可以知道是誰做出呼叫進而限制存取 resource 的能力，或者做到 rate-limiting 來保護 service 品質
+* 可以把 API key 當成 HMAC 來使用或者用 public private key pair
+* API key-based authentication 比較簡單直覺
+* 有很多 commercial 跟 open source space 可以選擇
+* 有些 API system 可以用 API key 接到現存 directory service 讓 service 可以用不同方式做認證
+#### The Deputy Problem
+* Service 需要額外的 call 才能完整整個操作，但 downloadstream service 不知道什麼是合法的操作
+* 除了將需要的東西傳下去之外還包含誰傳的提供 downloadstream service 做確認但問題是不知道這些資訊要帶多遠
+
+### Securing Data at Rest
+* 雖然我們有做好所有防護工作但還是無法確保攻擊者無法入侵所以需要有不同深度的保護
+* 關於保護機密資料可以有很多不同的方法
+#### Go with the Well Known
+* 使用有在定期 patched 的 encryption algorithm
+* 通常使用 AES-128 或 AES-256
+* 密碼要用 salted password hashing
+* 錯誤的加密比沒有加密還糟，因為可以能會忽略
+#### It’s All About the Keys
+* 用 key 跟加密演算法加密資料後得到加密過後的資料，key 跟加密資料應該要分開存放
+* 用不同的 security appliance 加密跟解密，或者使用 key vault 管理 key
+* 有些 database 內建加密功能但還是需要注意是如何管理 key 
+#### Pick Your Targets
+* 雖然將所有東西加密就不用思考需不需要加密但對於需要釐清問題的 logfiles 跟會加重機器負擔，另外如果加密 DB 則之後要 refactoring schemas 也會變得麻煩
+* 區分好系統不同的部分使用不同的資料保護機制
+#### Decrypt on Demand
+* 看到檔案就加密，只在有需要的時候解密
+#### Encrypt Backups
+* 重要的資料需要備份所以也需要加密
+
+### Defense in Depth
+* 為了分散風險需要有不同程度的防禦
+#### Firewalls
+* 使用多個防火牆是很合理的，有些可能很簡單只能阻止某些類型的無法通過特定 port，複雜的可以 throttle connection 或偵測攻擊
+#### Logging
+* Logging 幫助我們偵測跟修復
+* 需要注意存在 log 的資料，不要把敏感性資料放進去
+#### Intrusion Detection (and Prevention) System
+* Intrusion detection systems (IDS) 偵測不正常行為並且回報
+* Intrusion prevention systems 除了可以偵測回報外還可以停止壞事繼續發生
+* 使用 passive IDS 來發出警告讓我們可以調整 rule
+#### Network Segregation
+* Monolithic system 很難提供額外的保護，而 microservices 放到不同的網路所以可以完全控制 service 之前的溝通
+* AWS 提供 virtual private cloud (VPC) 讓 hosts 可以在不同的 subnetxt 上，藉由定好 VPC 來規定互相溝通的規則
+* 根據 team ownership 或 risk level 來切開網路
+#### Operating System
+* 系統依靠很多不是我們寫的軟體來運作，為了避免這些軟體有漏洞讓我們的 application 被滲透所以要盡量給這些軟體最低所需要的權限就好
+* 定期自動化 patch 系統
+
+### A Worked Example
+* Finer-grained system 對於 security 可以更好的支援，對於不同部分採取不同的保護方式
+* Browser: nosecure content 才能被 cache，secure content 一定要用 HTTPS 傳送
+* Third-party royalty payment system: third part 要使用 client certificate，所有 data 都要透過 secure, cryptographic channel 傳輸
+* Catalog data: 想要給大家使用但不想被濫用，所以使用 API key
+* Network perimeter: 使用 firewall 跟有 security appliance 的 hardware 或 software
+* Customer 資料很重要所以都要加密，即使被拿走 database 還需要 key 來解密才能使用
+### Be Frugal
+* 資料會洩漏 user 的隱私是最重要的
+* 只要不存下資料就沒有人可以偷走
+* 只存下最低限度需要的資料來達成 business operation
+### The Human Element
+* 除了外來的攻擊者也需要注意組織內部的人
+* 需要有 process 跟 policy 來處理，例如 revoke 離職人員的 access credentials
+### The Golden Rule
+* 不要自己寫加密方法也不要自己發明 security prococols，即便是專家也是可能會出錯
+* 很多 tool 都已經經過市場上的考驗並且已經測試修補很多年了
+### Baking Security In
+* 把資訊安全意識植入在工程師之中才會在工作的時候能夠察覺資安問題，先從 OWASP 開始
+* 很多 tool 可以探測系統的漏洞
+### External Verification
+* 尋求第三方的測試找出漏洞
+* 思考每次 release 需要做多少資安測試，因為完整的 penetration test 無法快速的迭代
+### Summary
+* Microservice 讓我們有能力在敏感的資料多做些保護，其他資料用間單的保護
+* 當知道系統不同部分的危險程度就知道該如何導入保護
+* 要 patch OS，不要自己實作 cryptography
