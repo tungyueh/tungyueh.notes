@@ -1050,3 +1050,237 @@
 * Microservice 讓我們有能力在敏感的資料多做些保護，其他資料用間單的保護
 * 當知道系統不同部分的危險程度就知道該如何導入保護
 * 要 patch OS，不要自己實作 cryptography
+
+## CHAPTER 11 Microservices at Scale
+
+### Failure Is Everywhere
+* 任何東西都有可能壞掉，當規模越大則就有一定的機率壞掉
+* 最好壞掉的準備比起毫無計畫好
+* 比起阻止壞掉發生應該要做好處理壞掉的情形
+* 不論用多好的設備都會壞掉，所以只要知道系統能夠處理壞掉的情況就可以使用便宜有效率的方式
+
+### How Much Is Too Much?
+* 不一定要使用 autoscaling 系統，根據系統需求使用適合的方式
+* 藉由問問題來知道系統能夠承受多少 failure 或系統需要多快速度來使用適合的技術
+* 雖然不同 sevice 有不同的需求但是有一個統一的需求之後處理 load 或 failure 比較容易
+* Response time/latency: 不同 operation 需要多久回應，幫助了解不同數量的 user 對於系統的影響
+* Availability: 系統是否允許短暫下線，能夠下線多久?
+* Durability of data: 多少資料遺失是可以被接受，資料需要保存多久
+* 當需求釐清就可以基於這些設計系統同時有 performance test 確保系統有符合需求
+
+### Degrading Functionality
+* 系統是由很多 microservice 組成則其中一些失效造成系統不穩定
+* 要處理如果其中 microservice 失效要盡量讓系統不要全部壞掉，持續提供能夠提供的功能
+* 不同於 single monolithic application 不是好就是壞，microservice 系統都需要思考過如果某個 microservice 壞掉該如何處理
+
+### Architectural Safety Measures
+* 系統用到外部系統，當其中一個外部系統回應過慢導致 connection pool 逐漸累積到上限導致整個系統崩饋
+* 設好 connection timeout，對於不同外部系統使用不同 conntion pool，實作 circuit breaker 避免送到不健康的外部系統
+
+### The Antifragile Organization
+* Google 跟 Netflix 都會做失敗的演練讓 developer 可以從中學習改進系統
+* Chaos Monkey 會隨機關掉某些 machine
+* Latency Monkey 模擬很慢的網路連線
+* 雖然不需要做到像大公司這麼頻繁的演練，但承認接受失敗的發生可以使系統更有價值
+#### Timeouts
+* timeout 很容易被忽略但處理得方式會影響整個系統的效能
+* 等太久會拖慢系統速度，等太短但其實已經成功，完全等待回應會讓整個系統停止
+* 每個 out-of-process call 都需要有 default timeout，若超過 timeout 則記下 log 以便後續分析
+#### Circuit Breakers
+* 為了不讓 downstream 壞掉導致拖慢系統速度，可以設計都特定次數的 request 都失敗就不再發送 request，特定時間後再來測試是否回復了
+* 挑選合適的啟動 circuit breaker 的參數當作預設，為特定地方特別調整
+* 啟動 circuit breaker 後如果是非同步的時候可以 queue 起來之後重試，同步的時候馬上回傳錯誤讓呼叫的人知道
+* Circuit breaker 也可以幫助我們進行 microservice 的維護，當需要維護時把 circuit breaker 啟動就可以安心維護了
+#### Bulkheads
+* 採用類似船艙的概念，透過 downstream microservice 使用不同 connection pool 才不會當 connection pool 壞掉就讓整個系統壞掉
+* 使用 concerns 分離也是可不錯的做法
+* Circuit breaker 也可以當作 bulkhead，避免 consumer from downstream 遇到問題，另一方面也避免 downstream service 在壞掉的狀態收到更多呼叫。
+#### Isolation
+* Service 越多 depend 則彼此影響越多
+* Service 彼此越獨立則需要合作的部分越少，team 可以有更多的自主性
+
+### Idempotency
+* Idempotency operation 在第一次被 apply 後就不會改變，這種有利於我們對於結果不確定的時候可以放心重試
+* 非第一次後續呼叫不影響重點是在不影響商業邏輯而非當作沒收到呼叫而不去紀錄 log
+* HTTP 的 GET PUT 暗示 caller 該 API 為 idempotency，如果是 non-idempotency 容易一團混亂
+
+### Scaling
+* 為了處理 failure 會 scaling
+* 為了 performance 會 scaling
+#### Go Bigger
+* 直接加強 server 規格，用更強的 CPU 跟 I/O 增加 throughput 與降低 latency，也稱為 vertical scaling
+* 缺點是價錢昂貴，software 無法妥善利用多出來的資源，沒有增加系統彈性
+#### Splitting Workloads
+* 把多個 microservice 跑在同一台 host 上移到不同 host 上增加 throughput，也避免 host down 影響多個 microservice
+* 隨著規模擴大可以將現有 microservice 在切分成不同 microservice 分散 workload
+#### Spreading Your Risk
+* 雖然把 microservice 放在不同 host 可以避免 host down 造成多個 microservice down 但是如果這些 host 都是 virtual 跑在同一個實體機器上則該機器壞掉也會影響所有 microservice，所以可以設定要讓 host 跑在不同實體機器上
+* Storage area network(SAN) 也是有可能壞掉導致 VM 都壞掉
+* 可以將 service 放在不同 data center
+* AWS 的 AZ 就是 data center，因為 AWS 只保證 99.95% uptime 在一個 AZ 所以要將 service 放到不同 AZ，更進階可以放在不同 region
+* 要有備案才能在提供服務的廠商失效時能做災難還原
+#### Load Balancing
+* 通常會以 load balancer 後面接多個 microservice instance 來提供 microservice 的服務，呼叫的人會以為對一個 microservice 而已
+* Load balancer 有很多種形式跟大小，都是根據演算法決定將不健康的 instance 移出，加入正常的 instance
+* 有些 load balancer 提供 SSL termination 功能將收到的 HTTPS connection 換成 HTTP　以節省管理 SSL 的 overhead
+* 使用 hardware load balancer 很難自動化，可以在後面加上 software load balancer 讓團隊能自由改變設定
+* 雖然 load balancer 可以讓我們跑多個 microserice instance 避免 SPOF 但是 microservice 都用同一個 database 也是有可能遇到 database SPOF
+#### Worker-Based Systems
+* 不是只有 load balancer 可以有多個 instance，worker-based system 有一個 shared queue of work 讓 instance 拿出來處理，適合 batch work 或 asynchronous jobs
+* 如果 work queue 是可靠的可以單純藉由增加 instance 來消化對應的 load
+#### Starting Again
+* 設計的系統不知道會不會成功，所以當成功的時候必然需要改寫以符合龐大的 workload
+* 快速的建立系統讓市場驗證是否需要，不然花太多時間設計沒有人想使用的東西也是沒有用
+* 需要系統改變不是失敗的象徵反而是成功的象徵
+
+### Scaling Databases
+* Scaling stateless microservice 很容易但是有依賴於 database 的 microservice 就不容易
+#### Availability of Service Versus Durability of Data
+* 可用的 service 跟 data 有沒有保存好是不同的事情
+* 可以把 DB 資料存到可靠的系統，所以 DB 掛掉資料還是好的但是 service 卻不可用
+#### Scaling for Reads
+* 大部分的 service 都比較常 read，而且 read 比起 write 更好 scale
+* RDBMS 可以將 data 從 primary node 複製到其他 node 讓 service 可以 read，中間可能會有不一致的情況，但只要系統有處理好暫時不一致的情形就可以很好 scale
+* 雖然 read replicas 可以增加 read scale 但是建議做 caching 可以直接顯著提升 performance
+#### Scaling for Writes
+* Sharding 根據資料 key 的 hash 寫進不同的 DB 以增加 write scale
+* 缺點是查詢需要橫跨多個 DB 就變得困難需要在記憶體 join 每個 DB 結果
+* 若要加入 shard instance 之前可能需要暫時下線才有辦法，但現在可以直接加入
+* Sharding 只能 scale 不會增加 resiliency，但是 Cassandra 有提供將每個 shard instance 複製到多個 ring 裡的 node 增加 resiliency
+* 短期可以直接使用更大的 DB 但是長期就需要使用其他model 來解決
+#### Shared Database Infrastructure
+* RDBMS 把 database 跟 schema 分開，讓不同 schema 可以跑在相同 database，但是要注意一但 database 失效可能會連帶多個 microservice 失效
+#### CQRS
+* Command-Query Responsibility Segregation (CQRS) pattern 是另外一種儲存查詢的方式，一部分系統處理 command 另外一部分處理查詢
+* 處理 command 與查詢分離可以各自 scale，使用不同 service 或 hardware，可以使用不同方式 scale
+
+### Caching
+* Caching 很常用來優化效能，藉由存好之前的結果直接回傳以節省計算資源
+* Microservice architecture 每個 service 都有自己的資料跟行為所以有各種 caching 的方式，還有可以選擇在 client side 還是 server side
+#### Client-Side, Proxy, and Server-Side Caching
+* Client-side caching 讓 client cached 結果由自己決定什麼時候要打新 reqeust，通常 downstream service 會幫助 client 做判斷
+* Proxy caching 在 client 跟 server 之間，例如 reverse proxy 或 CDN
+* Server-side caching 由 server 負責 caching 像是 Redis 或 Memcache
+* Client-side caching 可以幫助減少 network calls，是最快速減少 downstream service load 的方式，缺點是需要改動所有 consumer
+* Proxy caching 對於 client 跟 server 都是不知情的，所以可以很簡單加入系統，雖然會多一個 hop 但是應該不會造成問題
+* Server-side caching 對於 client 是不知情的，cache 在 service boundary 裡面很容易可以驗證資料或追蹤 cache miss
+* 通常會混用各種 caching，另外也是有完全沒 caching 的系統
+#### Caching in HTTP
+* HTTP 不管在 client 或 server side 都有提供好用的 cache 機制
+* HTTP cache-control 讓 client 知道可以 cache，另外有 Expires header 知道可以暫存多久
+* HTTP Entity Tags 或 ETags 讓我們知道 resource 有沒有改變，用 conditional GET 可以帶 header 告訴 service 達到特定條件才回傳
+* ETags, Expires, cache-control 有點重複，如果沒有小心使用可能會互相矛盾
+#### Caching for Writes
+* Write-behind cache 先將改動暫存起來之後才 flush 到 downstream source，對於資料多次改動會有效能提升
+* Write-behind cache 暫存 writes 就算 downstream service 不可用還是可以之後等可用在送
+#### Caching for Resilience
+* Caching 可以幫助遇到 failure 的時候持續提供服務，有時候回傳 stale data 比起什麼都不回好
+* 有一種爬蟲會定期把 live site 轉成 static version，當 website down 就可以提供舊版本
+#### Hiding the Origin
+* 如果 cache miss 則 request 就會導向源頭去取的資料，但當大範圍的 cache miss 會造成大量的 request 打向源頭
+* 避免源頭被打爆的方式有不允許直接向源頭發 request，當 cache miss 則通知源頭，源頭之後再去 update cache，好處是可以背景重建 cache
+* 雖然對於某些情況不合理但是可以保持系統上限，讓 request 快速失敗避免讓 resource 增加 latency
+#### Keep It Simple
+* 太多的 cache 會有更多的 stale data 也就更難偵測資料的即時與否
+#### Cache Poisoning: A Cautionary Tale
+* Caching 有可能不小心永遠使用到 state data
+* 更新後有很多地方都需要清空 cache 但也有地方是無法清空的像是 user browser
+* Caching 是很有用的工具但是需要徹底理解資料從 source 到 destination 是如何被 caching 才能注意到可能出錯的地方
+
+### Autoscaling
+* 如果有能夠自動化 provision virtual hosts 的功能可以根據 loading 來調整機器數量節省花費
+* 遇到 load 增加或者 instance fail 可以增加 instance 來應付，但要注意 scale 速度要能跟上 loading 上漲的速度才會有效
+* autoscaling 通常都用來處理 instances failure 情況
+* 發生 failure 的時候建議先 autoscaling 再來收集 data
+* Scaling down 不要太快，畢竟有剩餘的 computing power 比完全沒有好
+
+### CAP Theorem
+* 系統中最多只能兼顧 consistency, availability, partition tolerance 其中兩種
+* Consistency 是指不管到哪個 node 都會給我相同的答案，Availability 是指每個 request 都收得到 response，Partition tolerance 是指系統能夠處理有時候無法溝通的情況
+#### Sacrificing Consistency
+* AP system: 資料不一致但是服務還是可用而且系統中部分溝通失效
+* 我們最後還是需要在 partition 消失的時候重新同步資料，partition 越久則越難同步好
+* Eventually consistent 是指我們預期在某個時間點所有 node 都有一致的資料，因為不是立刻發生所以要假設可能會看到舊資料
+#### Sacrificing Availability
+* 為了 consistency 當發生 partition 就只能犧牲 availability，CP 就是一但發生 partition 就停止提供服務直到 partition 消失
+* 維持多個 nodes 的 consistency 是很困難的，需要有 transactional read 才能確保所有 nodes 保持一致但這個操作需要 lock 所以很慢，所有 consistent system 都需要某種程度上的 lock
+* Lock 在分散式系統很難正確使用，因為可能要 release lock 的時候無法溝通
+* 不要自己發明 multinode consistency 的方法，採用現存的 data store 或 lock service
+#### Sacrificing Partition Tolerance?
+* 無法犧牲 partition tolerance 因為是跑在 network 上面無法確保一定不會斷線
+* CA system 只能存在於單一 process 所以無法在分散式系統上
+#### AP or CP?
+* AP systems 容易建造跟規模化，CP system 需要在分散式系統面臨更多挑戰
+* 根據商業性質決定採取何種系統，若可以容忍短暫資料不一致則使用 AP system
+#### It’s Not All or Nothing
+* 一個系統不一定全部都是 CP 或 AP
+* Service 也不一定是要 CP 或 AP，可以在 CAP 中尋找合適的平衡點，CP 或 AP 只是代表把各個面向推到極端而已
+* 有些系統可以提供更細微的控制，例如 Cassandra 可以要求 individual calls 需要有幾台 replica 保證一致
+* 有些人嘗試打破 CAP theorem 但是最終都只是 CP 或 AP，因為 CAP theorem 由數學證明出來了
+#### And the Real World
+* 我的系統是從現實世界對應出來的，就算系統保持一致但現實世界有可能有意外導致不一致
+* 雖然系統保持多一致但是永遠無法預測所有的情形，所以 AP system 比起 CP system 容易應付
+
+### Service Discovery
+* 有很多 microservice 的時候就會需要知道該如何找到想要的 service，這些都可以在 service discovery 找到對應的功能
+* 大部分解決方法是提供某個機制讓 instance 註冊，接下來提供某個方法讓人可以找到註冊過的 instance
+#### DNS
+* DNS 讓我們可以用 name 找到 IP，如果要將 account service 綁在某個 IP 上當我們 deploy 也需要更新 entries
+* Service 有很多 instance 可以用 convention-based domain template，例如 /<servicename/>-/<environment/>.musiccorp.com
+* 使用不同 DNS server 在不同的環境，所以可以使用相同 IP 但是根據查詢不同 DNS server 會有不同結果
+* DNS 是很通用的標準所以很多技術都會支援，但在會快速變動的 host 環境下更新 DNS entries 是個問題
+* DNS entries 有 time to live (TTL) 告訴 client 可以使用多久，當我們改變 host 去更新 entry 但需要假設 client 有舊 IP 直到過期，另外還會暫存在很多地方
+* 使用 load balancer 避免 stale DNS entries 
+
+### Dynamic Service Registries
+* 由於 DNS 在高度變動的環境有有很多缺點所以有很多替代系統，其他系統通常有集中的註冊服務，而且系統通常有更多功能。
+#### Zookeeper
+* 擁有 configuration management, synchronizing data between services, leader election, message queues and naming service
+* Zookeeper 仰賴 cluster 裡面多個 node 來履行承諾，所以至少要有三個 node 來保證 data 安全的複製到其他 node 而且當 node fail 仍然保持一致
+* Zookeeper 提供 hierarchical namespace，在其中的 node 當改變可以收到通知所以可以把 service 放在裡面，當 service 有改變就可以收到通知，但建議盡量不要使用因為會使 service 行為更加複雜
+* Zookeeper 很通用可以想成一個 replicated tree information，當有改變就會收到通知
+* 雖然有點舊但有被廣泛使用測試過，Zookeeper 底下的邏輯也是很難被正確實作所以跟加密一樣盡量不要自己實作
+#### Consul
+* 跟 Zookeeper 一樣支援 configuration management 跟 service discovery 並且更進一步提供 serice discovery 的 HTTP interface 另外提供 out-of-box DNS server 讓目前有在使用 DNS server 可以無痛轉換
+* 支援對 node 進行檢查取代 monitoring tool
+* 都使用 RESTful HTTP interface 包含註冊 service、查詢 key/value store 或 health check，這讓整合變得容易
+* Consul 把偵測失敗 node 跟警告機制與 service discovery 跟 configuration management 分開
+* Consul 是新的東西而且使用複雜的 algorithm 但開發團隊都有過往成績
+#### Eureka
+* Netflix open source 專注於特定 use case
+* 提供基本 load-balancing 用 round-robin 方式來檢查 service instance
+* 提供 REST-based endpoint 所以可以自己寫 client 或用 library
+* Client 需要處理 service discovery，所以如果 client 有不同則是個挑戰
+#### Rolling Your Own
+* 自己設計找到 service 的流程
+* 用 AWS 上 tag，讓 AWS 幫我們找到 service
+#### Don’t Forget the Humans!
+* 人也需要能找到 service 在哪邊
+
+### Documenting Services
+* 我們希望用 API 來操作 microservices，但是需要有文件來知道該如何使用 API 並且持續更新
+#### Swagger
+* Swagger 讓我們能夠用 web UI 來描述 API 並且直接使用 API
+* Service 需要 expose sidecar file 來符合 Swagger 格式
+* Swagger 有很好的使用者體驗但是對於 incremental exploration concept 支援不足
+#### HAL and the HAL Browser
+* Hypertext Application Language 是一種標準用來描述 expose 的 hypermedia control
+* hypermedia control 只讓 client 可以慢慢的探索出 API
+* HAL 有很多支援不同語言的 libraries
+* HAL browser 可以讓我們在 web browser 上用 API
+* HAL 比起 swagger 在執行 API 沒有這麼順暢需要做更多的事情，但反面來說可以更有效率的 follow links 來探索 API
+* API 如果已經使用 hypermedia control 則花很少力氣就可以 expose HAL browser，若沒有使用 hypermedia control 則無法使用 HAL
+* 對於已經採用 hypermedia control 的人通常會使用 HAL
+
+### The Self-Describing System
+* Martin Fowler 建議使用 humane registry 這種方式，製造出一個地方讓人可以方便紀錄 service 的資訊
+* 了解系統的行為是很重要的
+    * 用 correlation ID 知道 call chains 追蹤所使用的 service 
+    * 使用 service discovery systems 來找到 service 在哪邊跑
+    * HAL 讓我們知道 endpoint 有哪些功能
+    * Health-check pages 跟 monitoring system 讓我們知道系統跟 service 的狀態
+* 用來了解系統的資訊讓我們可以打造 humane registry，呈現出所有系統的資訊
+* 從簡單的頁面開始，從系統撈出的資訊越來越多讓頁面越來越豐富，讓資訊可以被讀懂才能管好日益複雜的系統
+
+### Summary
+* Microservice 尚在萌芽階段，未來會有很多 pattern 在 scale 的時候來幫助我們
