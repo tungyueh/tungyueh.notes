@@ -1284,3 +1284,46 @@
 
 ### Summary
 * Microservice 尚在萌芽階段，未來會有很多 pattern 在 scale 的時候來幫助我們
+
+# Building Microservices: Designing Fine-Grained Systems Ch12
+## CHAPTER 12 Bringing It All Together
+
+### Principles of Microservices
+* 要能說出 microservice 能做什麼事跟為什麼要這樣做，才能在建造系統的時候幫助我們列出各種決定
+* 盡量採取各種方面都能兼顧的到決定而不是完全不遵守某些原則
+#### Model Around Business Concepts
+* 使用 business-bounded context 比起用技術來的好，更容易適應商業邏輯的變動
+#### Adopt a Culture of Automation
+* Microservice 架構拆分出很多可變的部位，增加的複雜度需要靠自動化來解決
+* 使用 environment definitions 在不同都可以使用
+* 使用 custom images 加速部屬
+* 使用 immutable servers 讓我們能夠更輕易理解系統
+#### Hide Internal Implementation Details
+* 為了讓 service 可以獨立需要使用 bounded context 隱藏實作細節，可以把 database 隱藏起來避免 coupling，利用 data pump 或 event data pump 來同步資料
+* 使用通用的 API 例如 REST，這樣可以讓外部跟內部的實作分開
+#### Decentralize All the Things
+* 為了讓 service 自治需要讓團隊專門負責該 service，讓團隊有完全的掌控
+* Internal open source 人有機會更改其他團隊負責的 service，讓團隊與組織相符確保負責 service 都是該領域的專家，shared governance 讓不同團隊對於系統有相同的遠景
+* 使用 choreography 能讓商業邏輯封裝在 service 裡面達成去中心化的目標
+#### Independently Deployable
+* 確保 microservice 能夠獨自被部屬，即便有不相容舊版的改變還是要用 versioned endpoint 同時讓 consumer 能夠有時間轉移，這樣可以增加 release 的速度也不需仰賴有人指揮大家的部屬方式
+* One-service-per-host model 可以避免影響其他 service，使用 blue/green 或 canary release 就算出錯還有挽救空間，使用 consumer-drive contract 在 breaking change 發生前就知道
+* 對於 service 只要改動就可以部屬到上面，不需要有 lock step，由 consumer 決定何時要 update
+#### Isolate Failure
+* Microservice architecture 比較 resilient 但前提是對於失敗有處理好
+* 不要把 remote call 當成 local call，裡面藏著很多不同的問題，要用 client libraries 幫忙適當的 abstract remote call
+* Timeouts 要設好適當的值，使用 bulkheads 跟 circuit breaker 限制失敗擴散，了解網路可能會中斷後跟去情況犧牲 availablity 跟 consistency
+#### Highly Observable
+* Semantic monitoring 了解系統是否行為正確
+* Inject synthetic transactions 在系統模擬實際 user 的行為
+* Aggregate logs 跟 stats 才能找出問題的根源
+* Correlation IDs 來 trace call
+
+### When Shouldn’t You Use Microservices?
+* 對於 domain 越熟悉可以找到更適當的 bounded context，當遇到不熟悉領域時需要花時間先暸解系統的行為再去把 boundary 切乾淨
+* 先從 monolithic 開始，等到穩定後在切出 service
+* Microservice 隨著越多的個數會讓管理越困難，可以使用之前提到的技巧來管理
+
+### Parting Words
+* Microservice architecture 需要做的選擇很多，無法保證沒個選擇都是正確，所以需要讓每個選擇影響到的範圍侷限住，學習系統是不停進化的思維讓系統保持彈性，用很多的小改變取代一次大的重寫
+* 改變系統是個沒有終點的旅程，保持著不斷改變進化系統的心態來進行這個旅程
