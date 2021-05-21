@@ -139,3 +139,116 @@
 * 雖然一開始花比較多時間 refactoring 但之後比較好優化最終還是更快完成優化
 ### Where Did Refactoring Come From?
 * 好的 programmer 會時常去清理 code 因為 clean code 比起 messy code 更容易修改
+## Chapter 3. Bad Smells in Code
+* 需要知道開始跟結束 refactoring 的時機跟知道如何 refactoring　一樣重要
+* 沒有很明確的規則主要靠一些不好的 code structure 來判斷
+### Duplicated Code
+* 找一個一致的方法來處理重複出現的 code structure
+* 同一個 class 有兩個 method 是同樣的 expression 可以使用 Extract Method 讓兩個 method 從同一個地方呼叫
+* 同一個 expression 存在不同的 subclass 可以先使用 Extract Method 後再使用 Pull Up Field
+    * Expression 有相似的地方先使用 Extract Method 把同樣跟不同的地方方開在使用 Form Template Method
+    * 做同樣事情但使用的 algorithm 不同可以使用 Substitute Algorithm
+* Duplicate 發生在不同 class 使用 Extract Class 抽出來後兩個 class 使用這個 class
+### Long Method
+* 舊的語言呼叫 subroutine 會有 overhead 但現代 OO 語言沒有這個問題，剩下是讀 code 的人需要跳來跳去但 IDE 可以幫忙消除這個問題，但重點是只要名字取的夠好就不需要去看內容
+* 積極的分解 method 當想要註解的時候用寫一個新 method 取代，把需要註解的 code 放在 method 而名字用意圖而不是實際行為，目的是消除語意與行為的落差
+* Method 使用很多參數跟暫存變數，在 extract method 過程中就不需要這麼多參數與暫存變數，利用 Replace Temp with Query 消除暫存變數，利用 Introducce Parameter Object 跟 Preserve whole object 消除多參數
+* 還是有很多參數跟暫存變數的話可以使用 Replace Method with Method Object
+* 藉由註解找出可以 extract 的地方因為註解代表想消除 code 跟目的的落差
+* Conditional 跟 loop 可以用 Decompose Conditional
+### Large Class
+* Class 做太多事情會表現在 instance variable 過多，也會導致 duplicate code 的發生
+* 使用 Extract Class 把相關聯的 instance variable 綁在一起，如果有相同的 prefix 或 suffix 可以使用 Extract Subclass
+* 決定 client 如何使用 class 可以使用 Extract Interface
+* GUI Class 需要保持 duplicate data 在不同地方的時候可以使用 Duplicate Observed Data 
+### Long Parameter List
+* 之前傾向需要的東西都用傳進去，這樣做是因為如果不傳進去就只能靠 global data 而 global data 更不好，但現在有了 object 所以 method 可以自己去拿需要的東西
+* 長參數很容易隨著需要更多的東西而改變而且也難以理解，但只要改成 object 就可以不用這麼常改變
+* Replace Method with Method 就可以從 object 得到需要的東西，Preserve Whole Object 讓呼叫的人可以從 object 拿到需要的資料，Introduce Parameter Object 把沒有邏輯的相關資料放在一起形成 object
+* 如果不想增加 dependency 則不該做 refactoring，要思考 dependency structure
+### Divergent Change
+* 我們希望讓軟體容易修改，快速找到需要修改的地方然後修改
+* class 修改太過頻繁需要使用 Extract Class 把跟修改原因有關的東西拉出來
+### Shotgun Surgery
+* 需要改動很多個不同的 class 這樣容易找不到需要修改的地方
+* Move Method 跟 Move Field 把改變的地方集中到 class ，使用 Inline Classes 把相關行為聚在一起
+### Feature Envy
+* 當 method 需要從其他 class 取得值代表 method 應該使用 Move Method 移到那個 class，或者只有一部分的 method 就可以用 Extract Method 再來用 Move Method
+* 當從多個 class 取得資料則把移到使用最多 data 的 class，可以先用 Extract Method 把 method 變小比較好移
+* 有些設計會打破規則像是 Strategy 或 Visitor，可以依據把東西放在一起後再改的原則，
+### Data Clumps
+* data 通常都會成群使用像是 class 的某些 field，parameter list 常常都一樣，可以先用 Extract Class 把 data 放在一起，再把 method signatue 用 Introduce Parameter Object 或 Preserve Whole Object 減少 parameter 個數
+* 思考如果將其中一個 data 移出 clump 則剩下的 data 是否還有意義
+* 減少 field list 跟 parameter list 可以移除 bad smells，利用 feature envy 找出可以移到新 class 的 data
+### Primitive Obsession
+* Record types 讓我們能把資料組成有意義的 group，Primitive types 是 building blocks
+* Object 可以讓 primitive 跟 larger class 的界線連結模糊
+* 新手使用 object 會抗拒小的 object，但這些小的 object 可以集中管理相關的資料，
+    * 使用 Replace Data Value with Object 把有自己行為跟相關聯的 data 放到另外一個 class 增加可讀性跟容易維護
+    * 使用 Replace Type Code with Class 把沒有行為的相關聯 data 集中在另一個 class 讓 type hint 能幫忙早點檢查到錯誤
+    * 使用 Replace Type Code with Subclasses 或 Replace Type Code with State/Strategy 當 type code 有用在 conditional 上
+* 當 array 存了不同種類的東西要使用 Replace Array with Object 減少有人放錯種類到 array 導致失敗，減少找出問題的時間
+### Switch Statements
+* Object-oriented code 特色是很少 switch statement，switch statement 問題是散落在各處，需要修改時要找出所有的地方，而 object-oriented 的 polymorphism 可以幫助解決這個問題
+* 當看到 switch statement 就應該考慮 polymorphism
+    * Switch statement 沒有用 type code 時候則用 Extract Method 把 switch statement 拆開，用 Move Method 移到需要的 class
+    * Switch statement 有用 type code 的時候使用 Replace Type Code with Subclasses or Replace Type Code with State/Strategy
+    * 最後使用 Replace Conditional with Polymorphism
+* 如果 switch statement 不常改動可以用 Replace Parameter with Explicit Methods
+* 如果條件判斷需要 null 則用 Introduce Null Object
+### Parallel Inheritance Hierarchies
+* 當新增 subclass 的時候都需要在另外一個繼承關係也新增 subclass，可以藉由 class 的 prefix name 跟其他繼承的一樣找到
+* 先讓其中一個繼承關係的 instance 參考另一個，再用 Move Method 跟 Move Field 就可以讓 subclass 消失
+### Lazy Class
+* 新增的 Class 都需要花時間去維護，所以如果 class 的能力不值得以一個 class 存在則應該被消除
+* 有可能是因為 refactoring 過度或者不再預期內的更改
+* Subclasses 做得事情不到 class 的程度則用 Collapse Hierarchy 移除
+* 使用 Inline Class 把不需要的 class 的東西移出來
+### Speculative Generality
+* 為了之後可能的需求設計 hook 或 special cases 但可能之後都不會用到只是白白增加複雜度
+* 使用 Collapse Hierarchy 把 abstract class 移除，使用 Inline Class 把 delegation 移除，使用 Remove Parameter 把沒用到的 parameter 移除，使用 Rename Method 把名字從通用改成更實際
+* 症狀是 method 只在測試被使用，把這些 method 刪除跟相關測試移除
+### Temporary Field
+* 有時候 object 的 instance variale 在特定情形才有，這樣很不容易理解因為我們預期 object 應該要使用到所有變數
+* 使用 Extract Class 把獨立的變數跟相關的 method 放到新的 class，可以用 Introduce Null Object 把 conditional code 處理好
+* 通常是因為不想把變數傳來傳去所以放在 field 但這個 field 只在某段計算過程有意義，其他時間只是徒增困惑，這時候可以用 Extract Class 來把這些變數跟 method 包裝起來，只在需要的時候使用，這種稱為 method object 
+### Message Chains
+* Client 會問 object 來找到另外一個 object 如此反覆，代表 client 跟找尋的架構綑綁再一起了，只要當中斷掉就會影響 client
+* Hide Delegate 讓 class 新增一個 method 直接呼叫另外的 class，可以對每個 chain 的 class 的這樣做但很有可能變成 Middle Man
+* 觀察 object 被用來做什麼，使用 Extract Method 把用到的 code 用 Move Method 移到該 method
+### Middle Man
+* Encapsulation 把細節隱藏，通常透過 delegation 來做到
+* 有時候太過頭會發現 class 有一半以上的 method 都是 delegating 其他 class，這時候要使用 Remove Middle Man 讓人直接與 object 溝通，如果 class method 做不多事情就用 Inline Method，如果有額外的行為使用 Replace Delegation with Inheritance 把 middle man 變成 subclass
+### Inappropriate Intimacy
+* Classes 有時候太過親近導致需要花很多時間釐清 private 的部分
+* Move Method 跟 Move Field 可以減低 classes 之前的關係
+* 看是否可以使用 Change Bidirectional Association to Unidirectional
+* Classes 都想要某些東西把這些東西用 Extract Class 集中
+* 使用 Hide Delegate 讓 class 當中間人
+* Replace Delegation with Inheritance 當 classes 有很多簡單的 method 都在 delegate 其他 class 
+### Alternative Classes with Different Interfaces
+* Rename Method 把不同的 class 但做同樣事情的 method 換成一樣的名字
+* 不斷使用 Move Method 把行為移到 classes 直到都相同
+* Extract Superclass 把相同的部分變成 superclass 原本的變 subclass
+### Incomplete Library Class
+* Reuse 通常是 object 的目的但不應該過度相信也不否認，因為我們還是很依賴於 library
+* Library 的作者通常不知道使用者需要什麼但使用者也無法改 library
+* Introduce Foreign Method 在我們只需要一些 method 可以使用
+* Introduce Local Extension. 在想要更多行為可以使用
+### Data Class
+* Classes 只有 field 跟 getting 跟 setting method 很容易被拿來做太多關於內部細節的動作
+    * 有 public field 應該要用 Encapsulate Field 變成 private 再用 access method 讀取避免其他人直接修改 field
+    * 有 collection field 使用 Encapsulate Collection 讓 getter method 回傳的是 read-only 然後不能用 setter method對 collection field 直接改變，改用 add 跟 remove
+    * Field 不可改變則使用 Remove Setting Method
+* 觀察其他 class 怎麼使用 data class 把相關行為用 Move Method 搬進 data class，無法直接移動用 Extract Method 新增一個在移動，最後開始 Hide Method 把 getter 跟 setter 隱藏起來
+* Data class 一開始沒有行為沒關係但隨著行為變多應該要慢慢給予責任
+### Refused Bequest
+* Subclasses 不想繼承所有 parent 的東西
+* 使用 Push Down Method 跟 Push Down Field 把只有該 subclass 用的東西從 parent 移進來，讓 parent 只剩下 common 的東西
+* 本來都會用繼承後用一部分的行為而已所以看到這種不一定需要 refactoring，只有在造成困惑跟問題才需要修改
+* 如果 subclass 不支援 superclass 的 interface 就需要使用 Replace Inheritance with Delegation 來修正
+### Comments
+* Comment 讓我們離 bad code 更接近，refactoring 完就會發現 comment 是多餘的
+* 如果需要 comment code block 在做什麼則使用 Extract Method 給這段 code 一個 method，如果還是需要 comment 則使用 Rename Method
+* 需要解釋規則則使用 Introduce Assertion
+* Comment 適合用在不知道該怎麼做的時候，或者說明為什麼要這樣做
