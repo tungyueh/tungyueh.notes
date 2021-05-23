@@ -252,3 +252,35 @@
 * 如果需要 comment code block 在做什麼則使用 Extract Method 給這段 code 一個 method，如果還是需要 comment 則使用 Rename Method
 * 需要解釋規則則使用 Introduce Assertion
 * Comment 適合用在不知道該怎麼做的時候，或者說明為什麼要這樣做
+## Chapter 4. Building Tests
+* Refactor 之前要確保有健全的測試
+* 好的測試可以幫助寫 code 就算不是在 refactoring 也是一樣，雖然有點不直覺但接下來會解釋
+### The Value of Self-testing Code
+* 大部分真正寫程式的時間只佔開發的一小部分，主要都需要先搞清楚要做什麼然後設計，大部分的時間都在找 bug 在哪邊，找到 bug 就可以很快修好
+* Class 應該都要有測試來測試自己
+* 測試要能直接顯示結果正確與否減少確認的時間
+* 測試要能輕鬆的跑就可以頻繁的跑，當開發過程出現 bug 就可以知道是因為剛剛寫的 code 所導致的，因為記憶猶新的關係所以很容易找到 bug，所以測試變成一個很好的 bug detector
+* 說服其他人寫測試很困難因為需要多寫 code，除非可以明顯改善開發效率
+* 開發功能要先寫好測試，測試可以幫助釐清目的、專注於 interface、知道目開發是否完成
+### The JUnit Testing Framework
+* Assert 是自動檢測結果的方法
+* 時常跑測試
+* 測試速度要快不然會不想測試
+* 讓測試錯誤訊息淺顯易懂
+* 先故意讓測試失敗藉此知道有測試到想要的部分
+#### Unit and Functional Tests
+* Unit test 只是幫助維持生產力，只測試自己的 class 的 interface
+* Functional tests 確保軟體的行為正確，提供品質保證不管生產力，應該要由別的 team 撰寫
+* Functional test 把整個系統當黑盒子，只使用公開出來的方式測試，只觀察 ouput data 的變化
+* 當找的 bug 應該要有 unit test 讓 bug 顯現出來再去修正確保該 bug 不會再出現
+### Adding More Tests
+* 測試是為了找出問題所以要對風險較高的部分增加多一點的測試，簡單的部分不容易有問題所以不用有測試
+* 要求寫完整的測試會讓人不想寫測試，寫測試只是為了確保擔心的部分會不會出錯，所以只要寫能有效率幫助的測試就好
+* 測試要注重 boundary condition 因為這是最容易出錯的地方
+* 特殊的情況也要特別測試
+* Exceptions 也需要被測試
+* 測試需要持續更新，測試幫助釐清 error condition 跟 boundary condition
+* 找出風險在哪邊，看看複雜的部分然後思考可能出現的問題，雖然測試無法找出所有 bug 但 refactor 後理解會增加可以找到更深層的 bug
+* Object 的 inheritance 跟 polymorphism 的組合多樣性造成測試的難度，先測試獨立的找出大部分的問題
+* 測試 code 可以複製，之後再來找到 common 的部分 refactor，可以快速產生測試就好
+* 使用測試建立 bug detector 然後頻繁的跑可以為開發帶來很大的幫助
