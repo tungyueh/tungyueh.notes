@@ -284,3 +284,25 @@
 * Object 的 inheritance 跟 polymorphism 的組合多樣性造成測試的難度，先測試獨立的找出大部分的問題
 * 測試 code 可以複製，之後再來找到 common 的部分 refactor，可以快速產生測試就好
 * 使用測試建立 bug detector 然後頻繁的跑可以為開發帶來很大的幫助
+## Chapter 5. Toward a Catalog of Refactorings
+### Format of the Refactorings
+* Refactoring 會有五個部分
+    * 從 refactoring 方式的名字開始，這樣才有能夠建立起 refactoring 的詞彙
+    * 介紹造成需要 refactoring 的情況跟如何 refactoring
+    * Refactoring 的動機，介紹該 refactoring 跟不要的情況
+    * 如何一步一步做 refactoring
+    * Example 介紹 refactoring 如何作用
+* Summary 包含對於問題的介紹跟提供大概如何 refactoring
+* Mechanics 介紹如何 refactoring，提供簡潔的步驟，有需要再去看 example 的解釋
+* 盡可能使用越小幅度的修改，但實際使用可以稍微大一點的幅度遇到問題才縮小幅度
+### Finding References
+* 使用電腦搜尋出所有要 refactoring 的 method 的 references
+* 不要無腦搜尋取代，要思考是否正確的取代掉
+* Strong typed language 可以故意把 feature 移除讓 compile 找出 dangling reference，但這個方法有壞處
+* Compiler 可能會找的很慢，可以先用文字搜尋再用 compiler 重複確認
+* Compiler 找不到 reflection API
+### How Mature Are These Refactorings?
+* Refactoring 的基本概念是一次修改一點然後不斷測試
+* 知道自己正在 refactoring 並根據情況採用合適的技巧
+* Refactoring 的方法只適用於 single-process，其他系統例如 concurrent 跟 distributed programming 有不同的方法
+* Desing Patterns 是 refactoring 的目標，透過 refactoring 從其他地方有條理的變成期望的 pattern
