@@ -306,3 +306,126 @@
 * 知道自己正在 refactoring 並根據情況採用合適的技巧
 * Refactoring 的方法只適用於 single-process，其他系統例如 concurrent 跟 distributed programming 有不同的方法
 * Desing Patterns 是 refactoring 的目標，透過 refactoring 從其他地方有條理的變成期望的 pattern
+## Chapter 6. Composing Methods
+* 大部分 refactoring 是重組 method 讓 code 放在適當的地方，大部分的問題出在 method 太長所以隱藏太多資訊在複雜的邏輯之下
+    * Extract Method 把一部分的 code 獨立成自己的 method
+    * Inline Method 把 method 換成 method body，當 Extract Method 太過頭使 method 失去身為 method 的責任的時候可以使用
+* Extract Method 最大問題是 local variable 跟 temps
+    * Replace Temp with Query 可以移除掉大部分的 temps
+    * 如果 temp 用在很多地方則可以使用 Split Temporary Variable
+* 有時候 temporary variables 太過糾纏則可以使用 Replace Method with Method Object 來處理，藉由多一個 class 的代價讓我們可以處理複雜的 method
+* Parameter 如果有 assign 則使用 Remove Assignments to Parameter
+* 當 method 足夠簡單就可以使用更好的 algorithm 去改善，使用 Substitute Algorithm
+### Extract Method
+* 把 fragment 變成 method 然後用名字表達意圖
+#### Motivation
+* 當 method 太長或有 comment 解釋意圖就會用 Extract Method
+* 命名良好的短 method 可以讓其他人更容易使用，形成 high level 的 method 看起來就像一連串的註解，overriding 也很容易
+* Method name 要能夠縮短於 method body 的距離讓人更清楚該 method 的意圖
+#### Mechanics
+* 建立一個新 method 使用意圖來命名而不用實際做的事情
+* 從 source method 複製 extracted code 到 target method
+* 掃過一遍 extracted code 在 source method 的 local scope 有使用到的變數，這些要變成 target method 的 local variable 跟 parameter
+* 查看是否有任何 temporary variable 在要 extract 的 code 中，把它宣告在 target method
+* 查看 extracted code 是否有改變 local scope 的變數，如果有則查詢 extracted code 在 assign 回變數，如果有很多變數先使用 Split Temporary Variable 後再試一遍，再來使用 Replace Temp with Query 刪除 temporary variables
+* 把 local-scope variable 當成 parameter 傳進 target method
+* 把在 source method 的 extracted code 用 target method 取代
+* 測試
+### Inline Method
+* Method body 已經足夠清楚表達 method name 就可以直接把 method body 放進 caller 然後移除該 method
+#### Motivation
+* 使用 method 比較不直接當 method body 已經足夠表達用意就可以移除，不然只是很煩人而已
+* Inline Method 使用在發現有一堆 method 被分散，先將所有 method inline 後再去 extract，通常在 Replace Method with Method Object 之前很適合使用
+* 當有人用太多 indirection 而 method 都只是 delegation 其他 method 讓人容易迷失，這時候就會用 inline method 把有用的留下沒用的刪除
+#### Mechanics
+* 檢查 method 不是 polymorphic 因為無法 inline subclasses overrided method
+* 找出所有呼叫的地方
+* 把呼叫的地方換成 method body
+* 測試
+* 移除 method
+### Inline Temp
+* 如果 temp 只有被簡單的 expression assigned 一次則用 expression 取代 temp
+#### Motivation
+* Inline Temp 通常是 Replace Temp with Query 的一部分，如果 temp 只有被 method call assigned 值可以先不用管，但如果需要 extract method 則要先 inline
+#### Mechanics
+* 宣告 temp 是 final 確保只被 assigned 一次
+* 找出所有 temp 使用 right-hand side assignment 取代
+* 測試
+* 移除 temp 宣告跟 temp 的 assignment
+* 測試
+### Replace Temp with Query
+* 如果使用 temp 存 expression 的結果，把 expression 變成 method，把所有 temp 都換成 expression，之後新的 method 就可以被其他 method 用了
+#### Motivation
+* Temps 的問題是暫時的跟 local，因為只有該 method 裡面才看的到所以容易造成 long method，換成 query method 就可以讓其他 method 使用把 code 變得整齊
+* Replace Temp with Query 是 Extract Method 之前重要的一步，因為 local variable 會很難 extract 所以盡可能把 variable 換成 queries
+* 如果 temp 只有被 assigned 一次而且產生 expression 結果沒有 side effect 就很簡單，其他比較複雜的需要先做 Split Temporary Variable 或 Separate Query from Modifier 讓 refactoring 變簡單一點，如果是透過 loop 收集結果需要把複製一些邏輯進去 query method
+#### Mechanics
+* 找出只被 assigned 一次的 temps，如果有被多次 assigned 先使用 Split Temporary Variable
+* 宣告 temp 為 final
+* Compile
+* 把 assignment 的 right-hand side 變成 method
+    * 先把 method 宣告成 private
+    * 確認 method 沒有 side effects，如果有需要使用 Separate Query from Modifier
+* Compile and test
+* 使用 Replace Temp with Query
+* Temp 通常用來儲存 loop 的結果，loop 可以 extract 成 method
+* 效能問題等到實際發生再說，如果把 code factored 好也容易精準的優化
+### Introduce Explaining Variable
+* 把複雜的 expression 結果放進一個 temps 然後名字解釋目的
+#### Motivation
+* 太複雜的 expression 會難以解讀，temps 有幫助於管理這些 expression
+* Introduce Explaining Variable 藉由良好命名的 temps 解釋 conditional logic 的目的
+* 如果可以用 Extract Method 就用，因為 temp 只在單一 method 有用，method 可以讓整個 object 或其他 object 都使用
+#### Mechanics
+* 宣告 final temporary variable 然後把 expression 一部分結果存下來
+* 用 temp 把 expression 的部分邏輯取代掉，如果有多個一次換一個
+* 編譯跟測試
+* 繼續 expression 的其他部分
+### Split Temporary Variable
+* Temporary variable 被 assign 不只一次，但不是 loop variable 或 collecting temporary variable
+#### Motivation
+* Temporary variable 用來做很多事，有些天生就是會被 assign 很多次例如 loop variable 或用來收集資訊
+* 大多數 temporaries 是用來存下結果讓很多 code 可以使用，應該只能被 assign 一次，因為被 assign 多次就違反 SRP，使用 temp 代表不同事情很讓人混淆
+#### Mechanics
+* 把 temp 的名字換掉
+* 把新名字的 temp 宣告成 final
+* 把第二個 assignment 之前所有 reference 到的 temp 換成新名字
+* 宣告第二個 assignment 的 temp
+* 編譯跟測試
+* 重複執行
+### Remove Assignments to Parameters
+* 使用 temporary variable 取代 assigns 給 parameter
+#### Motivation
+* 對傳進的 object 使用本來的 method 是可以的但不要換成另外的 object
+* 對於 pass by value 或 pass by reference 會容易混淆
+* 讓 paramter 保持不變比較清楚
+#### Mechanics
+* 為 parameter 建立 temporary variable
+* 把 parameter 的 reference 都換成 temporary variable
+* 把 assignment 從 paramter 換到 temporary variable
+* 編譯跟測試
+### Replace Method with Method Object
+* Long method 有用到許多 local variable 所以無法用 Extract Method
+* 把 method 變成 object 讓 local variable 都變成 object 的 field，之後可以慢慢分離 method 
+#### Motivation
+* 小的 method 讓我們能夠把事情表達的更清楚
+* Method 有用到很多 local variable 讓分解變難可以先使用 Replace Temp with Query，如果不行最後才使用 Replace Method with Method Object
+* 使用 Replace Method with Method Object 把 local variable 都變成 object 的 field 之後就容易使用 Extract Method
+#### Mechanics
+* 建立新的 class 名字取的跟 method 一樣
+* 新的 class 建立 final field 給在 source object 的 field，建立 field 給 temporary variable 跟 method 的 parameter
+* 新的 class 的 constructor 使用 source object 跟每個 parameter
+* 新的 class 建立 compute method
+* 複製原本的 method body 到 compute method，使用 source object field 
+* 編譯
+* 把舊的 method 換成 new object 然後呼叫 compute
+### Substitute Algorithm
+* 換一個更簡潔的演算法
+#### Motivation
+* 當有不同種方式可以達成目的就應該使用最簡單的一種，當 refactoring 把複雜東西變成簡單的片段都會有極限，到這個時候只能整個將 algorithm 取代換成更簡單的
+* 想要用不同 algorithm 做點不同的事情要先從簡單的開始取代
+* 先把 method 分解成簡單的再換掉 algorithm，因為要換掉複雜的 algorithm 很不容易
+#### Mechanics
+* 準備另外的 algorithm 並編譯成功
+* 用新的 algorithm 跑過所有測試
+* 若結果不同則比較與舊的 algorithm 有何不同
