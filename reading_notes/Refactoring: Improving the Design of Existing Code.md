@@ -429,3 +429,117 @@
 * 準備另外的 algorithm 並編譯成功
 * 用新的 algorithm 跑過所有測試
 * 若結果不同則比較與舊的 algorithm 有何不同
+## Chapter 7. Moving Features Between Objects
+* Object design 的重點在於該把責任放到哪邊，很難一開始放對地方但之後可以用 refactoring 改變
+* 先使用 Move Field 再用 Move Method 把行為轉移
+* Extract Class 把責任太多的 class 分解成只有單一責任的 class，Inline Class 把責任太少的 class 移除
+* Hide Delegate 把 class 隱藏起來，Remove Middle Man 把因為 hide delegate 而太常變動的 interface 直接讓 class 使用
+* 當想要把責任移到無法改變的 class 的時候，如果只有一到兩個 method 則使用 Introduce Foreign Method，如果有多個 method 則使用 Introduce Local Extension
+### Move Method
+* 需要被 move 的 method 通常被其他 class 常常使用到反而自己的 class 比較少用到
+* 建立一個與最常用到別人的相似的 method，把原本 method 移除或 delegate
+#### Motivation
+* Class 有太多行為或跟其他人合作太密切就會使用 move method 把 class 變簡單一點也讓責任更精確
+* 移動 fields 的時候可以看一下有沒有 method 可以移動到更適合的地方
+* 如果很難決定該不該移動 method 可以先移動其他 method 讓整體更清晰，如果還是很難就先放著
+#### Mechanics
+* 檢視 source class 中有用到 source method 的人看看需不需要一起移動，通常一次移動多個 method 比較容易 
+* 檢查 subclasses 跟 superclasses 有沒有其他的宣告
+* Target class 宣告 method，可以選擇更合適的名字
+* 把 soure method 的 code 複製到 target 並調整一下，需要讓 target method 能 reference 到 source object
+* 編譯 target class
+* 決定該如何讓 source reference 到 target object
+* 把 source method 變成 delegating method
+* 編譯跟測試
+* 決定是否要移除 source method 或保留成 delegating method
+* 如果決定要移除 source method 要把所有 reference 的地方換成 target method
+* 編譯跟測試
+### Move Field
+* Class 的 field 更常被其他 class 使用就在 target class 新增一個 field 然後把用的人都做修改
+#### Motivation
+* 在不同的 class 移動 state 跟行為對於 refactoring 是很重要的，設計的抉擇可能不斷的變動，當發現設計不符合現在的情況就該改動
+* 發現 field 更常被其他 class 的 method 使用，如果用 getting 或 setting method 可能會移動 method 因為要保持 interface，如果 method 是合理的就移動 field
+* Extract Class 的時候需要先把 field 移動再來 method
+#### Mechanics
+* 如果 field 是 public 就用 Encapsulate Field
+* 編譯跟測試
+* Target class 建立 field 包含 getting 跟 setting method
+* 編譯跟測試 target class
+* 決定如何讓 target object 可以 reference 到 source
+* 移除 source class 的 field
+* 替換掉所有使用到 source field 的 references
+* 編譯跟測試
+### Extract Class
+* 有一個 class 做了應該由兩個 class 所做的事情
+* 建立新的 class 然後把相關的 fields 跟 method 舊的移到新的
+#### Motivation
+* Classes 會不斷成長，只要加入一些 operation 或 data 都會賦予更多的責任，通常都不會覺得應該要獨立出來一個 class 最後導致 class 太複雜
+* Class 有太多 method 跟 data 會讓人不容易理解，需要開始思考該從哪邊切割，看看有沒有 subset data 跟 method 通常都在一起或者那些常常一起改動，另外可以從如果拿掉一些 data 或 method 則其他的還會不會有意義來判斷
+* Subtype class 常常只影響部分 feature 或者有些 feature 需要不同的 subtyped 方式
+#### Mechanics
+* 決定如何分割 class 的責任
+* 建立一個 class 來負責切出來的責任
+* 建立舊的跟新的 class 連結
+* Move Field 移動需要的 field
+* 每一個移動都需要編譯跟測試
+* Move Method 把 method 從舊的移到新的，先從 low-level method 開始移動
+* 每一個移動都需要編譯跟測試
+* 減少每個 class 的 interface
+* 決定新 class 該 expose 哪些東西，決定要用 reference object 或者 immutable value object
+### Inline Class
+* Class 做的事情不夠多就就把他的 feature 放到另外的 class 後刪除
+#### Motivation
+* Inline Class 是 Extract Class 的相反，當 Extract class 可能讓 class 存在意義消失就找一個 class 放進去
+#### Mechanics
+* 宣告 source class 的 public protocol 到要移進的 class，把要移進的 class 的所有 method 都 delegate 到 source method
+* 把全部 reference 到 source classs 都替換成到要移進的 class
+* 編譯跟測試
+* 使用 Move Method 跟 Move Field 把 source class 的東西移進 class
+### Hide Delegate
+* Client 使用 object 的 delegate class
+* 建立一個 method 隱藏 delegate
+#### Motivation
+* Encapsulation 讓 object 對於系統其他部分了解更少，當需要改變的時候就可以改比較少東西
+* Delegate 如果改變則 client 也需要改變，如果 server 隱藏 delegate 則只需要 server 做改變
+#### Mechanics
+* 為每個 delegate 的 method 在 server 加上 delegating method
+* 讓 client 呼叫 server
+* 每次調整 method 都要編譯跟測試
+* 如果 client 不需要讀取 delegate 就把他移除
+* 編譯跟測試
+### Remove Middle Man
+* Class 做太多 簡單的 delegation
+* 讓 client 直接呼叫 delegate
+#### Motivation
+* Hide Delegate 讓 client 可以直接使用 delegated object 但只要 client 需要 delegate 的新功能則 server class 就需要再加一個，最後有可能 server 充滿著簡單的 delegation
+* 很難找出隱藏多少是正確的不過 Hide Delegate 跟 Remove Middle Man 並不是太重要，可以隨著系統的演化做調整
+#### Mechanics
+* 建立 delegat 的 accessor
+* 把每個用到 client delegate method 的換成直接去呼叫 delegate 的 method 並移除掉 server delegate method
+* 每次改變 method 都編譯跟測試
+### Introduce Foreign Method
+* Server class 需要用到多的 method 但無法修改 class
+* 在 client classs 建立一個 method 然後第一個參數是 server class
+#### Motivation
+* 用的 class 提供很多好用的服務但有可能少了我們需要的，這時候又不能改 class 新增 method 所以只能在 client code around
+* 如果 method 只用在一個 client class 就比較簡單，如果很多 class 都需要會造成 duplication，需要 refactor 成 foreign method
+* 發現 server class 有太多 foreign method 就需要用 Introduce Local Extension
+* Foreign method 只是 work-around 要試著讓該 method 回到正確的地方
+#### Mechanics
+* Client class 建立一個 method
+* 讓 server class 的 instance 當成第一個 parameter
+* 註解是 foreign method 應該要存在於 server，以便容易找出 foreign method
+### Introduce Local Extension
+* 需要在無法改動的 server class 增加許多 method
+* 建立一個包含需要 method 新的 class，讓 extension class 為 subclass 或原本 class 的 wrapper
+#### Motivation
+* 把需要的 method 跟 server class 利用建立 subclass 或 wrapper 的方式放在一起
+* Local extension 能夠提供所有 class 的功能加上額外的功能
+* 如果只是把 code 放到別的 class 而不是放到 extension 最終無法 reuse 這些 methods
+* 通常使用 subclass 的方式因為比較簡單，但如果原本的 data 會變動則使用原本的 class 所做的改變就無法反應到 subclass 上面，這時候就要用 wrapper
+#### Mechanics
+* 建立 extension class
+* 在 extension 上增加 converting constructor
+* 在 extension 上面增加新功能
+* 替換掉原本的 class
+* 把 foreign method 放到 extension
