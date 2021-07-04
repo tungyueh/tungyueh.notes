@@ -130,3 +130,94 @@
 * 花了半世紀知道什麼事情不該做
 * 軟體的本質從一開始就沒有改變，改變的只有硬體跟工具
 * 軟體只是由 sequence, selection, iteration 跟 indirection 所組成
+## PART V Architecture
+### Chapter 15 What Is Architecture?
+* Software architect 是頂尖 programmer 專注於讓團隊生產力最大化的設計，同時持續進行 programming task 以便了解可能遇到的問題
+* 軟體架構讓人對於系統的模樣有基本概念，理解有哪些 component 跟彼此如何合作
+* 軟體架構不只是要讓系統可以動，而是要能持續開發跟維護
+* 好的軟體架構要能讓系統可以容易理解，容易開發，容易維護跟容易部署，最終目標是讓生產力最大化
+#### Development
+* 五人以下團隊在初期開發系統容易沒有定好 components 跟 interface 因為不想有太多障礙，所以也造成有很多系統都沒有良好的架構
+* 系統由多個團隊共同開發一定需要定好 components 釐清責任才能開始開發，通常 components 數量就是 team 的數量
+#### Deployment
+* 快速部署讓系統更有用
+* 部署方式在開發時期常常被忽略，通常只會以容易快速開發為主
+* 例如為了開發方便使用 micro-service 架構但部署時發現需要很多設定也可能部署後有很多錯誤，反而花很多時間在部署上
+* 開發初期如果有考慮部署就可能會思考用較少的 services 或其他架構來減少管理的難度
+#### Operation
+* Operation 遇到的問題基本上可以使用投入更多硬體資源來解決而不需要動到軟體架構
+* 好的軟體架構要能讓 operation 知道系統的需求
+#### Maintenance
+* 維護是永無止盡跟最花成本的事情
+* 主要是在現有的架構找到好的地方新增 feature 或修復問題，另外評估改動可能造成的危機
+* 好的架構藉由區分出 component 讓改動的影響降低
+#### Keeping Options Open
+* 軟體架構重要在於可以快速簡單的變更行為，這取決於系統的 componenect 如何彼此合作
+* 讓多種可能的選項存在是讓軟體可以持續變動的要素
+* 系統可被分為 policy 跟 detail 兩種要素
+    * Policy 是指 business rule 跟 procedure 也是系統價值所在
+    * Detail 是指讓其他系統跟 programmer 達成 policy 行為的東西
+* Architect 要將 policy 視為重要的東西，讓 detail 盡量與 policy 無關，讓 detail 可以推遲到之後再決定
+* 越晚決定 detail 可以有更多資訊做出正確的決定
+* 有選擇的權利代表可以嘗試不同的選擇來分析比較優劣
+* 如果已經被其他人決定好 detail 身為 architect 還是可以假裝這個決定還沒下，把系統還是設計的可以用不同 deatil 取代
+* 好的 architect 可以最大化不需要馬上做的決定
+#### Device Independence
+* 程式綁定特定裝置的話只要換裝置就需要全部重寫，所以發明 device independence 讓 operate system 負責處理不同裝置的行為
+* 也就是 Open-Closed Principle
+#### Junk Mail
+* Policy 是把 name 跟 address record format 好
+* Detail 是要用哪種 device 印出來
+* 推遲 detail 直到決定要用哪種 device
+#### Physical Addressing
+* 讓 high-level policy 跟實際存在硬碟格式分離出來才能讓 application 決定要用哪種 detail
+#### Conclusion
+* Architect 需要仔細的把 policy 跟 detail 分開，讓 detail 的決定都推遲到最後一秒
+### Chapter 16 Independence
+#### Use Cases
+* 系統架構要能符合 use cases
+* 系統架構要能清楚顯示出意圖跟行為
+#### Operation
+* 系統架構要能符合 operation 的規模
+* 系統架構有分好 component 之後比較容易轉換成不同架構
+#### Development
+* 系統由多組團隊開發會需要分出獨立的 component 才能分配給 team 來開發
+#### Deployment
+* 好的系統架構要能在 build 完馬上部署，而不需要調整一堆設定跟把檔案放到正確的地方
+#### Leaving Options Open
+* 當不知道需求跟限制時還是有些原則可以依循來平衡不同的考量，留下可以選擇的空間
+#### Decoupling Layers
+* 雖然無法知道全部的 use case 但系統還是有主要的目的，根據這些依循 Single Responsibility Principle 跟 Common Closure Principle 區分有共同改變理由的部分使用 context 包裝起來
+* User interface 改變跟 business rule 改變是不同原因，所以需要分開
+* 驗證欄位跟改變計算利息公式雖然都是在 application 裡面但改變的速度跟原因不同也需要分開
+* Database schema 也會改變而且不屬於 business rule 或 UI 也需要分開
+#### Decoupling Use Cases
+* Use cases 也會改變所以也可以用來當成切分系統的依據
+* Use case 是垂直切分系統，每個 use case 都會用到一點 UI、一點 application-specific business rules、一點 application-independent business rules、一點 database functionality，所以也要考量如何垂直分割系統
+* 每個平行的 layer 要根據 use case 來切分出來
+* 之後增加 use case 就很容易在現有系統上支援而不干擾之前的 use case
+#### Decoupling Mode
+* Use case 有分開則特定 use case 可能需要較高的 throughput 的時候就可以支援
+* UI 跟 database 有跟 business rules 分開就可以在不同 server 上跑
+* 為了支援 operation 需要有不同的 mode，為了在不同 server 上跑，component 不能 depend address space，而是需要變成獨立的 services 可以透過 network 溝通
+#### Independent Develop-ability
+* Compoenets 有被清楚分開且定好 interface 才可以讓不同團隊有效率的合作
+#### Independent Deployability
+* Use case 跟 layer 切分好之後就有很高的部署彈性，就可以 hot-swap layer 跟 use case，增加新 use case 也很容易
+#### Duplication
+* 真正的 duplication 是指每次改變 instance 都需要改變 duplicate 的 instance，而兩個初期看起來是 duplicate 的 instance 以不同的速度跟原因改變就不是 duplication
+* 不同 use case 有相似的 screen structure 但其實最後會有不同的結果，要注意在初期不要統一起來，不然之後很難切分
+#### Decoupling Modes (Again)
+* 可以在 source code level 或 binary code level 或 execution unit level 做 decoupled
+* Source level: 切分 source code 成 module 但還是使用相同的 address space 跟使用 function call 溝通，是個 monolithic structure
+* Deployment level: 使用 jar files, DLLs, shared libraries 讓在 source code module 的改變不會影響到其他人需要 rebuilt 跟 redeployed，但還是在相同的 address space 跟使用 function calls 溝通
+* Service level: 使用 network packet 減少 data structure 跟 function calls 溝通的方式
+* 很難知道系統要用哪種程度的 decoupling
+* 預設從 service level 開始 decouple 但成本更高而且會鼓勵更大的 component 產生
+* 建議先把 decoupling 做到 service 可以成形就好，先盡量保持在相同 address space 留條後路就好
+* Component 由 source code level 所分開的，等到在開發或部署有問題在使用 deployment level 的 decoupling
+* 當 development, deployment, operational 的問題增加就把 deployable unit 轉換成 service，讓系統慢慢朝向這個方向
+* 當 operational 需求降低，則 service level 的 decoupling 變少而 deployment-level 跟 source-levle decoupling 變多
+* 好的系統架構能夠從 monolith 變成很多 deployable unit 在變成 services，也能慢慢變回來 monolith
+#### Conclusion
+* Decoulping mode 會隨著時間變動，而好的 architect 能夠遇見未來適當的採用不同的 mode
