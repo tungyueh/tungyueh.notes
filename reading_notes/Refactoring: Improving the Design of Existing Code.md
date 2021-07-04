@@ -543,3 +543,231 @@
 * 在 extension 上面增加新功能
 * 替換掉原本的 class
 * 把 foreign method 放到 extension
+## Chapter 8. Organizing Data
+* 對於能不能直接存取 object 的 data 有許多爭議但通常允許直接存取 data 因為這樣 refactoring 比較簡單，有時候真的需要就使用 Self Encapsulate Field
+* Object langauge 讓我們定義新的形 type，有時候發現用 object 更適合就使用 Replace Data Value with Object，如果 object 有很多 instance 在不同地方被用到則使用 Change Value to Reference 讓他們變成 reference object
+* 發現使用 array 的方式像是 data structure 就用 Replace Array with Object，之後可以用 Move Method 慢慢加入新行為
+* Replace Magic Number with Symbolic Constant 把有特殊意義的數字成有意義的東西
+* Object 之間關係可能是單向或雙向，有時候需要使用 Change Unidirectional Association to Bidirectional 支援新的功能，Change Bidirectional Association to Unidirectional 當發現不需要雙向關係時可以移除多餘的複雜度
+* Business logic 存在不該存在的地方需要把相關行為移到 domain class，使用 Duplicate Observed Data 支援原本的 class
+* 使用 Encapsulate Field 把 public data 封裝起來，使用 Encapsulate Collection 把 collection 封裝起來，使用 Replace Record with Data Class 把 record 封裝起來
+* 當使用 type code 指向特定的 instance，如果不影響行為則使用 Replace Type Code with Class，如果會影響行為則用 Replace Type Code with Subclasses，最後更複雜的情況使用 Replace Type Code with State/Strategy
+### Self Encapsulate Field
+* 使用 getting 跟 setting method 存取 field
+#### Motivation
+* 有些人認為定義出來的 class variable 就是可以直接存取，另外一派認為一定要用 accessor 去存取
+* 使用 accessor 去存取變數的好處是 subclass 可以 overridde 來提供彈性，例如 lazy initialization
+* 直接存取變數的好處是很簡單，不需要多一個只是拿值的 method
+* 一開始先用直接存取都遇到不好修改的地方再改用 accessort 存取，refactoring 讓我們可以隨時改變想法
+* 當需要讀取 superclass 的 field 但想要在 subclass 用計算好值來 override 就可以先用 Self Encapsulate Field 
+#### Mechanics
+* 建立 getting 跟 setting 的 method
+* 找出所有用到 field 的地方替換成 getting 跟 setting method
+* 把 field 變成 private
+* 在一次檢查有把所有 reference 修正
+* 編譯跟測試
+### Replace Data Value with Object
+* Data item 需要額外的 data 或 behavior 的時候換成 object
+#### Motivation
+* 初期通常都用簡單的資料型態代表 data item，但隨著功能增加發現需要更行為則把該 data item 換成 object
+#### Mechanics
+* 建立 value 的 class，弄一個 final field 型態跟之前一樣，增加使用 field 為 argument 的 getter 跟 constructor
+* 編譯
+* 把 source class 的 type 改成 new class
+* 把 source class 的 getter 改成用 new class 的 getter
+* 如果 field 有在 source class 的 constructor 使用 new class 的 constructer 為 field assign
+* 改變 getting method 產生新 instance
+* 編譯跟測試
+* 可能需要用 Change Value to Reference
+### Change Value to Reference
+* 想要用 object 換掉有很多一樣的 instance，就把 object 變成 reference object
+#### Motivation
+* Reference object 是指 objecy 在真實世界中就代表一種東西，Value object 完全根據資料來定義
+* 一開始只用簡單的 value 後來可能需要讓他可以變而且可以反應到所有 reference，這時候就要變成 reference object
+#### Mechanics
+* 使用 Replace Constructor with Factory Method
+* 編譯跟測試
+* 決定 object 該提供那些讀取方式
+* 決定要先建立好還是要用帶才建立
+* 把 factory method 回傳的東西換成 reference object
+* 編譯跟測試
+### Change Reference to Value
+* Reference object 已經單純到不需要管理就換成 value object
+#### Motivation
+* Reference object 都需要某些控制，但如果太單純才變成 value object 比較好，可以用在分散式系統或 conccurrent 系統
+* Value object 好處是 immutable，這樣可以確保很多的 object 是一樣的，如果 mutable 需要確保所有 object 都有更新到才能確保都是一樣的
+#### Mechanics
+* 確認 object 可以變成 immutable
+    * 如果不可以使用 Remove Setting Method 直到可以
+    * 如果都不行應該要放棄這個 refactoring
+* 建立 equal method 跟 hash method
+* 編譯跟測試
+* 移除 factory method 跟讓 constructor 公開
+### Replace Array with Object
+* Array 中有一些 element 代表不同的意思則要把 array 換成 object，用 field 代表不同 element
+#### Motivation
+* Array 只適合用來放相似的東西，而有時候會用 element 在 array 的哪個位置來代表不同意思，這樣很難記住這個東西，就算有註解也會過期，最好的方式就是用 object 然後給 element 名字或者使用 Move Method 增加行為
+#### Mechanics
+* 建立新 class 代表 array 的資訊，有一個 public field 給 array
+* 把所有用 array 的改成用 class
+* 編譯跟測試
+* 為每個 element 都增加 getter 跟 setter，取個適合的名字，讓 client 使用 accessor，每做一次改動都測試
+* 當所有 array 的存取都被換成 method 讓 array 變成 private
+* 為每個 element 都建立 field，讓 accessort 用 field
+* 每個 element 變動都測試
+* 當所有 element 都被換成 field 則刪除 array
+### Duplicate Observed Data
+* Domain data 只能從 GUI 拿到而且 domain method 需要用到該 data
+* 把 data 複製到 domain object，使用 observer 同步在不同地方的資料
+#### Motivation
+* User interface 的 code 會跟 business logic 的 code 分開因為可能有很多 interface 用到相同的 business logic，為了容易維護所以需要從 GUI 拉出 domain object
+* 行為容易分離但是資料不行，需要利用 framework 保持資料的一致性
+#### Mechanics
+* 做一個 presentation class 給 domain class
+* 在 GUI class 的 domain data 使用 Self Encapsulate Field 
+* 編譯跟測試
+* 在 event handler 增加對於 setting methdo 的呼叫以便更新
+* 編譯跟測試
+* Domain class 定義 data 跟 accessor method
+* 讓 accessort 寫到 domain field
+* 修改 observer 更新的 method 能夠從 domain field 複製資料到 GUI
+* 編譯跟測試
+### Change Unidirectional Association to Bidirectional
+* 有兩個 class 需要對方的 feature 但只有 one-way link
+* 增加back pointer 跟改變 modifier 可以同時更新 sets
+#### Motivation
+* 一開始兩個 class 只有其中一個 class 會 refer 另外一個但隨著功能增加需要用到被 refer class 的 feature，這時後可能會用其他 route 到需要的 class 但容易造成混亂，直接設定好 two-way reference 比較簡單
+* 這個 refactoring 用 back pointer 實作 bidirectionality，其他技巧還有 link object
+#### Mechanics
+* 為 back pointer 增加 field
+* 決定哪個 class 負責控制 association
+* 在不負責控制的 class 建立 helper method
+* 如果在控制端有 modifier 也要更新 back pointer
+* 如果被控制端有 modifier 在控制端建立 method 讓他呼叫
+### Change Bidirectional Association to Unidirectional
+* 有一個 two-way 關係的 class 但卻不再需要另外 class 的 feature
+* 移除掉不需要的關係
+#### Motivation
+* 雙向的關係雖然有用但也增加複雜度
+* 很多 two-way link 容易造成 zombie 的出現
+* 雙向關係造成互相依賴，太過多的依賴容易造成 coupling 導致些許改動就讓很多無法預測的後果
+#### Mechanics
+* 檢查所有 reader 用到的 field 的 pointer 是否可以移除掉
+* Client 需要 getter 則使用 Self Encapsulate Field 然後在 getter Substitue Algorithm 編譯跟測試
+* Client 不需要 getter 則改變所有用到 field 的方式，編譯跟測試
+* 沒有 reader 的時候就把所有 update field 的地方移除後再把 field 移除
+* 編譯跟測試
+### Replace Magic Number with Symbolic Constant
+* 有一個代表特殊意義的數值把它用一個 constant name 取代
+#### Motivation
+* 有代表特殊意義的數值不容易被發現，如果有在很多地方都用到又要改變則會非常困擾因為很難找出所有需要改的地方
+* 宣告 constant 沒有代價還可以帶來很大的可讀性
+* 先看看 magic number 有沒有更好替代方案，如果是 type code 則應該要用 Replace Type Code with Class
+#### Mechanics
+* 宣告 constant 然後把 value 設為 magic number
+* 找出所以 magic number
+* 看 magic number 是否適合取代成 constant
+* 編譯
+* 當所有 magic number 都改完就編譯跟測試
+### Encapsulate Field
+* 把 public field 變成 private 後改用 accessors 存取
+#### Motivation
+* Field 應該都要是 private 才能做到 encapsulation，如果外面的人可以直接存取 object 裡面的 data 就會讓 data 脫離行為
+* Data 跟行為透過 object 聚在一起方便做修改
+* Encapsulate Field 只是第一步，接下來需要看有哪些行為適合 Move Method 到 class
+#### Mechanics
+* 建立 field 的 getting 跟 setting methods
+* 找出所有 client 用到的地方改成用 getting 跟 setting method
+* 每個改變都要編譯跟測試
+* 當所有 client 都改變後把 field 變 private
+* 編譯跟測試
+### Encapsulate Collection
+* Method 回傳 collection 換成回傳 read-only view 跟增加 add/remove methods
+#### Motivation
+* Class 如果有 collection instance 很容易用來做 getter 跟 setter
+* 不該回傳 collection 因為會在不知道 class 內部實作的狀況下做改動讓 client 知道太多事情，所以應該要回傳無法改動的東西
+* 不應該用 setter 給 collection 要用 add 跟 remove method 讓 object 可以控制對於 collection 的增減
+* 減少與 client 的 coupling
+#### Mechanics
+* 增加 collection 的 add 跟 remove method
+* 用 empty collection 初始化 field
+* 編譯
+* 找出所有使用 setting method，改成使用 add 跟 remove operation
+* 編譯跟測試
+* 找出所有用 getter 然後改 collection，改成使用 add 跟 remove method，每個改變都編譯跟測試
+* 所有會修改 getter 的 collection 都改完後把 getter 改成只會回傳無法改的 collection
+* 找出使用 getter 的低方看看可不可以用 Extract Method 跟 Move Method 方到 host object
+### Replace Record with Data Class
+* 需要一個 record structure 的 interface 用 dumb data object 取代 record
+#### Motivation
+* 在 object-oriented program 會用 record structure 因為可以用傳統的 programming API 來操作，這時候用一個 interface 處理 external element 之後還可以把 methodd 搬進去
+#### Mechanics
+* 建立一個 class 代表 record
+* 為每個 data item 建立 private field, getting method 跟 setting method
+### Replace Type Code with Class
+* Class 有數字 type code 但不影響行為，使用新 class 取代 type code
+#### Motivation
+* Numeric type code 雖然有 symbolic name 但是本質上還是數字 compiler 無法檢查，使用的時候都用數字所以造成可讀性降低
+* 使用 class 取代數字可以讓 complier 進行 type check，提供 factory method 可以確保產生正確的 instance
+* 只有在 type code 是單純的資料且不會有不同的行為才能使用，如果有其他狀況要考慮使用不同的 refactoring 方式
+* 雖然 type code 的值不影響行為但把行為放到 type code class 是更適合的
+#### Mechanics
+* 建立 type code 的新 class
+* 修改 source class 的實作改用新 class
+* 編譯跟測試
+* Source class 每個使用 type code 的 method 要在新 class 建立新 method 來取代原本的
+* 把用到 source class 的 client 慢慢換成使用新的 interface
+* 每個 client 改變後都要編譯跟測試
+* 移除舊的 interface 跟 static declaration
+* 編譯跟測試
+### Replace Type Code with Subclasses
+* Class 中有會影響行為的 type code
+* 使用 subclasses 取代 type code
+#### Motivation
+* Type code 會影響行為則需要使用 polymorphism 去處理不同的行為
+* 使用一堆 if-then-else 架構根據 type code 來決定行為，這種情形通常需要使用 Replace Conditional with Polymorphism，所以需要把 type code 替換成 inheritance structure 來達成 polymorphic 行為
+* 為每個 type code 建立 class，但如果 type code 會改變跟已經是 subclass 就需要用 Replace Type Code with State/Strategy
+* Repalce Type Code with Subclasses 主要是為了 Replace Conditional with Polymorphism，如果沒有 conditional statement 使用 Replace Type Code with Class 比較好
+* 使用 Replace Type Code with Subclasses 為了讓 class 本身更貼近自己的 feature，之後可以使用 Push Down Method 跟 Push Down Field 來讓 feature 只存在於特定 class
+* Replace Type Code with Subclasses 把不同行為的知識移到專屬的 class，如果有新的種類可以直接新增 subclass 就好而不需要去找每個 conditional 去改
+#### Mechanics
+* 把 type code encapsulate 起來，如果 type code 是由外面的傳進來需要建立 factory method 取代 contructor
+* 為每個 type code 建立 subclass，override type code 的 getting method 回傳對應的 type code
+* 每換一個 subclass 就編譯跟測試
+* 移除 type code field，在 abstract 宣告 type code 的 accessor
+* 編譯跟測試
+### Replace Type Code with State/Strategy
+* Class 使用到 type code 會影響行為但無法用 subclass 取代
+* 使用 state object 取代 type code
+#### Motivation
+* 類似 Replace Type Code with Subclasses 使用在 type code 會改變或無法 subclassing 的情況
+* State 跟 strategy 很像所以 refactoring 方式一樣，如果想要用 Replace Conditional with Polymophism 簡化一個 algoirthm 使用 strategy 比較好，如果 data 是 state-specific 可以使用 state pattern
+#### Mechanics
+* 把 type code encapsulate 起來
+* 建立以 type code 為目的命名的新 class，是個 state object
+* 為每個 state object 的 type code 增加 subclasses
+* 在 state object 建立 abstract query 回傳 type code，在 subclass overriding 去回傳自己的 type code
+* 編譯
+* 舊的 class 上面建立為了 state object 的 field
+* 調整 type code query 讓原本 class delegate 到 state object
+* 調整 type code seeting method 讓原本 class assign 給適當的 state object
+* 編譯跟測試
+### Replace Subclass with Fields
+* Subclasses 只有 method 回傳的 constant data 不同，把 method 轉成 superclass fields 然後移除 subclasses
+#### Motivation
+* Constant method 指回傳 hard-coded value，在 subclasses 讓他可以傳不同的 accessor 出來只要在 superclass 定好 accessor 就好了
+* 如果 subclasses 只有 constant method 則該 class 的存在價值就很薄弱
+#### Mechanics
+* Subclass 上使用 Replace Constructor with Factory Method
+* Code 有 refere 到 subclasses 的用 superclass 取代
+* Superclass 為每個 constant method 定義 final field
+* 宣告 superclass constructor 用來初始化 fields
+* 增加或修改 subclass constructor 去呼叫 superclass constructor
+* 編譯跟測試
+* Superclass 實作每個 constant method 回傳 field 然嘔把 subclasses 的 method 移除
+* 每一鋤一個就編譯跟測試
+* 所有 subclass method 都被移除後使用 Inline Method 把 constructor 變成 factory method
+* 編譯跟測試
+* 移除所有 subclass
+* 編譯跟測試
+* 持續 inline constructor 跟刪除 subclass
