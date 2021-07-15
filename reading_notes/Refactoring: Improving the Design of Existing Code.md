@@ -771,3 +771,57 @@
 * 移除所有 subclass
 * 編譯跟測試
 * 持續 inline constructor 跟刪除 subclass
+## Chapter 9. Simplifying Conditional Expressions
+* Conditional logic 容易讓事情變複雜，主要 refactoring 的方式是 Decompose Conditional 讓 switch logic 跟事情發生的細節分離
+* Consolidate Conditional Expression 可以在遇到很多測試但都有相同效果，Consolidate Duplicate Conditional Fragment 可以移除 conditional code 中有 duplicate 的部分
+* 對於使用 control flag 來達成 one exit point 的 code 使用 Replace Nested Conditional with Guard Clauses 讓特別的 conditional case 變得清楚，Remove Control Flag 移除各種 control flag
+* Object-oriented 的程式比較少 conditional logic 因為可以用 polymorphism 來處理這件事，Polymorphism 讓 caller 不需要知道 conditional behavior 而且容一擴充，所以通常使用 Replace Conditional with Polymorphism
+* Introduce Null Ojbect 來移除確認 null value 的 code
+### Decompose Conditional
+* 有複雜的 conditional statement 用從 condition 到 parts 使用 extract method
+* 通常程式複雜的地方來自於複雜的 conditional logic，不僅會增加 method 長度也會使目的模糊讓程式難以閱讀
+* 遇到很大 block 的 code 藉由使用有意義的 method 分解後讓目的凸顯出來
+* 把 condition extract 成 method 再把其他部分都 extract 成 methods
+* 如果是 nested logict 使用 Replace Nested Conditional with Guard Clauses
+* Condition 雖然很短但很難表示出目的，所以也要 extract condition 讓人看到清楚的目的
+### Consolidate Conditional Expression
+* 很多 conditional tests 都是回傳一樣的結果，把他們都放到同一個 conditional expression 然後 extract
+* 一連串的測試其實是組合在一起的所以要放在一起，而且放在一起就可以使用 Extract Method 把 conditional extract 出來讓 code 更清晰
+* 如果這些測試都是獨立的就不需要做這個 refactoring
+* 檢查所有的 conditional 都沒有 side effect
+* 使用一個 conditional statement 取代
+* 編譯跟測試
+* 嘗試使用 Extract Method 把 condition extract 出來
+### Consolidate Duplicate Conditional Fragments
+* 所有的 branch 都有相似的一段 code，把這段 code 移出 fragment
+* 讓人比較清楚這些 condition 有什麼差別
+* 先確認那段 code 在 condition 之內跟之外執行都一樣
+* 如果 code 在開頭則移到 condition 之前
+* 如果 ode 在最後則移到 condition 之後
+* 如果 code 在中間確認前後都沒有改變任何東西就去移到 condition 前面或後面都可以
+* 如果不只有一個 statement 可以 extract 成 method
+### Remove Control Flag
+* 當有變數在一連串的 boolean expression 都像是 control flag，使用 break 或 return
+* 為了達到 one entry point 跟 one exit point 會需要用到 control flag，但是不一定要遵守 one exit point，因為使用 flag 會讓 code 不清楚，使用 continue, break, return 可以讓真正的 condition 更清晰
+* 先找到 control flag，把 assignment break-out value 的地方換成 break 或 continue，每個取代都編譯跟測試
+* Extract log 成 method，找出 control flag 會跳出的 value，把 assignment break-out value 用 return 取代，每個取代都編譯跟測試
+### Replace Nested Conditional with Guard Clauses
+* Condition 讓執行的路很不清晰，使用 guard clauses 取代所有特殊的 cases
+* 想要區別正常跟異常情況應該使用 if 跟 else，想要區別常見跟少見情況要讓 check condition return True，這類 check 稱為 guard clause
+* If-then-else 這三種通常會被認為都是同樣重要的，因此應該使用 guard clause 要讓人知道這是處理少見或異常情況
+* one exit point 不是很好的規則，應該要以簡潔為主
+* 把每個 check 都放到 guard clause，每次替換都編譯跟測試
+### Replace Conditional with Polymorphism
+* Condition 根據 object type 來決定行為，把每個 condition 的分支都放到 subclass 的 overriding method，讓原本的 method 變成 abstract
+* Polymorphism 讓 condition 指出現在一個地方，當需要新的 type 只要加 subclasses 就好
+* 需要有 inheritance 架構，如果沒有使用 Replace Type Code with Subclasses 跟 Replace Type Code with State/Strategy
+* 如果 condition 在一個大的 method 先用 Extract Method 把 conidtion 分離出來，需要的畫使用 Move Method 讓 condition 放在 inheritance 的上層。選一個 subclass 去 override conditional statement method，複製 condition 的分支到 subclass method，編譯跟測試後，移除複製過來的部分，在編譯跟測試，condition 分支都不斷做這個動作直到所有到放到 subclass method，讓 superclass method 變 abstract
+### Introduce Null Object
+* 不斷重複檢查 null value，使用 null object 取代 null value
+* Polymorphism 本質在於去直接使用行為而不是先確認什麼型態再去做什麼事情
+* 建立 null 版本的 subclass，在 source class 建立 isNull operation 回傳 False 而 subcalss 回傳 True，編譯，找出所有可能產生 null 的地方替換成 null object，找出所有比較 null 的地方替換成 isNull，編譯跟測試，找出 client 使用 null operation 替換行為，移除 condition check，編譯跟測試
+### Introduce Assertion
+* 有段 code 有預設特定的狀態，使用 assertion 讓假設顯示出來
+* 有些假設是用註解說明，可以轉換成 assertion
+* Assertion 幫助讓問題更接近源頭
+* Assertion 只用在檢查東西是否一定要是對的，不要過度使用不然會造成 duplication，如果 assertion fail 但 code 還是可以正常運作就把 assertion 拿掉
