@@ -221,3 +221,56 @@
 * 好的系統架構能夠從 monolith 變成很多 deployable unit 在變成 services，也能慢慢變回來 monolith
 #### Conclusion
 * Decoulping mode 會隨著時間變動，而好的 architect 能夠遇見未來適當的採用不同的 mode
+### Chapter 17 Boundaries: Drawing Lines
+* Software 早期的 boundaries 用來推遲下決定的時間，讓這些決定不會污染到 business logic
+* 過早的決定容易造成 coupling
+#### A Couple of Sad Stories
+* 過早決定複雜的系統架構讓開發不容易而且也不一定用的上
+#### FitNesse
+* 先用自製 web server 推遲採用何種 web framework 的決定
+* 先用 data access interface 存取資料推遲採用何種 database
+* 先用 data access method interface 但先不要實作這些 method，之後再來決定開如何實作
+* 只將實作細節做到目前需要的部分，最後發現足夠使用就停下來決定用該方式實作細節，避免使用太複雜但不需要的功能
+#### Which Lines Do You Draw, and When Do You Draw Them?
+* 彼此不相關的元件就該區分開來
+* BusinessRules 只靠 DatabaseInterface 來存取資料，DatabaseAccess 實作 DatabaseInterface 去 Database 拿資料
+* BusinessRules 跟 DatabaseAccess 都知道 DatabaseInterface 的存在但 DatabaseAccess 的存在沒人知道
+* DatabaseInterface 算是廣義的 BusinessRules 的一部份，而 DatabaseAccess 算是廣義的 Database 的一部份
+#### What About Input and Output?
+* 使用者只看到 GUI 而不知道背後是如何運作的
+* GUI 依賴於 Business Rules，所以 GUI 可以換成其他 interface
+#### Plugin Architecture
+* 系統開發通常都是用 plugin 建立 scalable 跟 maintinable 的系統架構
+* User interface 是個 plugin，可以做出不同的 user interface
+* Database 是個 plugin，可以使用不同種類的 database
+#### The Plugin Argument
+* Business rule 不該因為其他 component 的改變而壞掉
+* Plugin 架構建立起防火牆避免讓改變擴散到所有 component
+* Boundary 根據改變的速度建立，變動速度一樣的可以歸類在一起
+* Single Responsibility Principle 也是在告訴我們 boundaries 在哪邊
+#### Conclusion
+* 把架構 boundary 建立起來，business rule 是一類，其他都是 plugin
+* Dependency Inversion Principle 跟 Stable Abstractions Principle 幫助我們認知彼此依賴的關係
+### Chapter 18 Boundary Anatomy
+#### Boundary Crossing
+* 在 runtime, function 建立起 boundary 用來管理 source code dependencies
+* Source code module 之間的 boundary 用來管理跟建立防火牆
+#### The Dreaded Monolith
+* Monolith 有一個可以執行的檔案，內部使用 polymorphism 去管理內部的 dependencies
+* Monolith 裡面 component 使用 function call 彼此溝通
+* Monolith 裡面溝通很快所以通常溝通的很頻繁
+#### Deployment Components
+* Dynamically linked library 用成可以部署的單位，部署過程可以不用 compilation 直接把這些組合起來用
+* 跟 monolith 一樣因為溝通成本很低所以很常溝通
+#### Threads
+* Thread 用來安排 schedule 跟執行的順序，不算是 boundaries 或 deployment unit，會在一個或多個 components 使用
+#### Local Processes
+* 可以跑在一個 processor 或一組 processors 裡面但不同 address space
+* 使用 socket 或其他 OS 的溝通方式
+* 溝通成本稍微多一點因為使用 OS calls 跟 data 需要經過 marshaling 跟 decoding 跟 process 有 context switches
+#### Services
+* 不依賴於 phyiscal location，彼此透過網路溝通
+* 溝通很慢所以避免很頻繁的溝通，需要處理 latency 的問題
+#### Conclusion
+* 系統有很多種劃出 boundary 的方式
+* 系統會有很頻繁溝通的 boundaries 也有需要注意 latency 的 boundaries
