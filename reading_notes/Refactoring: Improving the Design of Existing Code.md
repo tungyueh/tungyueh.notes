@@ -825,3 +825,78 @@
 * 有些假設是用註解說明，可以轉換成 assertion
 * Assertion 幫助讓問題更接近源頭
 * Assertion 只用在檢查東西是否一定要是對的，不要過度使用不然會造成 duplication，如果 assertion fail 但 code 還是可以正常運作就把 assertion 拿掉
+## Chapter 10. Making Method Calls Simpler
+* 如何讓 Object 開出容易使用跟理解的 interface 是關鍵
+* 最簡單的方法就是 rename method 把理解到的知識放到 method name
+* Interface 的 parameter 越少越好，可以使用不同方式的 refactoring 減少 parameter 的數量
+* Method 同時修改 object 狀態跟查詢狀態需要分開
+### Rename Method
+* 從 method 的名字看不出來要做什麼，換個可以看出來要做什麼的名字
+* 使用小的 method 但沒有取好名字會讓人需要不斷跳來跳去看 method 到底在做什麼，使用能夠清楚表達意圖的 method 就能跟讀者建立良好的溝通管道
+* 取好的名字需要經過時間練習，不要輕易放棄取個好名字，因為好的名字可以讓人更省力，不斷練習到可以取好的名字才有資格成為好的 programmer
+* 檢查 method signature 是否有被 superclass 或 subclass 使用，如果有先宣購新的名字的 method 把舊的 method 內容抄過來，編譯，讓舊的 method 呼叫新的 method，編譯跟測試，找出所有用舊的 method 的地方改成新的，每次都編譯跟測試，移除舊的 method，編譯跟測試
+### Add Parameter
+* Method 需要 caller 的更多資訊，多加一個 parameter
+* 沒有其他的方式才用這個因為太長的 parameter list 不容易記得跟常常有 data clumps
+* 檢查 method signature 是否有被 superclass 或 subclass 用到， 如果有則宣告一個新的 method 加上 parameter，複製舊的 method 的內容到這邊，編譯，把舊的 method 內容換成呼叫新的 method，編譯跟測試，找出所有用到舊 method 的地方換成新的，每次變動都編譯跟測試，移除舊的 method
+### Remove Parameter
+* Method body 沒用到 parameter 則移除
+* Parameter 代表該 method 需要用到的資訊，如果留下沒用的則 caller 需要多花時間思考要傳什麼進去
+### Separate Query from Modifier
+* Method 同時回傳東西跟改變 object 狀態，使用兩個 method 分別處理
+* function 只回傳值而沒有其他 side effect 則使用的人可以放心的經常呼叫
+* Method 應該要區分為有 side effect 跟沒有 side effect，只要回傳值的 method 就不該有 side effect
+* Side effect 是指可以明顯察覺到的，所以使用 cache 優化查詢速度是不在此類
+* 建立 query 回傳跟原本 method 的值一樣，修改原本的 method 使用 query method 回傳值，編譯跟測試，把呼叫原本的 method 換成 query method，然後新增呼叫原本的 method，每次都編譯跟測試，讓原本的 method 不回傳東西
+### Parameterize Method
+* 很多 method 都做類似的事情差別只在於 method 裡面的值不同，使用一個 method 可以讓 parameter 可以有不同值
+* 減少 duplicate code 然後增加彈性，之後增加不同的值也不用新增 method
+* 建立可以替換掉重複 method 的 parameterized method，編譯，一個一個替換 method 然後編譯跟測試
+### Replace Parameter with Explicit Methods
+* Method 使用不同的 parameter value 來決定回傳什麼值，建立讓每個 parameter 不同的 method
+* 避免有 conditional 還可以再編譯的時候發現錯誤，使用者也不需要知道該傳什麼東西進去，而且介面也比較乾淨
+* 當 paramter 很常變動就不適合使用
+* 為每個 parameter value 建立 explicit method，每個 condition 裡面呼叫新的 method，每次替換掉一個 condition 都編譯跟測試，把呼叫 conditional method 替換成新的 method，編譯跟測試，替換掉所有後移除 conditional method
+### Preserve Whole Object
+* 先從 object 得到很多值之後再傳進 method 裡面，直接傳整個 object 就好
+* 避免 long parameter list 的問題，讓 parameter list 容易修改
+* 缺點是會造成兩個 object 的 coupling，如果會讓 dependency structure 變得混亂則不應該使用
+* 當 method 使用了很多別的 object 的東西可以思考使用 Move Method
+* 建立新的 parameter 給整個 object 傳進去，編譯跟測試，確定要從 object 拿什麼 parameter，依次拿 parameter 取代本來 method 用到的地方，刪除 paramter，編譯跟測試，不斷重複直到都從 object 拿 parameter，刪除沒用到的 temp
+### Replace Parameter with Method
+* Object 把 method 的結果當成 parameter 傳進 method 但是其實可以自己使用 method 拿到結果，移除掉 paramter 讓 method 自己呼叫得到結果
+* 盡量減少 paramter，讓 method 不使用 parameter 就可以移除，所以只要能夠自己呼叫拿到需要的東西就可以移除掉 parameter
+* 有些 parameter 是為了之後 method 的參數化，除非會影響整體架構不然都先不要這樣用
+* 把使用 parameter 計算的部分放到 method，把使用 parameter 的地方換成 method，每次替換都編譯跟測試，移除 parameter
+### Introduce Parameter Object
+* 有一堆適合再一起的參數，把他們變成 object
+* 常常有一群 parameter 一起傳進 method 就是有 data clump 的味道把它用 object 取代掉，不僅減少 parameter list 也讓 code 更一致更容易修改
+* 有了新 object 就可以把行為移進去，可以減少 duplicate code
+* 建立新的 class 準備取代那些 parameter，編譯，增加一個 paramter 到 data clump，依次把每個 parameter 移除掉改用 object，每次都編譯跟測試，最後看看是否可以把行為移到新的 object
+### Remove Setting Method
+* Field 如果要在建立的時候就設定好然後就不能改變，就需要移除掉所有 setting method
+* 提供可以設定 field method 會讓人覺得這是可以改變的，所以不能有 setting method 另外把 field 設為 final 可以清楚表達意圖
+* 檢查 setting method 只有被 constructor 使用，讓 constructor 直接存取 variables，編譯跟測試，移除 setting method 跟把 field 設 final，編譯
+### Hide Method
+* Method 沒有被其他 class 用到則把它變成 private
+* Refactoring 過程常常需要調整 method 的可見度，但不容易察覺到 method 沒有 class 使用需要將他藏起來，理想上是有工具可以找出來沒有的話需要自己定期檢查
+* 常見情況是當 class 有越多行為則 getting 跟 setting method 就漸漸不會被用到，這時候就可以藏起來
+* 定期檢查 method 是否有機會變成 private，讓 method 變 private，改一堆後就編譯
+### Replace Constructor with Factory Method
+* 建立 object 想要有更多的操作則使用 factory method
+* Replace type code with subclassing 常常用到，建立 object 都是使用 type code 但現在需要 subclasses，所以要用 factory method 取代 constructor
+* 讓人知道根據不同的 parameter 會有不同建立的方法
+* 建立 factory method 讓裡面直接呼叫現有的 constructor，替換掉呼叫 constructor 的地方，每次替換都編譯跟測試，把 constructor 宣告成 private，編譯
+### Encapsulate Downcast
+* Method 回傳的東西需要讓 caller 自己 downcast，讓 method 裡面自己做 downcast
+* Strongly typed OO language 需要 downcast 告訴 compiler，雖然需要做 downcast 但最好越少越好，所以 method 自己做 downcast 比起讓 caller 自己 downcast 好
+* 找出需要 downcast 的地方，把那些地方移進 method
+### Replace Error Code with Exception
+* Method 使用特殊的 code 代表錯誤要使用 exception 取代
+* 程式發生錯誤就需要做處理，發生錯誤的地方可能不知道該如何處理就讓呼叫的人知道去處理
+* Expcetion 可以跟一般流程做區隔作為錯誤處理的流程，讓程式容易理解
+* 決定那些 exception 需要被檢查，找出所有呼叫的人讓他們使用 exception，改變 method signature 讓人知道新用法
+### Replace Exception with Test
+* 丟出一個 checked exception 而 caller 可以先檢查，讓 caller 自己先檢查
+* Exception 應該要是例外的處理而不是 conditional test 的替代品
+* 把測試放在前面然後複製 catch block 的內容，catch blcock 加上 assertion 讓自己知道 catch block 有沒有被執行到，編譯跟測試，移除 catch block 跟 try block，編譯跟測試
