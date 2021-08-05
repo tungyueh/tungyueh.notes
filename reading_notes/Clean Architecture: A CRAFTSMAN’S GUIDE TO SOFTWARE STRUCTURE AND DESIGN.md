@@ -274,3 +274,35 @@
 #### Conclusion
 * 系統有很多種劃出 boundary 的方式
 * 系統會有很頻繁溝通的 boundaries 也有需要注意 latency 的 boundaries
+### Chapter 19 Policy and Level
+* 架構裡面的 component 會形成 directed acyclic graph，node 就是 component 而 edge 代表 component 之間的相依性
+* 好的架構裡面的 components 的相依性都是同個 level，low-level components 只會相依於 high-level components
+#### Level
+* Level 是指 input 跟 output 的距離， policy 跟 input output 的距離越長的距離代表越高的 level，管理 input 跟 ouput 的 policies 是最低 level 的 policies
+* 我們想要 source code dependencies 不相依於 data flow 然後相依於 level
+* Level 越高的越不容易變動，low level 通常變動頻繁、比較緊急、理由比較不重要
+* 讓 source code dependencies 相依於 higher-level policies 讓 low level 的改動不會影響到 high level
+* Low-levle components 應該要是 higher-level components 的 plugin
+#### Conclusion
+* Policies 包括 Single Responsibility Principle, Open-Closed Principle, Common Closure Principle, Dependency Inversion Principle, Stable Dependencies Principle, and Stable Abstractions Principle
+### Chapter 20 Business Rules
+* 想要將架構分成 business rule 跟 plugin 則需要知道真正的 business rule 是什麼
+* 能夠賺錢或省錢的 rule 就是 business rule
+* Business rule 只要 business 還存在就一定會有不論是手工去執行或者自動化執行
+* Business rule 需要資料而這些資料稱為 Busines Data
+* Rule 跟 Data 緊緊聯繫在一起所以適合變成 object，將這種 object 稱為 Entity
+#### Entities
+* Entity 包含重要的 business rule 跟 business data，interface 包含 function 去實作 business rule
+* 只把重要的 business 放在裡面不管用哪種 database, user interfae, thir-party framework，所以可以在任何系統使用
+#### Use Cases
+* 有些 business rule 用規範 automated system operate 來賺錢，所以在手動的環境沒有意義
+* Use case 只有定義 application-specific rule 而沒有說明 user interface 或在那種平台上跑
+* Entities 沒有 use case 的知識，所以 Entities 是 high-level 而 use case 是 low-level
+* Use case 只針對特定 application 而且距離 input 跟 output 所以比較 lower level
+* Entities 對於多個 applications 做 generalization 所以跟 input output 的距離比較遠，是 high-level
+#### Request and Response Models
+* Use case 的 input output data 要是個簡單的 data structure 不要依賴於任何 framework interfaces
+* Data structure 可能會有很多 reference 到 Entity object 但這是因為本來就需要 share 很多資料，不過因為變動的速度跟原因不同所以不能放在一起，不然會有很多 tramp data 跟 conditional
+#### Conclusion
+* Business rule 是系統存在的原因，是核心的功能，讓 code 可以賺錢跟省錢
+* Business rule 要保持跟其他 concern 分離，其他 concern 要用 plugin 的方式讓 business rule 可以獨立跟 reuse
