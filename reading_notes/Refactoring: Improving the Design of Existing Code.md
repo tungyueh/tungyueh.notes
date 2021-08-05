@@ -900,3 +900,14 @@
 * 丟出一個 checked exception 而 caller 可以先檢查，讓 caller 自己先檢查
 * Exception 應該要是例外的處理而不是 conditional test 的替代品
 * 把測試放在前面然後複製 catch block 的內容，catch blcock 加上 assertion 讓自己知道 catch block 有沒有被執行到，編譯跟測試，移除 catch block 跟 try block，編譯跟測試
+## Chapter 11. Dealing with Generalization
+* 要做到 Generalization 會需要一堆 refactoring，主要是把 method 移動到不同的 hierarchy
+    * Pull Up Field 跟 Pull Up Method 把 function 提高 hierarchy
+    * Push Down Method 跟 Push Down Field 把 function 降低 hierarchy
+    * Pull Up Contrstor Body 特別對 contructor 做 pull up
+    * Replace Constructor with Factory Method 用來取代把 constructor push down 的情況
+* Method 只有一點不太一樣使用 Form Template Method 把不一樣的地方分開
+* 除了把 function 在不同 hierarchy 移動還可以改變 hierarchy
+    * Extract Subclass, Extract Superclass, Extract Interface 都是創造新的 hierarchy
+    * Collapse Hierarchy 把不需要的 call 從 hierarchy 移除
+* 有時候發現 inheritance 不是最適合的方法就使用 Replcae Inheritance with Delegation 或者相反 Replace Delegation with Inheritance
