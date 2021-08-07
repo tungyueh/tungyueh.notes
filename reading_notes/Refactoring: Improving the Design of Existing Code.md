@@ -911,3 +911,7 @@
     * Extract Subclass, Extract Superclass, Extract Interface 都是創造新的 hierarchy
     * Collapse Hierarchy 把不需要的 call 從 hierarchy 移除
 * 有時候發現 inheritance 不是最適合的方法就使用 Replcae Inheritance with Delegation 或者相反 Replace Delegation with Inheritance
+### Pull Up Field
+* 兩個 subclasses 有相同的 field 則把 field 放到 superclass
+* Subclass 可能分別開發所以會有 duplicate features，field 被使用的方式很類似則可以 generalize field
+* 找出所有可能可以移到 superclass 的 field 確認被使用的方式一樣，field name 不一樣需要先 rename 成一樣，編譯跟測試，superclass 建立新的 field，刪除 sublass fields，編譯跟測試，嘗試使用 Self Encapsulate Field
