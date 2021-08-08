@@ -306,3 +306,22 @@
 #### Conclusion
 * Business rule 是系統存在的原因，是核心的功能，讓 code 可以賺錢跟省錢
 * Business rule 要保持跟其他 concern 分離，其他 concern 要用 plugin 的方式讓 business rule 可以獨立跟 reuse
+### Chapter 21 Screaming Architecture
+* 從 top-level directory structure 跟 source files 應該要能看出這是什麼類型的系統
+#### The Theme of an Architecture
+* 軟體架構是為了讓系統可以符合 use cases
+* Framework 只是一項工具而軟體架構不該建立在這上面而是應該建立在 use case 上面
+#### The Purpose of an Architecture
+* 好的軟體架構要專注在 use case 而不是 framework, tools 跟環境
+* 好的軟體架構要能提供細節實作的各種選擇讓決定可以推遲到最後一刻
+#### But What About the Web?
+* Web 只是一種最後呈現機制不應該主導系統架構，系統架構要能讓人能夠選擇最後的呈現方式
+#### Frameworks Are Tools, Not Ways of Life
+* Framework 代表作者背後相信的東西，根據所相信的東西所打造讓人可以將所有事情都在 framework 完成
+* 使用 framework 之前要仔細考量如何使用，如何不被 framework 綁架，如何專注在系統的 use case 上面
+#### Testable Architectures
+* 因為系統架構針對 use case 則需要單獨能夠對 use case 做 unit-test
+* Entity object 要是單純的 object 沒有任何 dependencies，才能夠單純測試 use case
+#### Conclusion
+* 系統架構要能從 source repository 看出是那種系統
+* 讓人知道有哪些 use case 而不需要知道細節如何實作
