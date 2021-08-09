@@ -915,3 +915,8 @@
 * 兩個 subclasses 有相同的 field 則把 field 放到 superclass
 * Subclass 可能分別開發所以會有 duplicate features，field 被使用的方式很類似則可以 generalize field
 * 找出所有可能可以移到 superclass 的 field 確認被使用的方式一樣，field name 不一樣需要先 rename 成一樣，編譯跟測試，superclass 建立新的 field，刪除 sublass fields，編譯跟測試，嘗試使用 Self Encapsulate Field
+### Pull Up Method
+* Subclasses 有相同的 method 回傳相同的結果應該移到 superclass
+* 移除 duplicate 是重要的因為雖然現在運作正常但未來可能只會對其中的一個作修正而忽略其他造成問題產生
+* 通常在經過其他步驟才有機會 Pull Up Method
+* 檢查 method 是一樣的，如果不同 signature 要先改成一樣，在 superclass 建立 method 然後複製 method body 到裡面後編譯，刪除其中一個 subclass method，編譯跟測試，繼續刪除剩下的 subclass method 直到只剩下 superclass method
