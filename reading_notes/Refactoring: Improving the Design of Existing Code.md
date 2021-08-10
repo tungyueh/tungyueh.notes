@@ -920,3 +920,7 @@
 * 移除 duplicate 是重要的因為雖然現在運作正常但未來可能只會對其中的一個作修正而忽略其他造成問題產生
 * 通常在經過其他步驟才有機會 Pull Up Method
 * 檢查 method 是一樣的，如果不同 signature 要先改成一樣，在 superclass 建立 method 然後複製 method body 到裡面後編譯，刪除其中一個 subclass method，編譯跟測試，繼續刪除剩下的 subclass method 直到只剩下 superclass method
+### Pull Up Constructor Body
+* Subclass 的 constructor 都很相似，在 superclass 建立 constructor 讓 subclass 使用來 construct
+* Constructor 無法 extract 相同的地方後 pull up 到 superclass，所以需要在 superclass 新增 constructor
+* 定義 superclass constructor，把相同的 construtor code 從 subclass 搬到 superclass，subclass construtor 呼叫 superclass construtor，編譯跟測試
