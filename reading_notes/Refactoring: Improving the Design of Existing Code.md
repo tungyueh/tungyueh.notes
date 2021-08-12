@@ -924,3 +924,10 @@
 * Subclass 的 constructor 都很相似，在 superclass 建立 constructor 讓 subclass 使用來 construct
 * Constructor 無法 extract 相同的地方後 pull up 到 superclass，所以需要在 superclass 新增 constructor
 * 定義 superclass constructor，把相同的 construtor code 從 subclass 搬到 superclass，subclass construtor 呼叫 superclass construtor，編譯跟測試
+### Push Down Method
+* Superclass 的行為只跟一些 subclass 有關，把那些行為放到 subclass
+* 因為那些行為只對 subclass 有意義，通常在 Extract Subclass 使用
+* 在所有 subclass 宣告 method 然後複製 body 到每個 subclass，移除 superclass 的 method，編譯跟測試，移除不需要該 subclass 的 method，編譯跟測試
+### Push Down Field
+* Field 只被某些 subclass 使用，把 field 放到那些 subclass
+* 在所有 subclasses 宣告 field，移除 superclass 的 field，編譯跟測試，移除 subclass 不需要的 field，編譯跟測試
