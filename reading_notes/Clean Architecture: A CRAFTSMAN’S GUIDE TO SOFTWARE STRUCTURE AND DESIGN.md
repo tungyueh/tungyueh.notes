@@ -325,3 +325,35 @@
 #### Conclusion
 * 系統架構要能從 source repository 看出是那種系統
 * 讓人知道有哪些 use case 而不需要知道細節如何實作
+### Chapter 22 The Clean Architecture
+* 之前提出過的系統架構基本上都用分層的概念切分系統，通常有 business rules layer, user interface layer, and system interface layer
+* 不依賴 framework，把 framework 當成工具使用避免讓系統被 framework 限制
+* 系統要可以被測試，讓 business rule 可以單獨抽出來測試
+* 與 UI 獨立因為 UI 很容易變動，business rule 不應該隨著 UI 變動
+* 與 database 獨立因為可以換 DB，business rule 不應該因為換 DB 而變動
+* 與 external agency 獨立，business rule 不該知道外部的 interface
+#### The Dependency Rule
+* 走進越深的地方就是愈高的 level，外圍是 mechanisms 內部是 policies
+* Source code 應該要往內依賴，依賴於 higher-level policies
+* 內部不應該對於外部有所認識，外部的東西不該被內部使用，因為內部的東西不該被外部影響
+##### ENTITIES
+* Entities 封裝了重要的 Business Rule，單純只是 object 或 data structure 跟 function
+* 如果只是寫一個 application 則 entities 就是 business object 包含 high-level rules，不受外部影響最少改變的 object
+##### USE CASES
+* Use cases layer 包含 application-specific business rules，封裝跟實作 use case，處理資料流進跟流出 entities，使用 Critical Bussiness Rules 來達成 use case 的目標
+* Use cases layer 不會影響 entities 也不受到外部的影響
+##### INTERFACE ADAPTERS
+* 把外部資料轉成讓 use case 跟 entities 容易使用的格式
+* 把內部資料轉成 framework 方便使用的格式
+##### FRAMEWORKS AND DRIVERS
+* 基本上都是 glue code，細節都在這邊實作
+##### ONLY FOUR CURCLES?
+* 有時候需要更多層的 layer，不過只能依賴於內部的原則仍是一樣
+##### CROSSING BOUNDARIES
+* 資料從外部流到內部在流到外部但是 layer 都還是依賴於內部
+* 使用 Dependency Inversion Principle 讓依賴的方向性不同於資料的流向
+##### WHICH DATA CROSSES THE BOUNDARIES
+* 跨 boundary 的資料應該要是基本的資料型態才能保持獨立性
+* 傳到內部的資料都是要以內部方便使用為優先
+#### Conclusion
+* 使用 layer 並遵照 dependency rule 可以讓系統被測試跟之前提到的所有好處
