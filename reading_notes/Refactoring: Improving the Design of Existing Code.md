@@ -931,3 +931,8 @@
 ### Push Down Field
 * Field 只被某些 subclass 使用，把 field 放到那些 subclass
 * 在所有 subclasses 宣告 field，移除 superclass 的 field，編譯跟測試，移除 subclass 不需要的 field，編譯跟測試
+### Extract Subclass
+* Class 的 feature 只在某些 instance 才有使用，把這些 feature 建立 subclass 
+* 沒有 type code 無法使用 Replace Type Code with Subclasses 就可以用 Extract Subclass
+* Extract Class 是另一種方法取決於想要用 delegation 還是 inheritance，Extract Subclass 限制在於當 object 產生後就無法改變 class-based 行為，但 Extract Class 可以藉由 plugin 來改變 class-based 行為
+* 定義新的 subclass，加上 constructor，找出所有呼叫 superclass 的 constructor 如果需要用到 subclass 就換成新的 constructor，使用 Push Down Method 跟 Push Down Field 把 feature 放到 subclass，找出 field 提供 hierarchy 資訊使用 Self Encapsulate Field 消除，使用 Replace Conditional with Polymorphism 來 refactored，每個 push down 都做編譯跟測試
