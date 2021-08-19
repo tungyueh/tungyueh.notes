@@ -936,3 +936,8 @@
 * 沒有 type code 無法使用 Replace Type Code with Subclasses 就可以用 Extract Subclass
 * Extract Class 是另一種方法取決於想要用 delegation 還是 inheritance，Extract Subclass 限制在於當 object 產生後就無法改變 class-based 行為，但 Extract Class 可以藉由 plugin 來改變 class-based 行為
 * 定義新的 subclass，加上 constructor，找出所有呼叫 superclass 的 constructor 如果需要用到 subclass 就換成新的 constructor，使用 Push Down Method 跟 Push Down Field 把 feature 放到 subclass，找出 field 提供 hierarchy 資訊使用 Self Encapsulate Field 消除，使用 Replace Conditional with Polymorphism 來 refactored，每個 push down 都做編譯跟測試
+### Extract Superclass
+* 兩個 class 有相似的 feature 則建立 superclass 然後把共同的 feature 移進 superclass
+* 兩個 class 做相似的事情就很有可能有 duplicate code，使用 inheritance 移除 duplicate code
+* 另一種替代方案是 Extract Class 就看想要用 inheritance 或者 delegation 解決，就算選錯也可以用 Replace Inheritance with Delegation
+* 建立一個空的 superclass 讓原本的 class 變成 subclass，一個接著一個使用 Pull Up Field, Pull Up Method, Pull Up Constructor Body 把共同部分移到 superclass 每次都需要編譯跟測試，檢查 subclass 剩下的 method 如果還有共同的部分先用 Extract Method 再用 Pull Up Method 那些部分移到 superclass
