@@ -941,3 +941,10 @@
 * 兩個 class 做相似的事情就很有可能有 duplicate code，使用 inheritance 移除 duplicate code
 * 另一種替代方案是 Extract Class 就看想要用 inheritance 或者 delegation 解決，就算選錯也可以用 Replace Inheritance with Delegation
 * 建立一個空的 superclass 讓原本的 class 變成 subclass，一個接著一個使用 Pull Up Field, Pull Up Method, Pull Up Constructor Body 把共同部分移到 superclass 每次都需要編譯跟測試，檢查 subclass 剩下的 method 如果還有共同的部分先用 Extract Method 再用 Pull Up Method 那些部分移到 superclass
+### Extract Interface
+* 一些 client 都用 class subset 的 interface，把 subset 變成 interface
+* 只用 class 的一部分將這一部份弄成可以代表自己責任的東西讓人比較清楚該如何使用
+* OO language 通常提供繼承來支援也有 interface 用 single inheritance 就可以辦到
+* Extract Interface 只提供共同的 interface 而不能消除 duplicate code，想要消除 duplicate 還需要用到 Extract Class
+* Extract Interface 適合使用在 class 在不同情況有不同的角色
+* 建立空的 interface，宣告共同的 operation，宣告 class 實作 interface，調整 client type 可以使用 interface
