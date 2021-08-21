@@ -948,3 +948,7 @@
 * Extract Interface 只提供共同的 interface 而不能消除 duplicate code，想要消除 duplicate 還需要用到 Extract Class
 * Extract Interface 適合使用在 class 在不同情況有不同的角色
 * 建立空的 interface，宣告共同的 operation，宣告 class 實作 interface，調整 client type 可以使用 interface
+### Collapse Hierarchy
+* Superclass 跟 subcalss 沒有太大的差異則合併成一個
+* Refactoring hierarcchy 的時候移動 method 或 field 可能最後發現 subclass 並沒有增加任何價值就可以合併
+* 選擇需要被移除的 class，移動所有 method 跟 field 到要被合併的 class，每次移動都編譯跟測試，調整 reference 到要被移除的 class，移除空的 class，編譯跟測試
