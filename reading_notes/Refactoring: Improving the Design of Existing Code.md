@@ -952,3 +952,8 @@
 * Superclass 跟 subcalss 沒有太大的差異則合併成一個
 * Refactoring hierarcchy 的時候移動 method 或 field 可能最後發現 subclass 並沒有增加任何價值就可以合併
 * 選擇需要被移除的 class，移動所有 method 跟 field 到要被合併的 class，每次移動都編譯跟測試，調整 reference 到要被移除的 class，移除空的 class，編譯跟測試
+### Form Template Method
+* 兩個 method 在不同 subclass 使用類似的步驟，但步驟有點不同，讓每個步驟都有相同的 signature 才可以讓原本的 method 一樣再去 pull up
+* Inheritance 是很有用的工具幫忙消除 duplicate behavior 但如果沒有完全一樣需要把相似的地方保留後只剩下不一樣的地方
+* 把類似的步驟放到 superclass 而 subclass 實作步驟細節
+* 分離 method 讓分離出來的 method 都一樣，使用 Pull Up Method 把一樣的 method 放到 superclass，不同的 method 使用 Rename Method 讓所有步驟一樣，每次改變 signature 都要編譯跟測試，把原本的 method 用 Pull Up Method 定義不同的 abstract method 在 superclass，編譯跟測試，移除其他 method，每次都要編譯跟測試
