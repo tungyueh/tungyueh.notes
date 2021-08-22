@@ -357,3 +357,25 @@
 * 傳到內部的資料都是要以內部方便使用為優先
 #### Conclusion
 * 使用 layer 並遵照 dependency rule 可以讓系統被測試跟之前提到的所有好處
+### Chapter 23 Presenters and Humble Objects
+#### The Humble Object Pattern
+* 把容易測試跟不容易測試的行為分開，Humble module 包含不容易測試的行為，其他則包含容易測試的行為
+* GUI 很難被測試但使用 Humble Object pattern 可以把行為分成 Presenter 跟 View
+#### Presenters and Views
+* View 是 humble object 包含難以測試的行為，裡面的 code 要盡量簡單只是把資料放到 GUI 而不進行處理
+* Presenter 是可以被測試的 object，把從 application 接受的資料轉換成讓 view 可以簡單移到 screen
+* Screen 上出現的東西都是在 view model 以 string, boolean, enum 來呈現，View 只是把 data 放到 screen 上面
+#### Testing and Architecture
+* 可被測試跟不可被測試也是一種 architectural boundary
+#### Database Gateways
+* Use case 跟 database 之前的就是 database gateway，有著 polymorphic interface 包含 method 可以對 database 做操作
+* Use case layer 不能直接使用 SQL 所以要用 gateway interface，這些實作在 database layer，這些是 humble object，單純只用 SQL，而 use case interactor encapsulate application-specific business rules 所以可以被測試
+#### Data Mappers
+* Object relational mapper 不存在因為 object 不是 data structure，user 使用看到 public method 而不會看到 data
+* Data structure 是一堆 public data 不包含行為所以 ORMs 最好被稱為 data mappers，因為他們只是把資料從 relational database tables 放到 data structure
+* Data mapper 在 database layer 也是 Humble Object
+#### Service Listeners
+* Application 需要跟其他 service 溝通則會有 Humble Object pattern 建立 boundary
+* Application 會放資料到 data structure 跨越 bounday 送到 service，而 service listener 會從 service interface 接收資料然後 format 成 application 容易使用的格式
+#### Conclusion
+* Architectural bounday 常常會看到 Humble Object pattern，跨越 bounday 都會看到簡單的 data strcutre 的移動，容易測試跟不容易測試也會漸漸有 boundary，使用 Humble Object pattern 讓整個系統更容易測試
