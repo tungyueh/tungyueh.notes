@@ -957,3 +957,9 @@
 * Inheritance 是很有用的工具幫忙消除 duplicate behavior 但如果沒有完全一樣需要把相似的地方保留後只剩下不一樣的地方
 * 把類似的步驟放到 superclass 而 subclass 實作步驟細節
 * 分離 method 讓分離出來的 method 都一樣，使用 Pull Up Method 把一樣的 method 放到 superclass，不同的 method 使用 Rename Method 讓所有步驟一樣，每次改變 signature 都要編譯跟測試，把原本的 method 用 Pull Up Method 定義不同的 abstract method 在 superclass，編譯跟測試，移除其他 method，每次都要編譯跟測試
+### Replace Inheritance with Delegation
+* Subclass 只有用 superclass 一部分的 interface 或者不想繼承 data，在 superclass 建立 field 然後調整 method delegate to superclass 然後移除 subclassing
+* 繼承後發現有很多 superclass 的 method 都不適用或繼承一堆資料不適用於 subclass
+* 雖然可以繼續使用宣稱只有 superclass 的一部分但是會讓 code 變得混淆
+* 使用 delegation 讓 code 清楚顯示只用一部份的 class，只需要考慮一部分的 interface，而且很簡單可以做出 delegating method
+* 在 subclass 建立 field 指向 superclass，改變每個在 subclass 的 method 去用 delegate field，每次改變都要編譯跟測試，移除宣告 subclass 換成 delegate，每個被 client 用到的 superclass method 都新增 delegating method，編譯跟測試
