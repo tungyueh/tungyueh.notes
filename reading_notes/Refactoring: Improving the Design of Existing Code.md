@@ -963,3 +963,8 @@
 * 雖然可以繼續使用宣稱只有 superclass 的一部分但是會讓 code 變得混淆
 * 使用 delegation 讓 code 清楚顯示只用一部份的 class，只需要考慮一部分的 interface，而且很簡單可以做出 delegating method
 * 在 subclass 建立 field 指向 superclass，改變每個在 subclass 的 method 去用 delegate field，每次改變都要編譯跟測試，移除宣告 subclass 換成 delegate，每個被 client 用到的 superclass method 都新增 delegating method，編譯跟測試
+### Replace Delegation with Inheritance
+* 用太多 delegation 讓 interface 充滿很多簡單的 delegation，讓 delegating class 變成 delegat 的 subclass
+* 如果沒有用 delegating 的 class 的所有 method 則不該使用 Replace Delegation with Inheritance，因為 subclass 應該要跟 superclass 的 interface，如果不是可以改用 Remove Middle Man 讓 client 直接用或者用 Extract Superclass 把相同的 interface 分離出來
+* 如果 delegate 被多個 object 共用到而且 mutable 則不該用 delegat 替換 inheritance 因為就不能使用共用的 data，如果 object 是 immutable 則 data sharing 就不是問題可以直接複製
+* 讓 delegating object 是 delegat 的 subclass，編譯，設好 delegate field，移除簡單的 simple delegation methods，編譯跟測試，替換所有其他 delegation，移除 delegate field
