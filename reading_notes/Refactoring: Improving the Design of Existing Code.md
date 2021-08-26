@@ -968,3 +968,10 @@
 * 如果沒有用 delegating 的 class 的所有 method 則不該使用 Replace Delegation with Inheritance，因為 subclass 應該要跟 superclass 的 interface，如果不是可以改用 Remove Middle Man 讓 client 直接用或者用 Extract Superclass 把相同的 interface 分離出來
 * 如果 delegate 被多個 object 共用到而且 mutable 則不該用 delegat 替換 inheritance 因為就不能使用共用的 data，如果 object 是 immutable 則 data sharing 就不是問題可以直接複製
 * 讓 delegating object 是 delegat 的 subclass，編譯，設好 delegate field，移除簡單的 simple delegation methods，編譯跟測試，替換所有其他 delegation，移除 delegate field
+## Chapter 12. Big Refactorings
+* 之前章節都是關於 refactoring 的步驟但沒有說明如何從全局透過 refactoring 達到特定目的
+* The Nature of the Game
+    * 因為情況各有不同所以 refactoring 步驟都限定在特定的範圍內才能夠說明步驟
+    * 六到十一章節的 refactoring 都可以在一小時內完成但有些需要幾個月還是幾年才有辦法完成
+    * 因為大型的 refactoring 短期看不到效果要稍微相信有用才能持續下去
+    * 大型 refactoring 需要團隊一起確認目標確保有朝同一個目標前進
