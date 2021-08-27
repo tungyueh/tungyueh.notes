@@ -975,3 +975,6 @@
     * 六到十一章節的 refactoring 都可以在一小時內完成但有些需要幾個月還是幾年才有辦法完成
     * 因為大型的 refactoring 短期看不到效果要稍微相信有用才能持續下去
     * 大型 refactoring 需要團隊一起確認目標確保有朝同一個目標前進
+* Why Big Refactorings Are Important
+    * 雖然大型 refactor 無法立即產生價值但如果缺少這部分就會讓之前學習的 refactoring 無法發揮該有的效益
+    * 沒有充分理解所下的設計決定會限制程式的發展，透過 refactoring 確保程式有反映出設計
