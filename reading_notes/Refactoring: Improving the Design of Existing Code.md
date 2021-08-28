@@ -978,3 +978,16 @@
 * Why Big Refactorings Are Important
     * 雖然大型 refactor 無法立即產生價值但如果缺少這部分就會讓之前學習的 refactoring 無法發揮該有的效益
     * 沒有充分理解所下的設計決定會限制程式的發展，透過 refactoring 確保程式有反映出設計
+* Four Big Refactorings
+    * 有四種大型 refactoring 的範例
+    * Tease Apart Inheritance 處理複雜的 inheritance hierarchy
+    * Convert Procedural Design to Objects 處理用 object-oriented language 但還是使用 procedural code
+    * Separate Domain from Presentation 處理使用 user interface 跟 databases 的設計但想要把 business logic 跟 user interface code 分開
+    * Extract Hierarchy 簡化太過負責的 class 讓他轉變成多個 subclasses
+### Tease Apart Inheritance
+* 用一個 inheritace hierarchy 一次做兩件事情，建立兩個 hierarchies 跟使用 delegation 使用對方
+* Inheritance 讓一個 method 可以用少少的 code 建立重要的位置
+* 很容易不小心用錯 inheritance，例如不斷的加上 subclass 做一點工作最後會讓 code 很散亂
+* 複雜的 inheritance 讓 code 會 duplication 所以很難改動，因為解決特定問題的 code 散落在各處
+* 如果同一層級的 subclass 都有類似的形容詞則應該就是用一個 inheritace 處理兩件事
+* 確認 hierarchy 處理不同事情就建立 two-dimensinal grid 然後標註工作類型，決定哪件事比較重要需要保持在目前的 hierarchy， superclass 使用 Extract Class 去建立 object 跟新增 instance variable 來使用這個 object，為 extracted object 建立 subclass，用 instance variable 初始化，Subclasses 使用 Move Method 把行為一道 extracted object，移除沒有 code 的 subclass，持續做到 subclasses 都消失
