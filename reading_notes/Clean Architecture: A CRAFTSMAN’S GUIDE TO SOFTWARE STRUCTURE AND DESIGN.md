@@ -379,3 +379,20 @@
 * Application 會放資料到 data structure 跨越 bounday 送到 service，而 service listener 會從 service interface 接收資料然後 format 成 application 容易使用的格式
 #### Conclusion
 * Architectural bounday 常常會看到 Humble Object pattern，跨越 bounday 都會看到簡單的 data strcutre 的移動，容易測試跟不容易測試也會漸漸有 boundary，使用 Humble Object pattern 讓整個系統更容易測試
+### Chapter 24 Partial Boundaries
+* 完整的 boundaaries 所要付出的代價很昂貴，需要有 Boundary interface 跟 Input Output data structure，管理兩邊能夠獨立相容跟部署需要付出很多心力
+* Architect 需要考量 boundary 的成本跟預留空間以便真的需要 boundary
+* 不能因為過度設計就沒有考量到 boundary 的需求，折衷方案是使用 partial boundary
+#### Skip the Last Step
+* Partial boundary 的其中一種做法是先把 boundary 需要的東西都準備好只是放在同一個 component
+* 所需要的 code 還是一樣只是不用分成多個 componet，減少 version number tracking 跟 release managment 的工作
+#### One-Dimensional Boundaries
+* 維護雙向的獨立性讓初始化設定跟後續維護比較困難
+* 使用類似 Strategy pattern 保留日後變成完整的 boundary 彈性
+#### Facades
+* 更簡單的 boundary 是使用 Facade pattern，沒有 dependency inversion 但是透過 Facade class 設立 boundary 把 service 變成 method
+* 缺點是 client 慧根 service class 有 dependency，改動 Service classes 需要 Client 重新 compile
+#### Conclusion
+* 提供三種方法實作 boundary
+* 每種方法都有其代價跟好處都需要去取捨，但都可以變成完整的 boundary 或把 boundary 移除
+* Architect 需要去決定到底需不需要 boundary 要做完整的還是部份的
