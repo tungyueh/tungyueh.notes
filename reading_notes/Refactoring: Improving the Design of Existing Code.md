@@ -991,3 +991,7 @@
 * 複雜的 inheritance 讓 code 會 duplication 所以很難改動，因為解決特定問題的 code 散落在各處
 * 如果同一層級的 subclass 都有類似的形容詞則應該就是用一個 inheritace 處理兩件事
 * 確認 hierarchy 處理不同事情就建立 two-dimensinal grid 然後標註工作類型，決定哪件事比較重要需要保持在目前的 hierarchy， superclass 使用 Extract Class 去建立 object 跟新增 instance variable 來使用這個 object，為 extracted object 建立 subclass，用 instance variable 初始化，Subclasses 使用 Move Method 把行為一道 extracted object，移除沒有 code 的 subclass，持續做到 subclasses 都消失
+### Convert Procedural Design to Objects
+* Code 用 procedural 的方式寫，把 data record 變成 object 分離行為放到 object
+* Class 有一個 long method 只有一點點資料跟 dumb data object 就是典型的 procedural method
+* 把每個 record type 變成 dumb data object 有著 accessors，把所有 procedural code 放到一個 class，使用 Extract Method 在 long procedure 然後使用 Move Method 一道適合的 dumb data class，持續在原本的 class 移除行為最後刪除
