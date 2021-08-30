@@ -995,3 +995,7 @@
 * Code 用 procedural 的方式寫，把 data record 變成 object 分離行為放到 object
 * Class 有一個 long method 只有一點點資料跟 dumb data object 就是典型的 procedural method
 * 把每個 record type 變成 dumb data object 有著 accessors，把所有 procedural code 放到一個 class，使用 Extract Method 在 long procedure 然後使用 Move Method 一道適合的 dumb data class，持續在原本的 class 移除行為最後刪除
+### Separate Domain from Presentation
+* GUI classes 包含 domain logic 應該需要分離 domain logic 到不同的 domain classes
+* Model-view-controller 主要分離於 user interface code 跟 domain logic，presentation classes 只包含處理 user interface 的部分而 domain object 只包含 business logic，之後修改比較容易也讓多個 presentaion 可以使用相同 business logic
+* 另一種設計方式是把 data 放到 database 而 logic 放到 presentation class，通常是環境所驅使的設計方式這會讓 logic 散落在各處
