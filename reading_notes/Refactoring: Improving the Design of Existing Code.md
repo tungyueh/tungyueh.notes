@@ -999,3 +999,8 @@
 * GUI classes 包含 domain logic 應該需要分離 domain logic 到不同的 domain classes
 * Model-view-controller 主要分離於 user interface code 跟 domain logic，presentation classes 只包含處理 user interface 的部分而 domain object 只包含 business logic，之後修改比較容易也讓多個 presentaion 可以使用相同 business logic
 * 另一種設計方式是把 data 放到 database 而 logic 放到 presentation class，通常是環境所驅使的設計方式這會讓 logic 散落在各處
+### Extract Hierarchy
+* Class 裡面有部分有很多 conditional statement，使用 hierarchy 讓 subclass 個別處理特殊情況
+* 一開始的 class 都以為只是處理一件事隨著時間越來越多處理的事情越來越多就變成一團混亂，當 conidtional logic 是 static 才能使用否則先用 Extract Class，可能需要花很久的時間
+* 確定 variation，建立 special case 的 subclass 然後使用 Replace Constructor with Factory Method，複製在 conditional logic 的 method 到 subclass，持續把 special mcase 獨立的 subclass 直到 superclass 可以是 abstract，刪除 sperclass 已經被 overridden 的 method
+* 為每個 variation 建立 subclass，使用 Replace Constructor with Factory Method 到合適的 subclass，有 conditional logic 的 method 使用 Replace Conditional with Polymorphism
