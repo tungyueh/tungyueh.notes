@@ -1004,3 +1004,12 @@
 * 一開始的 class 都以為只是處理一件事隨著時間越來越多處理的事情越來越多就變成一團混亂，當 conidtional logic 是 static 才能使用否則先用 Extract Class，可能需要花很久的時間
 * 確定 variation，建立 special case 的 subclass 然後使用 Replace Constructor with Factory Method，複製在 conditional logic 的 method 到 subclass，持續把 special mcase 獨立的 subclass 直到 superclass 可以是 abstract，刪除 sperclass 已經被 overridden 的 method
 * 為每個 variation 建立 subclass，使用 Replace Constructor with Factory Method 到合適的 subclass，有 conditional logic 的 method 使用 Replace Conditional with Polymorphism
+## Chapter 13. Refactoring, Reuse, and Reality
+### A Reality Check
+* 系統的挑戰來自於改變而不出初期的開發，讓改動簡單才是能為公司帶來好處
+* 自己在意的事情不被別人重視是自己沒有好好闡述自己的理念
+### Why Are Developers Reluctant to Refactor Their Programs?
+* 通常需要面對的是要在現有系統上增加功能，在不夠理解要做的事情加上時間壓力沒有太多選擇
+* 使用自己的設計經驗來重寫系統但無法保證現有功能可以持續運作
+* 單純複製修改現有系統的 code 就可以在不理解的情況下做到 reuse但會造成問題蔓延最後讓改動成本越來越高
+* Refactoring 介在兩者之中，可以讓 design 更貼近現況、合理的 reuse code、釐清程式架構、讓新增 code 變得容易
