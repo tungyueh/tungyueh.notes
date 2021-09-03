@@ -1013,3 +1013,6 @@
 * 使用自己的設計經驗來重寫系統但無法保證現有功能可以持續運作
 * 單純複製修改現有系統的 code 就可以在不理解的情況下做到 reuse但會造成問題蔓延最後讓改動成本越來越高
 * Refactoring 介在兩者之中，可以讓 design 更貼近現況、合理的 reuse code、釐清程式架構、讓新增 code 變得容易
+#### Understanding How and Where to Refactor
+* 有工具可以自動檢查程式裡架構脆弱的部分，例如 function 有太多 argument 或太長，兩個 function 相似部份太多
+* 判斷工具給予的建議是否可以讓程式變得讓以後的改動更容易
