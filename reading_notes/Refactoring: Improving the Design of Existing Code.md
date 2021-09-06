@@ -1016,3 +1016,6 @@
 #### Understanding How and Where to Refactor
 * 有工具可以自動檢查程式裡架構脆弱的部分，例如 function 有太多 argument 或太長，兩個 function 相似部份太多
 * 判斷工具給予的建議是否可以讓程式變得讓以後的改動更容易
+#### Refactoring to Achieve Near-term Benefits
+* 短期好處在於因為只能在一個地方修改如果讓其他人壞掉就可以盡早發現
+* 中期可以藉由 abstraction 設計出之後的架構
