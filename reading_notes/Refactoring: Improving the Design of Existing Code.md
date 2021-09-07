@@ -1019,3 +1019,6 @@
 #### Refactoring to Achieve Near-term Benefits
 * 短期好處在於因為只能在一個地方修改如果讓其他人壞掉就可以盡早發現
 * 中期可以藉由 abstraction 設計出之後的架構
+#### Reducing the Overhead of Refactoring
+* 有工具跟技巧可以讓 refactoring 變得快速又簡單
+* Refactoring 可以幫助減少之後需要的成本
