@@ -1022,3 +1022,6 @@
 #### Reducing the Overhead of Refactoring
 * 有工具跟技巧可以讓 refactoring 變得快速又簡單
 * Refactoring 可以幫助減少之後需要的成本
+#### Refactoring Safely
+* 安全是指程式不會壞掉然後行為跟 refactoring 之前一樣
+* 如何安全 refactor 有幾種選擇，相信 coding 能力、相信 compiler 能夠抓到錯誤、相信 test 抓到 compiler 漏掉的錯誤、相信 code review 抓到 compiler 跟 test 都漏掉的錯誤
