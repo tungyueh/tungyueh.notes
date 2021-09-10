@@ -1025,3 +1025,6 @@
 #### Refactoring Safely
 * 安全是指程式不會壞掉然後行為跟 refactoring 之前一樣
 * 如何安全 refactor 有幾種選擇，相信 coding 能力、相信 compiler 能夠抓到錯誤、相信 test 抓到 compiler 漏掉的錯誤、相信 code review 抓到 compiler 跟 test 都漏掉的錯誤
+### A Reality Check (Revisited)
+* Refactored code 是不同 programmer 所擁有的，但如果有測計好應該是可以 decoupled 讓 refactoring 只影響小部分
+* 有多個版本則需要確認那些會受到影響
