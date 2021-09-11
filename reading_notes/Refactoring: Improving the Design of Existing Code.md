@@ -1028,3 +1028,12 @@
 ### A Reality Check (Revisited)
 * Refactored code 是不同 programmer 所擁有的，但如果有測計好應該是可以 decoupled 讓 refactoring 只影響小部分
 * 有多個版本則需要確認那些會受到影響
+### Resources and References for Refactoring
+### Implications Regarding Software Reuse and Technology Transfer
+* 不知道怎麼 reuse
+* 短期沒幫助就不 reuse
+* 還要花時間找怎麼 reuse
+* 有其他事情要忙
+* 過早採用新技術容易失敗
+### A Final Note
+* 盡量使用 refactoring 在工作中讓開發更順利
