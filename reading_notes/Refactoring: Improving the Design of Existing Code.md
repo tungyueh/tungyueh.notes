@@ -1037,3 +1037,10 @@
 * 過早採用新技術容易失敗
 ### A Final Note
 * 盡量使用 refactoring 在工作中讓開發更順利
+## Chapter 14. Refactoring Tools
+### Refactoring with a Tool
+* 用手動 refactoring 很花時間就會讓人不想做，需要工具來降低 refactoring 的成本提高意願
+* Tool 幫助 refactoring 融入日常開發流程
+* Extract Method 需要考量很多事情但工具可以幫忙確認瑣碎的事情很快速的做完 refactoring
+* 當 refactoring 變輕鬆則做出設計錯誤的成本也降低，設計的時候只需要考量該如何解決問題跟保留彈性就可以了而不需要預測未來的可能性
+* 有自動化的 refactoring 就不需要跑那麼多次的測試，但還是有無法自動化的 refacotring 所以還是需要測試
