@@ -1044,3 +1044,14 @@
 * Extract Method 需要考量很多事情但工具可以幫忙確認瑣碎的事情很快速的做完 refactoring
 * 當 refactoring 變輕鬆則做出設計錯誤的成本也降低，設計的時候只需要考量該如何解決問題跟保留彈性就可以了而不需要預測未來的可能性
 * 有自動化的 refactoring 就不需要跑那麼多次的測試，但還是有無法自動化的 refacotring 所以還是需要測試
+### Technical Criteria for a Refactoring Tool
+* Refactoring tool 讓我們做 refactor 不需要重新測試就可以加速過程
+#### Program Database
+* 要能夠找出 program entities 之前的關聯性，語言環境要能提供搜尋的功能，只要有改動就更新資料讓搜尋可以找到最新的關聯
+* Semantic analysis 可以分析各種元素的關聯性
+#### Parse Trees
+* Parse trees 是一種資料結構代表內部 method
+* 改變後藉由 parse trees 找出需要跟著變動的地方
+#### Accuracy
+* Refactoring 要盡量保持程式的行為但無法完全的保持，可能會快一點或慢一點
+* 雖然 tool 無法百分百保證行為不改變但還是可以手動修正
