@@ -1055,3 +1055,26 @@
 #### Accuracy
 * Refactoring 要盡量保持程式的行為但無法完全的保持，可能會快一點或慢一點
 * 雖然 tool 無法百分百保證行為不改變但還是可以手動修正
+### Technical Criteria for a Refactoring Tool
+* Refactoring tool 讓我們做 refactor 不需要重新測試就可以加速過程
+#### Program Database
+* 要能夠找出 program entities 之前的關聯性，語言環境要能提供搜尋的功能，只要有改動就更新資料讓搜尋可以找到最新的關聯
+* Semantic analysis 可以分析各種元素的關聯性
+#### Parse Trees
+* Parse trees 是一種資料結構代表內部 method
+* 改變後藉由 parse trees 找出需要跟著變動的地方
+#### Accuracy
+* Refactoring 要盡量保持程式的行為但無法完全的保持，可能會快一點或慢一點
+* 雖然 tool 無法百分百保證行為不改變但還是可以手動修正
+### Practical Criteria for a Refactoring Tool
+* 工具要順手才會有人使用
+#### Speed
+* 要能在合理的時間呈現結果，大部分都只需要簡單快速的 refactoring
+* 可以請求 programmer 提供資訊減少分析的時間
+#### Undo
+* Refactoring 後看看新設計如何如果不喜歡要能回到之前的狀態，能夠回到之前狀態才能做各種嘗試
+#### Integrated with Tools
+* IDE 裡有 refactoring tool 才會容易去使用
+### Wrap Up
+* 透過自己的使用改善工具的體驗達到快速且精確的 refactoring
+* 自動 refactoring 的工具可以很好管理複雜度
