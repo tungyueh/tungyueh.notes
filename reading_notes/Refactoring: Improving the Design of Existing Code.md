@@ -1078,3 +1078,16 @@
 ### Wrap Up
 * 透過自己的使用改善工具的體驗達到快速且精確的 refactoring
 * 自動 refactoring 的工具可以很好管理複雜度
+## Chapter 15. Putting It All Together
+* 技巧只是讓我們能夠開始 refactoring
+* 除了技巧還需要知道使用的時機
+* 一小步一小步帶著確信前往目標但如果發現做到一半沒有讓 code 更好就該放棄當作學到一課
+* 每一步的 refactoring 都要確定是對的，如果不確定就先不要做
+* 了解 refactoring 讓系統設計更有彈性
+* Refactoring 是可以被學習的技巧
+### Get used to picking a goal.
+* Refactoring 可以讓 code 變好的地方
+* Refactoring 是要讓 code 更容易理解
+### Stop when you are unsure
+* 當無法確定有往正確的方向前進就先停止
+* Code 有變更好就繼續沒有進捨棄改變的地方
