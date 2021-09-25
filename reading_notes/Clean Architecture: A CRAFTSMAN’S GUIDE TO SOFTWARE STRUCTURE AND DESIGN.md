@@ -396,3 +396,14 @@
 * 提供三種方法實作 boundary
 * 每種方法都有其代價跟好處都需要去取捨，但都可以變成完整的 boundary 或把 boundary 移除
 * Architect 需要去決定到底需不需要 boundary 要做完整的還是部份的
+### Chapter 25 Layers and Boundaries
+* 簡單的系統而也通常由 UI, business rules 跟 database 所組成
+#### Hunt the Wumpus
+* 不同語言的 UI 要跟 business rules 切乾淨才能 reuse business rules，使用跟語言無關的 API 跟不同語言的 UI 溝通讓 UI 翻譯
+* 狀態可以選擇不同的實作所以 business rule 不應該知道狀態儲存如何實作，使用 API 與狀態儲存溝通
+#### Clean Architecture?
+* 需要找到所有可以畫出邊界的元素，例如 UI 不只有語言會造成改變還有互動的機制
+* 考慮未來可能造成邊界的情況設計好架構
+* Business rule 定義好會如何使用 API 讓不同語言各自去實作，再來語言也定義好會如何使用 API 讓互動機制實作，所以 API 是由使用者所定義的而不是實作的人
+* Business rule 裡面有 Boundary interface 被 Business Rule 使用跟 UI 實作的 code 使用
+* Business rule 會處在最上層而 UI 傳遞使用者的輸入給 business rule 後由 business rule 存到 data storage
