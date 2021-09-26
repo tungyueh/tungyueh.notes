@@ -407,3 +407,14 @@
 * Business rule 定義好會如何使用 API 讓不同語言各自去實作，再來語言也定義好會如何使用 API 讓互動機制實作，所以 API 是由使用者所定義的而不是實作的人
 * Business rule 裡面有 Boundary interface 被 Business Rule 使用跟 UI 實作的 code 使用
 * Business rule 會處在最上層而 UI 傳遞使用者的輸入給 business rule 後由 business rule 存到 data storage
+#### Crossing the Streams
+* 如果支援多人就需要多一個網路的組件讓整體變得更複雜了
+#### Splitting the Streams
+* Business rule 裡面也是還有分 high level 跟 low level
+* 分出 high level 跟 low level 就需要 API 來溝通
+* high level 跟 low level 形成一個 architecture boundary
+#### Conclusion
+* Architectural boundaries 到處都存在需要仔細的找出來，需要認知到 boundaries 的存在做好準備避免之後需要花很多時間來增加 boundaries
+* 有智慧的思考哪些 boundary 需要被完整實作哪些需要部份實作哪些應該先忽略
+* 不是一開始就要決定根據系統演化仔細觀察
+* 常常衡量實作 boundary 的成本跟忽略的代價
