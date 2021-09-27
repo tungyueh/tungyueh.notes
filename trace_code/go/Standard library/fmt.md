@@ -1,5 +1,4 @@
 # fmt
-https://pkg.go.dev/fmt@go1.17.1
 ## func Println
 ``` go
 func Println(a ...interface{}) (n int, err error) {
