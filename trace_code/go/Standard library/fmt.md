@@ -25,13 +25,13 @@ func Fprintln(w io.Writer, a ...interface{}) (n int, err error) {
 	return
 }
 ```
-* io.Writer is a interface with Write method
+* `io.Writer` is a interface with Write method
     ``` go
     type Writer interface {
         Write(p []byte) (n int, err error)
     }
     ```
-* newPrinter()
+* `newPrinter()` get a new pp struct with default format
     ``` go
     // newPrinter allocates a new pp struct or grabs a cached one.
     func newPrinter() *pp {
@@ -43,36 +43,7 @@ func Fprintln(w io.Writer, a ...interface{}) (n int, err error) {
         return p
     }
     ```
-    * pp struct
-    ``` go
-    // pp is used to store a printer's state and is reused with sync.Pool to avoid allocations.
-    type pp struct {
-        buf buffer
-
-        // arg holds the current item, as an interface{}.
-        arg interface{}
-
-        // value is used instead of arg for reflect values.
-        value reflect.Value
-
-        // fmt is used to format basic items such as integers or strings.
-        fmt fmt
-
-        // reordered records whether the format string used argument reordering.
-        reordered bool
-        // goodArgNum records whether the most recent reordering directive was valid.
-        goodArgNum bool
-        // panicking is set by catchPanic to avoid infinite panic, recover, panic, ... recursion.
-        panicking bool
-        // erroring is set when printing an error string to guard against calling handleMethods.
-        erroring bool
-        // wrapErrs is set when the format string may contain a %w verb.
-        wrapErrs bool
-        // wrappedErr records the target of the %w verb.
-        wrappedErr error
-    }
-    ```
-* p.doPrintln(a) 
+* `p.doPrintln(a)` add space between arguments and a newline after the last argument
     ``` go
     // doPrintln is like doPrint but always adds a space between arguments
     // and a newline after the last argument.
@@ -86,8 +57,10 @@ func Fprintln(w io.Writer, a ...interface{}) (n int, err error) {
         p.buf.writeByte('\n')
     }
     ```
-    * doPrintln accept []interface{} so argument a do not need to write as a...
-    * Although "...interface{}" and "[]interface{}" are the same type, I am confused when to use each and the other
+    * `doPrintln` accept []interface{} so argument a do not need to write as a...
+    * (?) Although "...interface{}" and "[]interface{}" are the same type, I am confused when to use each and the other 
+* `n, err = w.Write(p.buf)` written buffer and returns the number of bytes written and the number of bytes error
+* `p.free()` free pp struct to avoid an allocation per invocation
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
