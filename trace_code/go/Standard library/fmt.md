@@ -61,6 +61,66 @@ func Fprintln(w io.Writer, a ...interface{}) (n int, err error) {
     * (?) Although "...interface{}" and "[]interface{}" are the same type, I am confused when to use each and the other 
 * `n, err = w.Write(p.buf)` written buffer and returns the number of bytes written and the number of bytes error
 * `p.free()` free pp struct to avoid an allocation per invocation
+## func Print
+``` go
+// Print formats using the default formats for its operands and writes to standard output.
+// Spaces are added between operands when neither is a string.
+// It returns the number of bytes written and any write error encountered.
+func Print(a ...interface{}) (n int, err error) {
+	return Fprint(os.Stdout, a...)
+}
+```
+## func Fprint
+``` go
+// Fprint formats using the default formats for its operands and writes to w.
+// Spaces are added between operands when neither is a string.
+// It returns the number of bytes written and any write error encountered.
+func Fprint(w io.Writer, a ...interface{}) (n int, err error) {
+	p := newPrinter()
+	p.doPrint(a)
+	n, err = w.Write(p.buf)
+	p.free()
+	return
+}
+```
+* `p.doPrint(a)` only add space between two non-string arguments
+    ``` go
+    func (p *pp) doPrint(a []interface{}) {
+        prevString := false
+        for argNum, arg := range a {
+            isString := arg != nil && reflect.TypeOf(arg).Kind() == reflect.String
+            // Add a space between two non-string arguments.
+            if argNum > 0 && !isString && !prevString {
+                p.buf.writeByte(' ')
+            }
+            p.printArg(arg, 'v')
+            prevString = isString
+        }
+    }
+    ```
+## func Printf
+``` go
+// Printf formats according to a format specifier and writes to standard output.
+// It returns the number of bytes written and any write error encountered.
+func Printf(format string, a ...interface{}) (n int, err error) {
+	return Fprintf(os.Stdout, format, a...)
+}
+```
+## func Fprintf
+``` go
+
+// Fprintf formats according to a format specifier and writes to w.
+// It returns the number of bytes written and any write error encountered.
+func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error) {
+	p := newPrinter()
+	p.doPrintf(format, a)
+	n, err = w.Write(p.buf)
+	p.free()
+	return
+}
+```
+* `p.doPrintf(format, a)` write to buf according to specified format
+    * Use `continue formatLoop` label and `break simpleFormat` lable to control loop
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
