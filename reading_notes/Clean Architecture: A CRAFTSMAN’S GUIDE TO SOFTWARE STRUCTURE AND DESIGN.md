@@ -418,3 +418,12 @@
 * 有智慧的思考哪些 boundary 需要被完整實作哪些需要部份實作哪些應該先忽略
 * 不是一開始就要決定根據系統演化仔細觀察
 * 常常衡量實作 boundary 的成本跟忽略的代價
+### Chapter 26 The Main Component
+* 每個系統至少都有一個 component 負責建立跟協調其他 component，這個 component 稱為 main
+#### The Ultimate Detail
+* Main component 是系統的入口負責建立 Factories, Strategies 跟其他 global facilities 之後接給系統的 high-level 的部分
+* Main ccomponent 的 dependencies 需要被 Dependency Injection
+* Main component 是 dirty low-level module 位於最外圈，把東西載入之後接給 high level
+#### Conclusion
+* Main 是 application 的 plugin 把所有基本設定好轉交給 high-level policy，如果有多個 plugin 就會有多個 Main components
+* 把 Main 想成 plugin component 則 configuration 的問題會比較簡單一點
