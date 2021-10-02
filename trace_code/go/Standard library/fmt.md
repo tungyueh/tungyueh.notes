@@ -121,6 +121,53 @@ func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error) {
 ```
 * `p.doPrintf(format, a)` write to buf according to specified format
     * Use `continue formatLoop` label and `break simpleFormat` lable to control loop
+## func Sprintln
+``` go
+// Sprintln formats using the default formats for its operands and returns the resulting string.
+// Spaces are always added between operands and a newline is appended.
+func Sprintln(a ...interface{}) string {
+	p := newPrinter()
+	p.doPrintln(a)
+	s := string(p.buf)
+	p.free()
+	return s
+}
+```
+* `s := string(p.buf)` converts bytes to string
+## func Sprint
+``` go 
+// Sprint formats using the default formats for its operands and returns the resulting string.
+// Spaces are added between operands when neither is a string.
+func Sprint(a ...interface{}) string {
+	p := newPrinter()
+	p.doPrint(a)
+	s := string(p.buf)
+	p.free()
+	return s
+}
+```
+## func Sprintf
+``` go
+// Sprintf formats according to a format specifier and returns the resulting string.
+func Sprintf(format string, a ...interface{}) string {
+	p := newPrinter()
+	p.doPrintf(format, a)
+	s := string(p.buf)
+	p.free()
+	return s
+}
+```
+## func Scan
+``` go 
+// Scan scans text read from standard input, storing successive
+// space-separated values into successive arguments. Newlines count
+// as space. It returns the number of items successfully scanned.
+// If that is less than the number of arguments, err will report why.
+func Scan(a ...interface{}) (n int, err error) {
+	return Fscan(os.Stdin, a...)
+}
+```
+* `return Fscan(os.Stdin, a...)` pass os.Stdin to Fscan to read from standard input
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
