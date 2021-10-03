@@ -168,6 +168,73 @@ func Scan(a ...interface{}) (n int, err error) {
 }
 ```
 * `return Fscan(os.Stdin, a...)` pass os.Stdin to Fscan to read from standard input
+## func Fscan
+``` go
+// Fscan scans text read from r, storing successive space-separated
+// values into successive arguments. Newlines count as space. It
+// returns the number of items successfully scanned. If that is less
+// than the number of arguments, err will report why.
+func Fscan(r io.Reader, a ...interface{}) (n int, err error) {
+	s, old := newScanState(r, true, false)
+	n, err = s.doScan(a)
+	s.free(old)
+	return
+}
+```
+* `r io.Reader` is interface with Read method
+    ``` go
+    type Reader interface {
+        Read(p []byte) (n int, err error)
+    }
+    ```
+* `s, old := newScanState(r, true, false)`: get a ss struct which newline terminates scan and newline do not count as white space
+    ``` go
+    // newScanState allocates a new ss struct or grab a cached one.
+    func newScanState(r io.Reader, nlIsSpace, nlIsEnd bool) (s *ss, old ssave) {
+        s = ssFree.Get().(*ss)
+        if rs, ok := r.(io.RuneScanner); ok {
+            s.rs = rs
+        } else {
+            s.rs = &readRune{reader: r, peekRune: -1}
+        }
+        s.nlIsSpace = nlIsSpace
+        s.nlIsEnd = nlIsEnd
+        s.atEOF = false
+        s.limit = hugeWid
+        s.argLimit = hugeWid
+        s.maxWid = hugeWid
+        s.validSave = true
+        s.count = 0
+        return
+    }
+    ```
+    * `s = ssFree.Get().(*ss)` use type assertion to store value from `ssFree.Get()` to `s` with type `*ss`
+    * `if rs, ok := r.(io.RuneScanner); ok {`: use type assertion with addional value to avoid run-time panic occurs
+* `n, err = s.doScan(a)` scan one by one withou format string
+    ``` go
+    // doScan does the real work for scanning without a format string.
+    func (s *ss) doScan(a []interface{}) (numProcessed int, err error) {
+        defer errorHandler(&err)
+        for _, arg := range a {
+            s.scanOne('v', arg)
+            numProcessed++
+        }
+        // Check for newline (or EOF) if required (Scanln etc.).
+        if s.nlIsEnd {
+            for {
+                r := s.getRune()
+                if r == '\n' || r == eof {
+                    break
+                }
+                if !isSpace(r) {
+                    s.errorString("expected newline")
+                    break
+                }
+            }
+        }
+        return
+    }
+    ```
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
