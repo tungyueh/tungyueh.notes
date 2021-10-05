@@ -187,7 +187,7 @@ func Fscan(r io.Reader, a ...interface{}) (n int, err error) {
         Read(p []byte) (n int, err error)
     }
     ```
-* `s, old := newScanState(r, true, false)`: get a ss struct which newline terminates scan and newline do not count as white space
+* `s, old := newScanState(r, true, false)`: get a ss struct which newline do not terminates scan and newline count as white space
     ``` go
     // newScanState allocates a new ss struct or grab a cached one.
     func newScanState(r io.Reader, nlIsSpace, nlIsEnd bool) (s *ss, old ssave) {
@@ -210,7 +210,8 @@ func Fscan(r io.Reader, a ...interface{}) (n int, err error) {
     ```
     * `s = ssFree.Get().(*ss)` use type assertion to store value from `ssFree.Get()` to `s` with type `*ss`
     * `if rs, ok := r.(io.RuneScanner); ok {`: use type assertion with addional value to avoid run-time panic occurs
-* `n, err = s.doScan(a)` scan one by one withou format string
+    * (?) Where the old return?
+* `n, err = s.doScan(a)` scan one by one without format string
     ``` go
     // doScan does the real work for scanning without a format string.
     func (s *ss) doScan(a []interface{}) (numProcessed int, err error) {
@@ -235,6 +236,26 @@ func Fscan(r io.Reader, a ...interface{}) (n int, err error) {
         return
     }
     ```
+## func Scanln
+``` go
+// Scanln is similar to Scan, but stops scanning at a newline and
+// after the final item there must be a newline or EOF.
+func Scanln(a ...interface{}) (n int, err error) {
+	return Fscanln(os.Stdin, a...)
+}
+```
+## func Fscanln
+``` go
+// Fscanln is similar to Fscan, but stops scanning at a newline and
+// after the final item there must be a newline or EOF.
+func Fscanln(r io.Reader, a ...interface{}) (n int, err error) {
+	s, old := newScanState(r, false, true)
+	n, err = s.doScan(a)
+	s.free(old)
+	return
+}
+```
+* `s, old := newScanState(r, false, true)` get a ss struct which newline terminates scan and newline do not count as white space
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
