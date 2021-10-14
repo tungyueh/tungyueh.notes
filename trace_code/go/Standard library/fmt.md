@@ -256,6 +256,34 @@ func Fscanln(r io.Reader, a ...interface{}) (n int, err error) {
 }
 ```
 * `s, old := newScanState(r, false, true)` get a ss struct which newline terminates scan and newline do not count as white space
+## func Scanf 
+``` go
+// Scanf scans text read from standard input, storing successive
+// space-separated values into successive arguments as determined by
+// the format. It returns the number of items successfully scanned.
+// If that is less than the number of arguments, err will report why.
+// Newlines in the input must match newlines in the format.
+// The one exception: the verb %c always scans the next rune in the
+// input, even if it is a space (or tab etc.) or newline.
+func Scanf(format string, a ...interface{}) (n int, err error) {
+	return Fscanf(os.Stdin, format, a...)
+}
+```
+## func Fscanf
+``` go
+// Fscanf scans text read from r, storing successive space-separated
+// values into successive arguments as determined by the format. It
+// returns the number of items successfully parsed.
+// Newlines in the input must match newlines in the format.
+func Fscanf(r io.Reader, format string, a ...interface{}) (n int, err error) {
+	s, old := newScanState(r, false, false)
+	n, err = s.doScanf(format, a)
+	s.free(old)
+	return
+}
+```
+* `s, old := newScanState(r, false, false)` get a ss struct which newline do not terminate scan and newline do not count as white space
+* `n, err = s.doScanf(format, a)` scan with format string
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
