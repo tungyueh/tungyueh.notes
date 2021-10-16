@@ -284,6 +284,19 @@ func Fscanf(r io.Reader, format string, a ...interface{}) (n int, err error) {
 ```
 * `s, old := newScanState(r, false, false)` get a ss struct which newline do not terminate scan and newline do not count as white space
 * `n, err = s.doScanf(format, a)` scan with format string
+## func Sscan
+``` go
+// Sscan scans the argument string, storing successive space-separated
+// values into successive arguments. Newlines count as space. It
+// returns the number of items successfully scanned. If that is less
+// than the number of arguments, err will report why.
+func Sscan(str string, a ...interface{}) (n int, err error) {
+	return Fscan((*stringReader)(&str), a...)
+}
+```
+* `return Fscan((*stringReader)(&str), a...)` 
+    * `stringReader` is string type
+    * `(*stringReader)(&str)` convert string pointer type to stringReader pointer type because two have the identical underlying type
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
