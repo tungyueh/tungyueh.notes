@@ -295,8 +295,26 @@ func Sscan(str string, a ...interface{}) (n int, err error) {
 }
 ```
 * `return Fscan((*stringReader)(&str), a...)` 
-    * `stringReader` is string type
+    * `stringReader` is string type and implement Read method
     * `(*stringReader)(&str)` convert string pointer type to stringReader pointer type because two have the identical underlying type
+## func Sscanf
+``` go
+// Sscanf scans the argument string, storing successive space-separated
+// values into successive arguments as determined by the format. It
+// returns the number of items successfully parsed.
+// Newlines in the input must match newlines in the format.
+func Sscanf(str string, format string, a ...interface{}) (n int, err error) {
+	return Fscanf((*stringReader)(&str), format, a...)
+}
+```
+## func Sscanln
+``` go
+// Sscanln is similar to Sscan, but stops scanning at a newline and
+// after the final item there must be a newline or EOF.
+func Sscanln(str string, a ...interface{}) (n int, err error) {
+	return Fscanln((*stringReader)(&str), a...)
+}
+```
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
