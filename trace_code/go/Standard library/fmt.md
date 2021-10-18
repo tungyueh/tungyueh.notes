@@ -315,6 +315,56 @@ func Sscanln(str string, a ...interface{}) (n int, err error) {
 	return Fscanln((*stringReader)(&str), a...)
 }
 ```
+## func Errorf
+``` go
+// Errorf formats according to a format specifier and returns the string as a
+// value that satisfies error.
+//
+// If the format specifier includes a %w verb with an error operand,
+// the returned error will implement an Unwrap method returning the operand. It is
+// invalid to include more than one %w verb or to supply it with an operand
+// that does not implement the error interface. The %w verb is otherwise
+// a synonym for %v.
+func Errorf(format string, a ...interface{}) error {
+	p := newPrinter()
+	p.wrapErrs = true
+	p.doPrintf(format, a)
+	s := string(p.buf)
+	var err error
+	if p.wrappedErr == nil {
+		err = errors.New(s)
+	} else {
+		err = &wrapError{s, p.wrappedErr}
+	}
+	p.free()
+	return err
+}
+```
+* type error is defined as
+    ``` go
+    type error interface {
+        Error() string
+    }
+    ```
+* `p.wrapErrs = true` set wrapErrs to true to handle %w verb
+* `s := string(p.buf)` convert buffer to string type then assign to s
+* `if p.wrappedErr == nil` p.doPrintf would set wrappedErr if record the target of the %w verb
+* `err = errors.New(s)` save string to err
+* `err = &wrapError{s, p.wrappedErr}` save string and error to err
+    ``` go
+    type wrapError struct {
+        msg string
+        err error
+    }
+
+    func (e *wrapError) Error() string {
+        return e.msg
+    }
+
+    func (e *wrapError) Unwrap() error {
+        return e.err
+    }
+    ```
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
