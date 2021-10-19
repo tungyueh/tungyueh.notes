@@ -365,6 +365,98 @@ func Errorf(format string, a ...interface{}) error {
         return e.err
     }
     ```
+## type Formatter
+``` go
+// Formatter is implemented by any value that has a Format method.
+// The implementation controls how State and rune are interpreted,
+// and may call Sprint(f) or Fprint(f) etc. to generate its output.
+type Formatter interface {
+	Format(f State, verb rune)
+}
+```
+## type GoStringer
+``` go
+// GoStringer is implemented by any value that has a GoString method,
+// which defines the Go syntax for that value.
+// The GoString method is used to print values passed as an operand
+// to a %#v format.
+type GoStringer interface {
+	GoString() string
+}
+```
+## type ScanState
+``` go
+// ScanState represents the scanner state passed to custom scanners.
+// Scanners may do rune-at-a-time scanning or ask the ScanState
+// to discover the next space-delimited token.
+type ScanState interface {
+	// ReadRune reads the next rune (Unicode code point) from the input.
+	// If invoked during Scanln, Fscanln, or Sscanln, ReadRune() will
+	// return EOF after returning the first '\n' or when reading beyond
+	// the specified width.
+	ReadRune() (r rune, size int, err error)
+	// UnreadRune causes the next call to ReadRune to return the same rune.
+	UnreadRune() error
+	// SkipSpace skips space in the input. Newlines are treated appropriately
+	// for the operation being performed; see the package documentation
+	// for more information.
+	SkipSpace()
+	// Token skips space in the input if skipSpace is true, then returns the
+	// run of Unicode code points c satisfying f(c).  If f is nil,
+	// !unicode.IsSpace(c) is used; that is, the token will hold non-space
+	// characters. Newlines are treated appropriately for the operation being
+	// performed; see the package documentation for more information.
+	// The returned slice points to shared data that may be overwritten
+	// by the next call to Token, a call to a Scan function using the ScanState
+	// as input, or when the calling Scan method returns.
+	Token(skipSpace bool, f func(rune) bool) (token []byte, err error)
+	// Width returns the value of the width option and whether it has been set.
+	// The unit is Unicode code points.
+	Width() (wid int, ok bool)
+	// Because ReadRune is implemented by the interface, Read should never be
+	// called by the scanning routines and a valid implementation of
+	// ScanState may choose always to return an error from Read.
+	Read(buf []byte) (n int, err error)
+}
+```
+## type Scanner
+``` go
+// Scanner is implemented by any value that has a Scan method, which scans
+// the input for the representation of a value and stores the result in the
+// receiver, which must be a pointer to be useful. The Scan method is called
+// for any argument to Scan, Scanf, or Scanln that implements it.
+type Scanner interface {
+	Scan(state ScanState, verb rune) error
+}
+```
+## type State
+``` go
+// State represents the printer state passed to custom formatters.
+// It provides access to the io.Writer interface plus information about
+// the flags and options for the operand's format specifier.
+type State interface {
+	// Write is the function to call to emit formatted output to be printed.
+	Write(b []byte) (n int, err error)
+	// Width returns the value of the width option and whether it has been set.
+	Width() (wid int, ok bool)
+	// Precision returns the value of the precision option and whether it has been set.
+	Precision() (prec int, ok bool)
+
+	// Flag reports whether the flag c, a character, has been set.
+	Flag(c int) bool
+}
+```
+## type Stringer
+``` go
+// Stringer is implemented by any value that has a String method,
+// which defines the ``native'' format for that value.
+// The String method is used to print values passed as an operand
+// to any format that accepts a string or to an unformatted printer
+// such as Print.
+type Stringer interface {
+	String() string
+}
+```
 # Reference
 * Standard library: https://pkg.go.dev/fmt@go1.17.1
 * The Go Programming Language Specification: https://golang.org/ref/spec
