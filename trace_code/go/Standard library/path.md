@@ -30,3 +30,98 @@ func Base(path string) string {
 	return path
 }
 ```
+## func Clean
+``` go
+// Clean returns the shortest path name equivalent to path
+// by purely lexical processing. It applies the following rules
+// iteratively until no further processing can be done:
+//
+//	1. Replace multiple slashes with a single slash.
+//	2. Eliminate each . path name element (the current directory).
+//	3. Eliminate each inner .. path name element (the parent directory)
+//	   along with the non-.. element that precedes it.
+//	4. Eliminate .. elements that begin a rooted path:
+//	   that is, replace "/.." by "/" at the beginning of a path.
+//
+// The returned path ends in a slash only if it is the root "/".
+//
+// If the result of this process is an empty string, Clean
+// returns the string ".".
+//
+// See also Rob Pike, ``Lexical File Names in Plan 9 or
+// Getting Dot-Dot Right,''
+// https://9p.io/sys/doc/lexnames.html
+func Clean(path string) string {
+	if path == "" {
+		return "."
+	}
+
+	rooted := path[0] == '/'
+	n := len(path)
+
+	// Invariants:
+	//	reading from path; r is index of next byte to process.
+	//	writing to buf; w is index of next byte to write.
+	//	dotdot is index in buf where .. must stop, either because
+	//		it is the leading slash or it is a leading ../../.. prefix.
+	out := lazybuf{s: path}
+	r, dotdot := 0, 0
+	if rooted {
+		out.append('/')
+		r, dotdot = 1, 1
+	}
+
+	for r < n {
+		switch {
+		case path[r] == '/':
+			// empty path element
+			r++
+		case path[r] == '.' && (r+1 == n || path[r+1] == '/'):
+			// . element
+			r++
+		case path[r] == '.' && path[r+1] == '.' && (r+2 == n || path[r+2] == '/'):
+			// .. element: remove to last /
+			r += 2
+			switch {
+			case out.w > dotdot:
+				// can backtrack
+				out.w--
+				for out.w > dotdot && out.index(out.w) != '/' {
+					out.w--
+				}
+			case !rooted:
+				// cannot backtrack, but not rooted, so append .. element.
+				if out.w > 0 {
+					out.append('/')
+				}
+				out.append('.')
+				out.append('.')
+				dotdot = out.w
+			}
+		default:
+			// real path element.
+			// add slash if needed
+			if rooted && out.w != 1 || !rooted && out.w != 0 {
+				out.append('/')
+			}
+			// copy element
+			for ; r < n && path[r] != '/'; r++ {
+				out.append(path[r])
+			}
+		}
+	}
+
+	// Turn empty string into "."
+	if out.w == 0 {
+		return "."
+	}
+
+	return out.string()
+}
+```
+* use `lazybuf` to construct path buffer
+* copy path to `lazybuf` if normal character
+* If read the '/', '.', add the slash in next round
+* If read the '..', check can backtracj or not then append '..' element
+* I think it is better not to modify `out.w` because it need to know the implementation of the `lazybuf`
+* I think that `r` and `dotdot` could be the field of the `lazybuf` struct
