@@ -125,3 +125,72 @@ func Clean(path string) string {
 * If read the '..', check can backtracj or not then append '..' element
 * I think it is better not to modify `out.w` because it need to know the implementation of the `lazybuf`
 * I think that `r` and `dotdot` could be the field of the `lazybuf` struct
+## func Dir
+``` go
+// Dir returns all but the last element of path, typically the path's directory.
+// After dropping the final element using Split, the path is Cleaned and trailing
+// slashes are removed.
+// If the path is empty, Dir returns ".".
+// If the path consists entirely of slashes followed by non-slash bytes, Dir
+// returns a single slash. In any other case, the returned path does not end in a
+// slash.
+func Dir(path string) string {
+	dir, _ := Split(path)
+	return Clean(dir)
+}
+```
+* `dir, _ := Split(path)` use Split to get the dir and ignore file
+* `return Clean(dir)` return the cleaned path of dir
+## func Ext
+``` go
+// Ext returns the file name extension used by path.
+// The extension is the suffix beginning at the final dot
+// in the final slash-separated element of path;
+// it is empty if there is no dot.
+func Ext(path string) string {
+	for i := len(path) - 1; i >= 0 && path[i] != '/'; i-- {
+		if path[i] == '.' {
+			return path[i:]
+		}
+	}
+	return ""
+}
+```
+* check path from the last character
+* if encounter dot, return the ext
+## func IsAbs
+``` go
+// IsAbs reports whether the path is absolute.
+func IsAbs(path string) bool {
+	return len(path) > 0 && path[0] == '/'
+}
+```
+## func Join
+``` go
+// Join joins any number of path elements into a single path,
+// separating them with slashes. Empty elements are ignored.
+// The result is Cleaned. However, if the argument list is
+// empty or all its elements are empty, Join returns
+// an empty string.
+func Join(elem ...string) string {
+	size := 0
+	for _, e := range elem {
+		size += len(e)
+	}
+	if size == 0 {
+		return ""
+	}
+	buf := make([]byte, 0, size+len(elem)-1)
+	for _, e := range elem {
+		if len(buf) > 0 || e != "" {
+			if len(buf) > 0 {
+				buf = append(buf, '/')
+			}
+			buf = append(buf, e...)
+		}
+	}
+	return Clean(string(buf))
+}
+```
+* Iterate the element to calculate the size
+* creat a slice with bytes array type and capacity is total element path length plus number of element minus 1
