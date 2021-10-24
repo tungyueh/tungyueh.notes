@@ -193,4 +193,114 @@ func Join(elem ...string) string {
 }
 ```
 * Iterate the element to calculate the size
-* creat a slice with bytes array type and capacity is total element path length plus number of element minus 1
+* create a slice with bytes array type and capacity is total element path length plus number of element minus 1
+## func Match
+``` go
+// Match reports whether name matches the shell pattern.
+// The pattern syntax is:
+//
+//	pattern:
+//		{ term }
+//	term:
+//		'*'         matches any sequence of non-/ characters
+//		'?'         matches any single non-/ character
+//		'[' [ '^' ] { character-range } ']'
+//		            character class (must be non-empty)
+//		c           matches character c (c != '*', '?', '\\', '[')
+//		'\\' c      matches character c
+//
+//	character-range:
+//		c           matches character c (c != '\\', '-', ']')
+//		'\\' c      matches character c
+//		lo '-' hi   matches character c for lo <= c <= hi
+//
+// Match requires pattern to match all of name, not just a substring.
+// The only possible returned error is ErrBadPattern, when pattern
+// is malformed.
+//
+func Match(pattern, name string) (matched bool, err error) {
+Pattern:
+	for len(pattern) > 0 {
+		var star bool
+		var chunk string
+		star, chunk, pattern = scanChunk(pattern)
+		if star && chunk == "" {
+			// Trailing * matches rest of string unless it has a /.
+			return bytealg.IndexByteString(name, '/') < 0, nil
+		}
+		// Look for match at current position.
+		t, ok, err := matchChunk(chunk, name)
+		// if we're the last chunk, make sure we've exhausted the name
+		// otherwise we'll give a false result even if we could still match
+		// using the star
+		if ok && (len(t) == 0 || len(pattern) > 0) {
+			name = t
+			continue
+		}
+		if err != nil {
+			return false, err
+		}
+		if star {
+			// Look for match skipping i+1 bytes.
+			// Cannot skip /.
+			for i := 0; i < len(name) && name[i] != '/'; i++ {
+				t, ok, err := matchChunk(chunk, name[i+1:])
+				if ok {
+					// if we're the last chunk, make sure we exhausted the name
+					if len(pattern) == 0 && len(t) > 0 {
+						continue
+					}
+					name = t
+					continue Pattern
+				}
+				if err != nil {
+					return false, err
+				}
+			}
+		}
+		// Before returning false with no error,
+		// check that the remainder of the pattern is syntactically valid.
+		for len(pattern) > 0 {
+			_, chunk, pattern = scanChunk(pattern)
+			if _, _, err := matchChunk(chunk, ""); err != nil {
+				return false, err
+			}
+		}
+		return false, nil
+	}
+	return len(name) == 0, nil
+}
+```
+* `star, chunk, pattern = scanChunk(pattern)`
+    ``` go
+    // scanChunk gets the next segment of pattern, which is a non-star string
+    // possibly preceded by a star.
+    func scanChunk(pattern string) (star bool, chunk, rest string) {
+        for len(pattern) > 0 && pattern[0] == '*' {
+            pattern = pattern[1:]
+            star = true
+        }
+        inrange := false
+        var i int
+    Scan:
+        for i = 0; i < len(pattern); i++ {
+            switch pattern[i] {
+            case '\\':
+                // error check handled in matchChunk: bad pattern.
+                if i+1 < len(pattern) {
+                    i++
+                }
+            case '[':
+                inrange = true
+            case ']':
+                inrange = false
+            case '*':
+                if !inrange {
+                    break Scan
+                }
+            }
+        }
+        return star, pattern[0:i], pattern[i:]
+    }
+    ```
+    * Use break label to break out for loop in switch statement
