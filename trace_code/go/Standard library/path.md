@@ -394,3 +394,16 @@ Pattern:
         return s, true, nil
     }
     ```
+## func Split
+``` go
+// Split splits path immediately following the final slash,
+// separating it into a directory and file name component.
+// If there is no slash in path, Split returns an empty dir and
+// file set to path.
+// The returned values have the property that path = dir+file.
+func Split(path string) (dir, file string) {
+	i := lastSlash(path)
+	return path[:i+1], path[i+1:]
+}
+```
+* `i := lastSlash(path)` find the index of last slash
