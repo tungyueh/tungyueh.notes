@@ -427,3 +427,21 @@
 #### Conclusion
 * Main 是 application 的 plugin 把所有基本設定好轉交給 high-level policy，如果有多個 plugin 就會有多個 Main components
 * 把 Main 想成 plugin component 則 configuration 的問題會比較簡單一點
+### Chapter 27 Services: Great and Small
+* Service-oriented 或 mirco-service architectures 很流行因常常被認為具有 strongly decoupled 跟 development 跟 deploymeny 的inenpendence 但其實只有部分是對的 
+#### Service Architecture?
+* Services 只是用更昂貴一點的 function call 並沒有把 high-level policy 跟 low-level detail 依照 Dependency Rule 分開
+* Service 並不是全部都是為了架構而切分成 service 
+* 只要 function call 有跨越不同 boundaries 並且遵守 Dependency Rule 則就有架構的概念
+* 具有形成架構的 service 是需要關注的
+#### Service Benefits?
+* 到底 service 帶來什麼好處
+##### THE DECOUPLING FALLACY
+* Service 雖然可以在變數上 decoupled 但還是可能在 shared resources 上 couple
+* 例如 data record 增加欄位後就必須改變所有有用到的 service，這些 service 就間接的 couple 在一起
+##### THE FALLACY OF INDEPENDENT DEVELOPMENT AND DEPLOYMENT
+* Service 並不是唯一可以建造出 scalable system 的選項
+* 只要 service 之前對於 data 或行為有 couple 就無法分別獨立開發跟部屬
+#### The Kitty Problem
+* 只要加入新功能就需要全部的 service 做改動代表這些都無法獨立開發部屬跟維護了
+* 使用功能面的切法對於新功能的加入是很脆落的，必需要改變所有的行為
