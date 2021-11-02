@@ -445,3 +445,15 @@
 #### The Kitty Problem
 * 只要加入新功能就需要全部的 service 做改動代表這些都無法獨立開發部屬跟維護了
 * 使用功能面的切法對於新功能的加入是很脆落的，必需要改變所有的行為
+#### Objects to the Rescue
+* SOLID 設計原則可以幫助我們建立可以多樣擴展性的 class
+* 增加 feature 的時候只需要改 UI 就代表 decoupled 其他 service
+#### Component-Based Services
+* Service 也可以根據 SOLID 原則來設計，component structure 有設計好就可以新增 component 而不影響現有的 component
+* 讓新功能在 service 的內部架構下可以新增就可以不影響到其他 service
+#### Cross-Cutting Concerns
+* 為了不被 cross-cutting concerns 所影響需要再 service 裡面設計好 component archecture 遵循 Dependency Rule
+* Service 沒有定義 boundaries 但裡面的 compenent 有
+#### Conclusion
+* Service 讓系統具備 scalability 跟 develop-ability 但不一定是切架構的元素，能夠依循 Dependency Rule 定義 boundaries 才能形成架構
+* Service 可以是被 boundary 包在裡面也可以是多個 service 裡面切好 component 形成 boundaries
