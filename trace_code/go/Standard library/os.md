@@ -54,3 +54,33 @@ const (
 ``` go
 const DevNull = "/dev/null"
 ```
+## Variables
+``` go
+var (
+	// ErrInvalid indicates an invalid argument.
+	// Methods on File will return this error when the receiver is nil.
+	ErrInvalid = fs.ErrInvalid // "invalid argument"
+
+	ErrPermission = fs.ErrPermission // "permission denied"
+	ErrExist      = fs.ErrExist      // "file already exists"
+	ErrNotExist   = fs.ErrNotExist   // "file does not exist"
+	ErrClosed     = fs.ErrClosed     // "file already closed"
+
+	ErrNoDeadline       = errNoDeadline()       // "file type does not support deadline"
+	ErrDeadlineExceeded = errDeadlineExceeded() // "i/o timeout"
+)
+```
+* Use function call to prevent circular import
+``` go
+var (
+	Stdin  = NewFile(uintptr(syscall.Stdin), "/dev/stdin")
+	Stdout = NewFile(uintptr(syscall.Stdout), "/dev/stdout")
+	Stderr = NewFile(uintptr(syscall.Stderr), "/dev/stderr")
+)
+```
+``` go
+var Args []string
+```
+``` go
+var ErrProcessDone = errors.New("os: process already finished")
+```
