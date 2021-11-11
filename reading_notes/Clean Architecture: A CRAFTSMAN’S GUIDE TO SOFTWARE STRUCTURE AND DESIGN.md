@@ -457,3 +457,29 @@
 #### Conclusion
 * Service 讓系統具備 scalability 跟 develop-ability 但不一定是切架構的元素，能夠依循 Dependency Rule 定義 boundaries 才能形成架構
 * Service 可以是被 boundary 包在裡面也可以是多個 service 裡面切好 component 形成 boundaries
+### Chapter 28 The Test Boundary
+* 測試也是系統的一部分
+#### Tests as System Components
+* 以架構的觀點所有測試都是一樣的
+* 測試也遵循 Dependency Rule，非常 detail 可以想成最外圈的部分，沒有任何東西 depend on 測試
+* 測試通常只被部屬在測試環境而非正式環境
+* 測試不是系統運作的必要組成，負責支援開發而非運作
+#### Design for Testability
+* 測試如果沒有在系統設計考量進去則系統容易變的脆弱不容易改動
+* 測試跟系統 couple 後只要系統改動就需要改很多測試
+* 如果只是簡單的改動卻讓成千上百的測試壞掉則稱為 Fragile Tests Problem
+* 只要測試都需要特定功能初始化改動這些功能就會讓許多測試壞掉
+* Fragile tests 會讓系統變得僵化因為開發者知道改動會造成很多測試壞掉就拒絕改動
+* 測試不該依賴於容易變化的東西，測試需要設計才能夠直接測到想要的部分而不需要依賴其他東西
+#### The Testing API
+* Testing API 要能用來直接測試所有 business rules 繞過安全限制，database 讓系統可以直接被測試
+* Testing API 目的是要讓測試跟 application decouple
+##### STRUCTURAL COUPLING
+* Test suite 的 test class 測了每個 production class，test method 也對應測了 production 的每個 method，則 test suite 就跟 application 的 structure deeply coupled
+* 當 production class 或 method 改變則需要改變很多 test 則這些測試就很 fragile 讓 production code 變的僵化
+* Testing API 隱藏 application 的結構讓 production 跟 test 可以各自以自己的方式做進化而不影響彼此
+* 隨著時間測試會變的更具體而 production 會變的更抽象，structural coupling 讓兩者無法各自進化下去
+##### SECURITY
+* Testing API 如果部署在 production 系統上會變成危險的部分，應該要把測試分開成可以獨立部署的元件
+#### Conclusion
+* 測試是系統的一部分要能好好的設計提供穩定性跟 regression，而不是反而造成系統僵化的原因
