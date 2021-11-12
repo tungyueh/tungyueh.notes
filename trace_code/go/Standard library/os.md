@@ -84,3 +84,78 @@ var Args []string
 ``` go
 var ErrProcessDone = errors.New("os: process already finished")
 ```
+## Functions
+### func Chdir
+``` go
+// Chdir changes the current working directory to the named directory.
+// If there is an error, it will be of type *PathError.
+func Chdir(dir string) error {
+	if e := syscall.Chdir(dir); e != nil {
+		testlog.Open(dir) // observe likely non-existent directory
+		return &PathError{Op: "chdir", Path: dir, Err: e}
+	}
+	if log := testlog.Logger(); log != nil {
+		wd, err := Getwd()
+		if err == nil {
+			log.Chdir(wd)
+		}
+	}
+	return nil
+}
+```
+* testlog provides a back-channel communication path between tests and package os, so that cmd/go can see which environment variables and files a test consults
+### func Chmod
+``` go
+// Chmod changes the mode of the named file to mode.
+// If the file is a symbolic link, it changes the mode of the link's target.
+// If there is an error, it will be of type *PathError.
+//
+// A different subset of the mode bits are used, depending on the
+// operating system.
+//
+// On Unix, the mode's permission bits, ModeSetuid, ModeSetgid, and
+// ModeSticky are used.
+//
+// On Windows, only the 0200 bit (owner writable) of mode is used; it
+// controls whether the file's read-only attribute is set or cleared.
+// The other bits are currently unused. For compatibility with Go 1.12
+// and earlier, use a non-zero mode. Use mode 0400 for a read-only
+// file and 0600 for a readable+writable file.
+//
+// On Plan 9, the mode's permission bits, ModeAppend, ModeExclusive,
+// and ModeTemporary are used.
+func Chmod(name string, mode FileMode) error { return chmod(name, mode) }
+```
+``` go
+// See docs in file.go:Chmod.
+func chmod(name string, mode FileMode) error {
+	longName := fixLongPath(name)
+	e := ignoringEINTR(func() error {
+		return syscall.Chmod(longName, syscallMode(mode))
+	})
+	if e != nil {
+		return &PathError{Op: "chmod", Path: name, Err: e}
+	}
+	return nil
+}
+```
+* `longName := fixLongPath(name)` is a no operation perfor omed non-Windows platforms.
+* `e := ignoringEINTR(func() error {`
+    ``` go
+    // ignoringEINTR makes a function call and repeats it if it returns an
+    // EINTR error. This appears to be required even though we install all
+    // signal handlers with SA_RESTART: see #22838, #38033, #38836, #40846.
+    // Also #20400 and #36644 are issues in which a signal handler is
+    // installed without setting SA_RESTART. None of these are the common case,
+    // but there are enough of them that it seems that we can't avoid
+    // an EINTR loop.
+    func ignoringEINTR(fn func() error) error {
+        for {
+            err := fn()
+            if err != syscall.EINTR {
+                return err
+            }
+        }
+    }
+    ```
+    * If function calls have EINTR error, ignore and repeat to call function
