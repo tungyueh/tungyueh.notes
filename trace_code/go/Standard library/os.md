@@ -159,3 +159,47 @@ func chmod(name string, mode FileMode) error {
     }
     ```
     * If function calls have EINTR error, ignore and repeat to call function
+### func Chown
+``` go
+/ Chown changes the numeric uid and gid of the named file.
+// If the file is a symbolic link, it changes the uid and gid of the link's target.
+// A uid or gid of -1 means to not change that value.
+// If there is an error, it will be of type *PathError.
+//
+// On Windows or Plan 9, Chown always returns the syscall.EWINDOWS or
+// EPLAN9 error, wrapped in *PathError.
+func Chown(name string, uid, gid int) error {
+	e := ignoringEINTR(func() error {
+		return syscall.Chown(name, uid, gid)
+	})
+	if e != nil {
+		return &PathError{Op: "chown", Path: name, Err: e}
+	}
+	return nil
+}
+```
+### func Chtimes
+``` go
+// Chtimes changes the access and modification times of the named
+// file, similar to the Unix utime() or utimes() functions.
+//
+// The underlying filesystem may truncate or round the values to a
+// less precise time unit.
+// If there is an error, it will be of type *PathError.
+func Chtimes(name string, atime time.Time, mtime time.Time) error {
+	var utimes [2]syscall.Timespec
+	utimes[0] = syscall.NsecToTimespec(atime.UnixNano())
+	utimes[1] = syscall.NsecToTimespec(mtime.UnixNano())
+	if e := syscall.UtimesNano(fixLongPath(name), utimes[0:]); e != nil {
+		return &PathError{Op: "chtimes", Path: name, Err: e}
+	}
+	return nil
+}
+```
+### func Clearenv
+``` go
+// Clearenv deletes all environment variables.
+func Clearenv() {
+	syscall.Clearenv()
+}
+```
