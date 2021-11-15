@@ -483,3 +483,7 @@
 * Testing API 如果部署在 production 系統上會變成危險的部分，應該要把測試分開成可以獨立部署的元件
 #### Conclusion
 * 測試是系統的一部分要能好好的設計提供穩定性跟 regression，而不是反而造成系統僵化的原因
+### Chapter 29 Clean Embedded Architecture
+* 軟體不像硬體會耗損所以需要不斷修改
+* 軟體雖然不會耗損但會因為依賴於硬體的複雜度而被摧毀
+* Firmware 是依賴於硬體需要跟著硬體一起演化
