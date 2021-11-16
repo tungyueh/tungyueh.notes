@@ -487,3 +487,13 @@
 * 軟體不像硬體會耗損所以需要不斷修改
 * 軟體雖然不會耗損但會因為依賴於硬體的複雜度而被摧毀
 * Firmware 是依賴於硬體需要跟著硬體一起演化
+* 把 SQL 或各種 platform dependencies 放進 code 就很像在寫 firmware，要盡量寫 software 而不是 firmware
+* Product 的 code 沒有分離好 business logic 跟與底層依賴的實作就會變得很 firmware
+* 當 code 有參雜到各種 detail 就會變成 firmware 而放棄變成 software 的機會
+#### App-titude Test
+* 大部分只讓 code 能動而沒有把注意力放在好好的把 code 結構化讓之後能常常使用
+* 建造 software 的活動
+    * 讓 code 能動
+    * 讓 code 正確，refactor code 讓大家都能懂
+    * 讓 code 變快，refactor code 達到需要的效能
+* 一般都是以能動為主把變快當成目標，在能動的階段不斷去做細部加速的微調，但不該未雨綢繆直接從錯誤中學習改進就好而不是異常謹慎的避免錯誤發生
