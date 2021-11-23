@@ -497,3 +497,15 @@
     * 讓 code 正確，refactor code 讓大家都能懂
     * 讓 code 變快，refactor code 達到需要的效能
 * 一般都是以能動為主把變快當成目標，在能動的階段不斷去做細部加速的微調，但不該未雨綢繆直接從錯誤中學習改進就好而不是異常謹慎的避免錯誤發生
+* 身為 programmer 只是讓 app 能運作只是為產品跟老闆帶來傷害，能有更多的事可以變更好
+* 除非 code 永遠不在其他平台運作不然無法長久使用下去的
+#### The Target-Hardware Bottleneck
+* Embedde developer 可能會遇到硬體上的限制讓開發速度變慢
+* Embedde 比較特殊但是開發原則還是依循一般的原則
+* 只能在 target 上跑的 code 會拖累開發的速度稱為 target-hardware bottleneck
+##### A CLEAN EMBEDDED ARCHITECTURE IS A TESTABLE EMBEDDED ARCHITECTURE
+* 正常可以分為硬體、韌體、軟體三個 layer，硬體會隨著時間變化所以需要跟著演化
+* 如果只在意讓程式能跑則容易讓硬體的知識滲透到軟體變成只分硬體跟韌體兩層造成之後無法改動
+* 軟體跟韌體互相混雜是個 anti-pattern 容易造成無法改變，微小改動都需要整體測試，會有很多需要手動測試的部分
+* 軟體跟韌體的界線不易劃分清楚需要努力劃清界線，這個界線稱為 hardware abstraction layer(HAL)
+* 軟體在 HAL 之上提供適合軟體使用的 API，只提供服務而不洩漏實作細節
