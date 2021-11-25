@@ -509,3 +509,21 @@
 * 軟體跟韌體互相混雜是個 anti-pattern 容易造成無法改變，微小改動都需要整體測試，會有很多需要手動測試的部分
 * 軟體跟韌體的界線不易劃分清楚需要努力劃清界線，這個界線稱為 hardware abstraction layer(HAL)
 * 軟體在 HAL 之上提供適合軟體使用的 API，只提供服務而不洩漏實作細節
+##### DON’T REVEAL HARDWARE DETAILS TO THE USER OF THE HAL
+* Clean 的 embedded architecture 可以不需要在特定硬體上執行
+* 使用到特定 tool chain 可能會提供 headers file 方便使用 processor 但這些 code 就不是單純的 C 因為無法在別的 processor 使用
+* 可以使用 provider 提供的東西但不損及自己產品的未來
+* 需要把 operating system 當成一種細節而且要保護好 code 避免依賴於 OS
+* Software 使用 OS 提供的服務所以 OS 是一種 layer 把 software 跟 firmware 分開
+* Operating system abstraction layer (OSAL) 把 software 從 operation system 分離開來
+* 換 OS 只需要重新寫相容於舊的 OSAL 而不是修改一堆複雜邏輯的 code
+* 使用 OSAL 可以讓 applicaton 採用更通用的架構
+* OSAL 提供可以直接測試最有價值的 code 不需要在特定裝置上使用特定 OS 才能夠測試
+* 只要 interface 一致既可以替換成不同的東西
+* 讓 interface 只跟 function 宣告跟常數跟 struct 名稱有關而不要把實作需要的東西牽扯進 interface
+* Clean embedded architecture 要能被測試需要只跟 interface 做互動
+* Conditional compilation 讓 code 會有些區段會被執行有些不會，但這些判斷太多重複的部分就會造成困擾
+* 如果有 HAL 可以將這些硬體資訊隱藏起來而不需要用 conditional compilation
+#### Conclusion
+* 讓 code 全部變成 firmware 會對產品長期性產生傷害
+* 只能在特定硬體測試也會對產品長期性產生傷害
