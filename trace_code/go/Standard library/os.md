@@ -203,3 +203,51 @@ func Clearenv() {
 	syscall.Clearenv()
 }
 ```
+### func DirFS
+``` go
+// DirFS returns a file system (an fs.FS) for the tree of files rooted at the directory dir.
+//
+// Note that DirFS("/prefix") only guarantees that the Open calls it makes to the
+// operating system will begin with "/prefix": DirFS("/prefix").Open("file") is the
+// same as os.Open("/prefix/file"). So if /prefix/file is a symbolic link pointing outside
+// the /prefix tree, then using DirFS does not stop the access any more than using
+// os.Open does. DirFS is therefore not a general substitute for a chroot-style security
+// mechanism when the directory tree contains arbitrary content.
+func DirFS(dir string) fs.FS {
+	return dirFS(dir)
+}
+```
+* `dirFS(dir)` convert type from string to dirFS to meet the interface of fs.FS
+    ``` go
+    type dirFS string
+
+    func (dir dirFS) Open(name string) (fs.File, error) {
+        if !fs.ValidPath(name) || runtime.GOOS == "windows" && containsAny(name, `\:`) {
+            return nil, &PathError{Op: "open", Path: name, Err: ErrInvalid}
+        }
+        f, err := Open(string(dir) + "/" + name)
+        if err != nil {
+            return nil, err // nil fs.File
+        }
+        return f, nil
+    }
+
+    func (dir dirFS) Stat(name string) (fs.FileInfo, error) {
+        if !fs.ValidPath(name) || runtime.GOOS == "windows" && containsAny(name, `\:`) {
+            return nil, &PathError{Op: "stat", Path: name, Err: ErrInvalid}
+        }
+        f, err := Stat(string(dir) + "/" + name)
+        if err != nil {
+            return nil, err
+        }
+        return f, nil
+    }
+    ```
+### func Environ
+``` go
+// Environ returns a copy of strings representing the environment,
+// in the form "key=value".
+func Environ() []string {
+	return syscall.Environ()
+}
+```
