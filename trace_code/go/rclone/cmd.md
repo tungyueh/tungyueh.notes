@@ -1,5 +1,5 @@
-# rclone
-## cmd/cmd.go
+# rclone - package cmd
+## cmd.go
 ``` go
 // Main runs rclone interpreting flags and commands out of os.Args
 func Main() {
