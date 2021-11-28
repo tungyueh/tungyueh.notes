@@ -130,6 +130,56 @@
 * 花了半世紀知道什麼事情不該做
 * 軟體的本質從一開始就沒有改變，改變的只有硬體跟工具
 * 軟體只是由 sequence, selection, iteration 跟 indirection 所組成
+## PART III Design Principles
+* 好的軟體系統從 clean code 開始，如果寫不好基本的東西則架構也沒有太大意義，但雖然有把基本東西做好但架構還是可能會一團混亂
+* SOLID 原則指導我們該如何把 function 跟 data 變成 class 以及 class 之前的互動，class 只是把 function 跟 data 聚集在一起的東西並非特指 object-oriented 的用詞
+* SOLID 目標是建立 mid-level 的軟體架構可以適應改變、簡單易懂跟組成系統中基本的部分
+* Mid-level 是指在 module level 定義 module 跟 components 需要用到的 structure
+* SRP: The Single Responsiblity Principle -> Module 只能因為唯一個理由能做改變
+* OCP: The Open-Closed Principle -> 要讓行為改變要藉由新增的 code 而非修改現有的 code
+* LSP: The Liskov Substitution Principle -> 軟體的部分要符合定義才能替壞不同的部分
+* ISP: The Interface Segregation Principle -> 不要依賴於不需要用到的東西
+* DIP: The Dependency Inversion Principle -> High-level policy 的 code 不該依賴於 low-level details
+### Chapter 7 SRP: The Single Responsibility Principle
+* SRP 容易被誤解成 module 只能做一件事情
+* Function 只做一件事情跟 SRP 是不同的
+* SRP 原本是說 module 只能因為一個原因去做改變但通常改變的原因來自於客戶或產品負責人所以可以改成 module 只對一個期望改變的人負責
+* Module 是一群 function 跟 data structure 聚集起來的東西
+* 最好的方式是來看要避免那些徵兆
+#### Symptom 1: Accidental Duplication
+* `Employee class` 有 `calculatePay()`, `reportHours()`, and `save()`
+* 違反 SRP 因為 `calculatePay()` 對 accounting 部門負責, `reportHours()` 對 human resources 部門負責, `save()` 對 database administrators 負責
+* 把對不同人負責的 code 放在一起容易共用邏輯，為了其他部門的需求的改動會影響到其他部門
+#### Symptom 2: Merges
+* 常常需要處理 merge 因為 method 對於不同部門負責
+* 只要這個 method 需要 merge 則對於所有負責的部門都是有一定風險存在
+#### Solutions
+* 把 data 從 function 分離出來，三個 class 都可以存取 `EmployeeData` 單純的資料結構，因此不會有 accidental duplication 的問題
+* 缺點是需要初始化三個 class 並且追蹤使用，通常使用 Facade pattern 解決這個問題
+* `EmployeeFacade` 只負責初始化跟 delegating class 包含很少的 code
+* 有些人喜歡把最重要的 business rule 跟資料放在一起，其他使用 Facade 分離
+* 雖然 class 都只有一個 function 但裡面有很多 private function
+#### Conclusion
+* Single Responsibbility Principle 的概念會出現在不同 level
+### Chapter 8 OCP: The Open-Closed Principle
+* 軟體的行為應該要是從擴充來改變而不是修改現有的東西
+* 當修改新增的行為需要改動大量的東西註定會造成失敗
+#### A Thought Experiment
+* 好的軟體架構要能在新增行為的時候做到改動最少的 code
+* 根據 SRP 來把 code 分好然後依照 DIP 來管理 dependencies
+* Component 之間只能有一個方向的依賴，這樣才能保護不被依賴的不受另一邊的改動影響
+* Componenet A 要不受 component B 影響則需要 component B 依賴於 componenet A
+* Business rules 的 component 要最不受其他 component 的影響也就是不要依賴於其他 component 而是讓其他 component 都依賴於它
+* 根據依賴於否可以判斷該 component 的重要性，越不依賴於其他的 component 則是越高 level
+#### Directional Control
+* 很多複雜的設計都只是為了遵循 dependencies 的原則
+* 很多 class 的存在只是為了反轉依賴
+#### Information Hiding
+* Interface 是為了避免使用的人得知太多細節造成依賴
+* 不該讓 entities 被沒有直接使用的人依賴
+#### Conclusion
+* OCP 目標是讓系統在擴張之際不需要去改動太多本來的東西
+* 藉由把系統分成 components 然後遵循 high-level component 不去依賴 low-level component 避免被 low-level component 的改動所影響需要在改動
 ## PART V Architecture
 ### Chapter 15 What Is Architecture?
 * Software architect 是頂尖 programmer 專注於讓團隊生產力最大化的設計，同時持續進行 programming task 以便了解可能遇到的問題
