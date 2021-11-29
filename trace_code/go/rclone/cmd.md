@@ -68,3 +68,4 @@ func AddBackendFlags() {
 * `var backendFlags map[string]struct{}` define backendFlags is map with string key and struct{} value
 * `backendFlags = map[string]struct{}{}` init backendFlags with empty map
 * `for _, fsInfo := range fs.Registry` range each filesystem information
+* `done := map[string]struct{}{}` done keep track of already processed options and use map with empty struct as `Set` to save memory
