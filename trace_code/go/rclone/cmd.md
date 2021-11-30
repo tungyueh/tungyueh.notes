@@ -69,3 +69,95 @@ func AddBackendFlags() {
 * `backendFlags = map[string]struct{}{}` init backendFlags with empty map
 * `for _, fsInfo := range fs.Registry` range each filesystem information
 * `done := map[string]struct{}{}` done keep track of already processed options and use map with empty struct as `Set` to save memory
+``` go
+// initConfig is run by cobra after initialising the flags
+func initConfig() {
+	ctx := context.Background()
+	ci := fs.GetConfig(ctx)
+
+	// Start the logger
+	fslog.InitLogging()
+
+	// Finish parsing any command line flags
+	configflags.SetFlags(ci)
+
+	// Load the config
+	configfile.Install()
+
+	// Start accounting
+	accounting.Start(ctx)
+
+	// Hide console window
+	if ci.NoConsole {
+		terminal.HideConsole()
+	}
+
+	// Load filters
+	err := filterflags.Reload(ctx)
+	if err != nil {
+		log.Fatalf("Failed to load filters: %v", err)
+	}
+
+	// Write the args for debug purposes
+	fs.Debugf("rclone", "Version %q starting with parameters %q", fs.Version, os.Args)
+
+	// Inform user about systemd log support now that we have a logger
+	if fslog.Opt.LogSystemdSupport {
+		fs.Debugf("rclone", "systemd logging support activated")
+	}
+
+	// Start the remote control server if configured
+	_, err = rcserver.Start(context.Background(), &rcflags.Opt)
+	if err != nil {
+		log.Fatalf("Failed to start remote control: %v", err)
+	}
+
+	// Setup CPU profiling if desired
+	if *cpuProfile != "" {
+		fs.Infof(nil, "Creating CPU profile %q\n", *cpuProfile)
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			err = fs.CountError(err)
+			log.Fatal(err)
+		}
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			err = fs.CountError(err)
+			log.Fatal(err)
+		}
+		atexit.Register(func() {
+			pprof.StopCPUProfile()
+		})
+	}
+
+	// Setup memory profiling if desired
+	if *memProfile != "" {
+		atexit.Register(func() {
+			fs.Infof(nil, "Saving Memory profile %q\n", *memProfile)
+			f, err := os.Create(*memProfile)
+			if err != nil {
+				err = fs.CountError(err)
+				log.Fatal(err)
+			}
+			err = pprof.WriteHeapProfile(f)
+			if err != nil {
+				err = fs.CountError(err)
+				log.Fatal(err)
+			}
+			err = f.Close()
+			if err != nil {
+				err = fs.CountError(err)
+				log.Fatal(err)
+			}
+		})
+	}
+
+	if m, _ := regexp.MatchString("^(bits|bytes)$", *dataRateUnit); m == false {
+		fs.Errorf(nil, "Invalid unit passed to --stats-unit. Defaulting to bytes.")
+		ci.DataRateUnit = "bytes"
+	} else {
+		ci.DataRateUnit = *dataRateUnit
+	}
+}
+```
+* `ctx := context.Background()` init the root context
