@@ -161,3 +161,71 @@ func initConfig() {
 }
 ```
 * `ctx := context.Background()` init the root context
+## all/all.go
+* import all cmd package to init the commands
+## about.go
+``` go
+func init() {
+	cmd.Root.AddCommand(commandDefinition)
+	cmdFlags := commandDefinition.Flags()
+	flags.BoolVarP(cmdFlags, &jsonOutput, "json", "", false, "Format output as JSON")
+	flags.BoolVarP(cmdFlags, &fullOutput, "full", "", false, "Full numbers instead of human-readable")
+}
+```
+* Add command when init
+``` go
+var commandDefinition = &cobra.Command{
+    ...
+    Run: func(command *cobra.Command, args []string) {
+		cmd.CheckArgs(1, 1, command, args)
+		f := cmd.NewFsSrc(args)
+		cmd.Run(false, false, command, func() error {
+			doAbout := f.Features().About
+			if doAbout == nil {
+				return fmt.Errorf("%v doesn't support about", f)
+			}
+			u, err := doAbout(context.Background())
+			if err != nil {
+				return fmt.Errorf("About call failed: %w", err)
+			}
+			if u == nil {
+				return errors.New("nil usage returned")
+			}
+			if jsonOutput {
+				out := json.NewEncoder(os.Stdout)
+				out.SetIndent("", "\t")
+				return out.Encode(u)
+			}
+
+			printValue("Total", u.Total, true)
+			printValue("Used", u.Used, true)
+			printValue("Free", u.Free, true)
+			printValue("Trashed", u.Trashed, true)
+			printValue("Other", u.Other, true)
+			printValue("Objects", u.Objects, false)
+			return nil
+		})
+	},
+}
+```
+* `cmd.Run(false, false, command, func() error` not retry and not show stat
+* `doAbout := f.Features().About` get doAbout function
+``` go
+// printValue formats uv to be output
+func printValue(what string, uv *int64, isSize bool) {
+	what += ":"
+	if uv == nil {
+		return
+	}
+	var val string
+	if fullOutput {
+		val = fmt.Sprintf("%d", *uv)
+	} else if isSize {
+		val = fs.SizeSuffix(*uv).ByteUnit()
+	} else {
+		val = fs.CountSuffix(*uv).String()
+	}
+	fmt.Printf("%-9s%v\n", what, val)
+}
+```
+* print usage value
