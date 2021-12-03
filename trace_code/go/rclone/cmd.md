@@ -161,7 +161,7 @@ func initConfig() {
 }
 ```
 * `ctx := context.Background()` init the root context
-## all/all.go
+## all.go
 * import all cmd package to init the commands
 ## about.go
 ``` go
@@ -229,3 +229,77 @@ func printValue(what string, uv *int64, isSize bool) {
 }
 ```
 * print usage value
+## backend.go
+``` go
+	func(command *cobra.Command, args []string) error {
+		cmd.CheckArgs(2, 1e6, command, args)
+		name, remote := args[0], args[1]
+		cmd.Run(false, false, command, func() error {
+			// show help if remote is a backend name
+			if name == "help" {
+				fsInfo, err := fs.Find(remote)
+				if err == nil {
+					return showHelp(fsInfo)
+				}
+			}
+			// Create remote
+			fsInfo, configName, fsPath, config, err := fs.ConfigFs(remote)
+			if err != nil {
+				return err
+			}
+			f, err := fsInfo.NewFs(context.Background(), configName, fsPath, config)
+			if err != nil {
+				return err
+			}
+			// Run the command
+			var out interface{}
+			switch name {
+			case "help":
+				return showHelp(fsInfo)
+			case "features":
+				out = operations.GetFsInfo(f)
+			default:
+				doCommand := f.Features().Command
+				if doCommand == nil {
+					return fmt.Errorf("%v: doesn't support backend commands", f)
+				}
+				arg := args[2:]
+				opt := rc.ParseOptions(options)
+				out, err = doCommand(context.Background(), name, arg, opt)
+			}
+			if err != nil {
+				return fmt.Errorf("command %q failed: %w", name, err)
+
+			}
+			// Output the result
+			writeJSON := false
+			if useJSON {
+				writeJSON = true
+			} else {
+				switch x := out.(type) {
+				case nil:
+				case string:
+					fmt.Println(out)
+				case []string:
+					for _, line := range x {
+						fmt.Println(line)
+					}
+				default:
+					writeJSON = true
+				}
+			}
+			if writeJSON {
+				// Write indented JSON to the output
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "\t")
+				err = enc.Encode(out)
+				if err != nil {
+					return fmt.Errorf("failed to write JSON: %w", err)
+				}
+			}
+			return nil
+		})
+		return nil
+```
+* `var out interface{}` out value provided by caller
+* `switch x := out.(type)` type switch would handle each case
