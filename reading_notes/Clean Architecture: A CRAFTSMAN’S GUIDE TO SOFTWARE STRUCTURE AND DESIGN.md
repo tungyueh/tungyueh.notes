@@ -180,6 +180,20 @@
 #### Conclusion
 * OCP 目標是讓系統在擴張之際不需要去改動太多本來的東西
 * 藉由把系統分成 components 然後遵循 high-level component 不去依賴 low-level component 避免被 low-level component 的改動所影響需要在改動
+### Chapter 9 LSP: The Liskov Substitution Principle
+#### Guiding the Use of Inheritance
+* Subtype 可以彼此替換而不影響行為就符合 LSP
+#### The Square/Rectangle Problem
+* 正方形繼承矩形會違反 LSP 因為使用的人會認為長度與寬度是獨立的但正方形不符合這樣的定義所以無法彼此替換
+#### LSP and Architecture
+* 早期 LSP 被當成處理繼承的準則但現在被運用在更廣的軟體設計
+* 依賴於定義好的介面則可以替換底下的實作就是 LSP 的價值
+* 藉由如果系統違反 LSP 會造成的後過來理解 LSP 在架構的運用
+#### Example LSP Violation
+* 違反 LSP 之後會讓系統增加很多複雜度
+#### Conclusion
+* LSP 可以運用在架構層面
+* 只要介面不一致無法替換後就會造成系統被很多額外處理機制所污染
 ## PART V Architecture
 ### Chapter 15 What Is Architecture?
 * Software architect 是頂尖 programmer 專注於讓團隊生產力最大化的設計，同時持續進行 programming task 以便了解可能遇到的問題
