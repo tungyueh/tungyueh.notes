@@ -303,3 +303,63 @@ func printValue(what string, uv *int64, isSize bool) {
 ```
 * `var out interface{}` out value provided by caller
 * `switch x := out.(type)` type switch would handle each case
+## bisync.go
+``` go
+// Opt keeps command line options
+var Opt Options
+
+func init() {
+	cmd.Root.AddCommand(commandDefinition)
+	cmdFlags := commandDefinition.Flags()
+	flags.BoolVarP(cmdFlags, &Opt.Resync, "resync", "1", Opt.Resync, "Performs the resync run. Path1 files may overwrite Path2 versions. Consider using --verbose or --dry-run first.")
+	flags.BoolVarP(cmdFlags, &Opt.CheckAccess, "check-access", "", Opt.CheckAccess, makeHelp("Ensure expected {CHECKFILE} files are found on both Path1 and Path2 filesystems, else abort."))
+	flags.StringVarP(cmdFlags, &Opt.CheckFilename, "check-filename", "", Opt.CheckFilename, makeHelp("Filename for --check-access (default: {CHECKFILE})"))
+	flags.BoolVarP(cmdFlags, &Opt.Force, "force", "", Opt.Force, "Bypass --max-delete safety check and run the sync. Consider using with --verbose")
+	flags.FVarP(cmdFlags, &Opt.CheckSync, "check-sync", "", "Controls comparison of final listings: true|false|only (default: true)")
+	flags.BoolVarP(cmdFlags, &Opt.RemoveEmptyDirs, "remove-empty-dirs", "", Opt.RemoveEmptyDirs, "Remove empty directories at the final cleanup step.")
+	flags.StringVarP(cmdFlags, &Opt.FiltersFile, "filters-file", "", Opt.FiltersFile, "Read filtering patterns from a file")
+	flags.StringVarP(cmdFlags, &Opt.Workdir, "workdir", "", Opt.Workdir, makeHelp("Use custom working dir - useful for testing. (default: {WORKDIR})"))
+	flags.BoolVarP(cmdFlags, &tzLocal, "localtime", "", tzLocal, "Use local time in listings (default: UTC)")
+	flags.BoolVarP(cmdFlags, &Opt.NoCleanup, "no-cleanup", "", Opt.NoCleanup, "Retain working files (useful for troubleshooting and testing).")
+}
+```
+* Keep command line options into `Opt`
+``` go
+	RunE: func(command *cobra.Command, args []string) error {
+		cmd.CheckArgs(2, 2, command, args)
+		fs1, file1, fs2, file2 := cmd.NewFsSrcDstFiles(args)
+		if file1 != "" || file2 != "" {
+			return errors.New("paths must be existing directories")
+		}
+
+		ctx := context.Background()
+		opt := Opt
+		opt.applyContext(ctx)
+
+		if tzLocal {
+			TZ = time.Local
+		}
+
+		commonHashes := fs1.Hashes().Overlap(fs2.Hashes())
+		isDropbox1 := strings.HasPrefix(fs1.String(), "Dropbox")
+		isDropbox2 := strings.HasPrefix(fs2.String(), "Dropbox")
+		if commonHashes == hash.Set(0) && (isDropbox1 || isDropbox2) {
+			ci := fs.GetConfig(ctx)
+			if !ci.DryRun && !ci.RefreshTimes {
+				fs.Debugf(nil, "Using flag --refresh-times is recommended")
+			}
+		}
+
+		fs.Logf(nil, "bisync is EXPERIMENTAL. Don't use in production!")
+		cmd.Run(false, true, command, func() error {
+			err := Bisync(ctx, fs1, fs2, &opt)
+			if err == ErrBisyncAborted {
+				os.Exit(2)
+			}
+			return err
+		})
+		return nil
+    }	
+```
+* `fs1, file1, fs2, file2 := cmd.NewFsSrcDstFiles(args)` fs1 is source fs and fs2 is destination fs
+* `commonHashes == hash.Set(0)` means no common hashes because two hash number do and operation would return zero if not the same
