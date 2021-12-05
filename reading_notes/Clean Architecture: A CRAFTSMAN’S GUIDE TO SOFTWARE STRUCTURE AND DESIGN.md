@@ -194,6 +194,42 @@
 #### Conclusion
 * LSP 可以運用在架構層面
 * 只要介面不一致無法替換後就會造成系統被很多額外處理機制所污染
+### Chapter 10 ISP: The Interface Segregation Principle
+* 不同 user depend 相同 operation 但是只用在其中一部分
+* 當 operation 沒用到的部分改變還是需要重新 copmile 跟 deploy
+* 將 operation 隔離成不同 user 注重的東西讓 user 不知接依賴 operation 所以 operation 改變也沒關係
+#### ISP and Language
+* Statucally typed language 才會需要 compile 跟 deploy 的問題
+* Dynamiccaly typed language 是在 runtime 才受到影響
+#### ISP and Architecture
+* 依賴於有沒用到的功能的 module 容易受到影響
+* 會因為不需要的功能而重新 deployment 也有可能因為不需要的功能導致壞掉
+#### Conclusion
+* 依賴於沒用到的功能會導致出乎意料的問題
+### Chapter 11 DIP: The Dependency Inversion Principle
+* DIP 告訴我們最彈性的系統是會讓 source code 依賴於 abstraction 而不是 concretion
+* Statically typed language 只能 include 含有 interface, abstract class 之類的 module 這樣才不會依賴於實作
+* Dynamically typed language 比較能以定義 concrete module 因為所有 function 都是有被實作的
+* 不太可能把所有東西都變成 abstract 因此習慣把穩定的 operatin system 跟 platform facilities 忽略，因為我們知道那些不太會改變
+* 主要是不依賴正在開發頻繁變動的東西
+#### Stable Abstractions
+* 改變 abstract interface 也需要改變實作方式但是改變實作方式卻不一定會改變 interface 所以 interface 比較脆弱
+* 好的設計者會努力讓 interface 穩定只要改變實作方式就可以新增功能，這是軟體設計的基本
+* 穩定的軟體架構會避免依賴容易改變的實作，因此可以歸類成下列幾種實踐的方式
+    * 不要依賴於 concrete class
+    * 不要繼承於 concrete class 
+    * 不要 override concrete functions 因為不僅沒有消除 dependencies 還繼承了這些，為了好好管理這些 dependencies 要抽象化 function 然後去實作
+    * 不要提到任何 concrete name
+#### Factories
+* Object-oriented languages 會用 Abstract Factory 用來處理 dependency
+* Factory 讓 dependency 方向都指向 abstract
+* Abstract componenet 包含 high-level business rules 而 concrete component 包含實作細節
+* Control flow 跟 dependency 的方向不一樣所以稱為 Dependency Inversion
+#### Concrete Components
+* 無法完全遵循 DIP 只能將違反的部分聚集在一小部分的 concrete componenets 中並與系統其他部分分離
+* 系統至少含有一個 concrete component 通常稱為 main
+#### Conclusion
+* DIP 是系統架構最常運用的原則
 ## PART V Architecture
 ### Chapter 15 What Is Architecture?
 * Software architect 是頂尖 programmer 專注於讓團隊生產力最大化的設計，同時持續進行 programming task 以便了解可能遇到的問題
