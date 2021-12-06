@@ -363,3 +363,33 @@ func init() {
 ```
 * `fs1, file1, fs2, file2 := cmd.NewFsSrcDstFiles(args)` fs1 is source fs and fs2 is destination fs
 * `commonHashes == hash.Set(0)` means no common hashes because two hash number do and operation would return zero if not the same
+## cat.go
+``` go
+	Run: func(command *cobra.Command, args []string) {
+		usedOffset := offset != 0 || count >= 0
+		usedHead := head > 0
+		usedTail := tail > 0
+		if usedHead && usedTail || usedHead && usedOffset || usedTail && usedOffset {
+			log.Fatalf("Can only use one of  --head, --tail or --offset with --count")
+		}
+		if head > 0 {
+			offset = 0
+			count = head
+		}
+		if tail > 0 {
+			offset = -tail
+			count = -1
+		}
+		cmd.CheckArgs(1, 1, command, args)
+		fsrc := cmd.NewFsSrc(args)
+		var w io.Writer = os.Stdout
+		if discard {
+			w = ioutil.Discard
+		}
+		cmd.Run(false, false, command, func() error {
+			return operations.Cat(context.Background(), fsrc, w, offset, count)
+		})
+	},
+```
+* `usedOffset`, `usedHead`, `usedTail` to validate flag
+* `var w io.Writer = os.Stdout` set output to stdout
