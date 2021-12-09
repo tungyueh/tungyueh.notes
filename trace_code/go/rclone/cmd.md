@@ -393,3 +393,48 @@ func init() {
 ```
 * `usedOffset`, `usedHead`, `usedTail` to validate flag
 * `var w io.Writer = os.Stdout` set output to stdout
+## check.go
+``` go
+	RunE: func(command *cobra.Command, args []string) error {
+		cmd.CheckArgs(2, 2, command, args)
+		var (
+			fsrc, fdst fs.Fs
+			hashType   hash.Type
+			fsum       fs.Fs
+			sumFile    string
+		)
+		if checkFileHashType != "" {
+			if err := hashType.Set(checkFileHashType); err != nil {
+				fmt.Println(hash.HelpString(0))
+				return err
+			}
+			fsum, sumFile, fsrc = cmd.NewFsSrcFileDst(args)
+		} else {
+			fsrc, fdst = cmd.NewFsSrcDst(args)
+		}
+
+		cmd.Run(false, true, command, func() error {
+			opt, close, err := GetCheckOpt(fsrc, fdst)
+			if err != nil {
+				return err
+			}
+			defer close()
+
+			if checkFileHashType != "" {
+				return operations.CheckSum(context.Background(), fsrc, fsum, sumFile, hashType, opt, download)
+			}
+
+			if download {
+				return operations.CheckDownload(context.Background(), opt)
+			}
+			hashType := fsrc.Hashes().Overlap(fdst.Hashes()).GetOne()
+			if hashType == hash.None {
+				fs.Errorf(nil, "No common hash found - not using a hash for checks")
+			} else {
+				fs.Infof(nil, "Using %v for hash comparisons", hashType)
+			}
+			return operations.Check(context.Background(), opt)
+		})
+		return nil
+	}
+```
