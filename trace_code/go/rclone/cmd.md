@@ -438,3 +438,7 @@ func init() {
 		return nil
 	}
 ```
+* `opt, close, err := GetCheckOpt(fsrc, fdst)` get check options and close method to be defer
+* `operations.CheckSum` CheckSum checks filesystem hashes against a SUM file
+* `operations.CheckDownload` check file size and actual file content
+*  `operations.Check` check file size and hash
