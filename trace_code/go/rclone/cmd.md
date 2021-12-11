@@ -441,4 +441,26 @@ func init() {
 * `opt, close, err := GetCheckOpt(fsrc, fdst)` get check options and close method to be defer
 * `operations.CheckSum` CheckSum checks filesystem hashes against a SUM file
 * `operations.CheckDownload` check file size and actual file content
-*  `operations.Check` check file size and hash
+* `operations.Check` check file size and hash
+## config.go
+``` go
+func init() {
+	cmd.Root.AddCommand(configCommand)
+	configCommand.AddCommand(configEditCommand)
+	configCommand.AddCommand(configFileCommand)
+	configCommand.AddCommand(configTouchCommand)
+	configCommand.AddCommand(configPathsCommand)
+	configCommand.AddCommand(configShowCommand)
+	configCommand.AddCommand(configDumpCommand)
+	configCommand.AddCommand(configProvidersCommand)
+	configCommand.AddCommand(configCreateCommand)
+	configCommand.AddCommand(configUpdateCommand)
+	configCommand.AddCommand(configDeleteCommand)
+	configCommand.AddCommand(configPasswordCommand)
+	configCommand.AddCommand(configReconnectCommand)
+	configCommand.AddCommand(configDisconnectCommand)
+	configCommand.AddCommand(configUserInfoCommand)
+}
+```
+* Add configCommand to root and add others as sub command
+* Each command call fs/config method
