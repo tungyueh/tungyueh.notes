@@ -443,6 +443,7 @@ func init() {
 * `operations.CheckDownload` check file size and actual file content
 * `operations.Check` check file size and hash
 ## config.go
+* Multiple init function allow the function to be near by init fuction
 ``` go
 func init() {
 	cmd.Root.AddCommand(configCommand)
@@ -464,3 +465,44 @@ func init() {
 ```
 * Add configCommand to root and add others as sub command
 * Each command call fs/config method
+``` go
+// This takes a list of arguments in key value key value form, or
+// key=value key=value form and converts it into a map
+func argsToMap(args []string) (out rc.Params, err error) {
+	out = rc.Params{}
+	for i := 0; i < len(args); i++ {
+		key := args[i]
+		equals := strings.IndexRune(key, '=')
+		var value string
+		if equals >= 0 {
+			key, value = key[:equals], key[equals+1:]
+		} else {
+			i++
+			if i >= len(args) {
+				return nil, errors.New("found key without value")
+			}
+			value = args[i]
+		}
+		out[key] = value
+	}
+	return out, nil
+}
+```
+* `equals := strings.IndexRune(key, '=')` find the index of '='
+* `key, value = key[:equals], key[equals+1:]` get key from args
+## copy.go
+``` go
+	Run: func(command *cobra.Command, args []string) {
+
+		cmd.CheckArgs(2, 2, command, args)
+		fsrc, srcFileName, fdst := cmd.NewFsSrcFileDst(args)
+		cmd.Run(true, true, command, func() error {
+			if srcFileName == "" {
+				return sync.CopyDir(context.Background(), fdst, fsrc, createEmptySrcDirs)
+			}
+			return operations.CopyFile(context.Background(), fdst, fsrc, srcFileName, srcFileName)
+		})
+	},
+```
+* If no source file, copy directory to destination
+* If has source file, copy file to destination
