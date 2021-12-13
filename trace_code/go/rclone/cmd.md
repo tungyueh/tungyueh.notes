@@ -506,3 +506,39 @@ func argsToMap(args []string) (out rc.Params, err error) {
 ```
 * If no source file, copy directory to destination
 * If has source file, copy file to destination
+## copyurl.go 
+``` go
+	RunE: func(command *cobra.Command, args []string) (err error) {
+		cmd.CheckArgs(1, 2, command, args)
+
+		var dstFileName string
+		var fsdst fs.Fs
+		if !stdout {
+			if len(args) < 2 {
+				return errors.New("need 2 arguments if not using --stdout")
+			}
+			if args[1] == "-" {
+				stdout = true
+			} else if autoFilename {
+				fsdst = cmd.NewFsDir(args[1:])
+			} else {
+				fsdst, dstFileName = cmd.NewFsDstFile(args[1:])
+			}
+		}
+		cmd.Run(true, true, command, func() error {
+			var dst fs.Object
+			if stdout {
+				err = operations.CopyURLToWriter(context.Background(), args[0], os.Stdout)
+			} else {
+				dst, err = operations.CopyURL(context.Background(), fsdst, dstFileName, args[0], autoFilename, noClobber)
+				if printFilename && err == nil && dst != nil {
+					fmt.Println(dst.Remote())
+				}
+			}
+			return err
+		})
+		return nil
+	},
+```
+*  `operations.CopyURLToWriter` copy URL content to stdout
+*  `operations.CopyURL` copy URL to file
