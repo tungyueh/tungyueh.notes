@@ -44,3 +44,24 @@ func (f *Fs) getMetadata(ctx context.Context, objPath string) (entry files.IsMet
 * `f.pacer.Call` could retry calls with a configurable delay in between
 * `shouldRetry(ctx, err)` decide to retry or not
 * `switch e := err.(type)` use type switch to return notFound if GetMetadataAPIError
+``` go
+// getFileMetadata gets the metadata for a file
+func (f *Fs) getFileMetadata(ctx context.Context, filePath string) (fileInfo *files.FileMetadata, err error) {
+	entry, notFound, err := f.getMetadata(ctx, filePath)
+	if err != nil {
+		return nil, err
+	}
+	if notFound {
+		return nil, fs.ErrorObjectNotFound
+	}
+	fileInfo, ok := entry.(*files.FileMetadata)
+	if !ok {
+		if _, ok = entry.(*files.FolderMetadata); ok {
+			return nil, fs.ErrorIsDir
+		}
+		return nil, fs.ErrorNotAFile
+	}
+	return fileInfo, nil
+}
+```
+* `fileInfo, ok := entry.(*files.FileMetadata)` use type assertion to check and convert type
