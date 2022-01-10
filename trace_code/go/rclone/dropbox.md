@@ -65,3 +65,87 @@ func (f *Fs) getFileMetadata(ctx context.Context, filePath string) (fileInfo *fi
 }
 ```
 * `fileInfo, ok := entry.(*files.FileMetadata)` use type assertion to check and convert type
+``` go
+// Return an Object from a path
+//
+// If it can't be found it returns the error fs.ErrorObjectNotFound.
+func (f *Fs) newObjectWithInfo(ctx context.Context, remote string, info *files.FileMetadata) (fs.Object, error) {
+	o := &Object{
+		fs:     f,
+		remote: remote,
+	}
+	var err error
+	if info != nil {
+		err = o.setMetadataFromEntry(info)
+	} else {
+		err = o.readEntryAndSetMetadata(ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+```
+* return the pointer to Object init with info or ctx
+``` go
+// NewObject finds the Object at remote.  If it can't be found
+// it returns the error fs.ErrorObjectNotFound.
+func (f *Fs) NewObject(ctx context.Context, remote string) (fs.Object, error) {
+	if f.opt.SharedFiles {
+		return f.findSharedFile(ctx, remote)
+	}
+	return f.newObjectWithInfo(ctx, remote, nil)
+}
+```
+* Get object with nil info
+``` go
+// listSharedFoldersApi lists all available shared folders mounted and not mounted
+// we'll need the id later so we have to return them in original format
+func (f *Fs) listSharedFolders(ctx context.Context) (entries fs.DirEntries, err error) {
+	started := false
+	var res *sharing.ListFoldersResult
+	for {
+		if !started {
+			arg := sharing.ListFoldersArgs{
+				Limit: 100,
+			}
+			err := f.pacer.Call(func() (bool, error) {
+				res, err = f.sharing.ListFolders(&arg)
+				return shouldRetry(ctx, err)
+			})
+			if err != nil {
+				return nil, err
+			}
+			started = true
+		} else {
+			arg := sharing.ListFoldersContinueArg{
+				Cursor: res.Cursor,
+			}
+			err := f.pacer.Call(func() (bool, error) {
+				res, err = f.sharing.ListFoldersContinue(&arg)
+				return shouldRetry(ctx, err)
+			})
+			if err != nil {
+				return nil, fmt.Errorf("list continue: %w", err)
+			}
+		}
+		for _, entry := range res.Entries {
+			leaf := f.opt.Enc.ToStandardName(entry.Name)
+			d := fs.NewDir(leaf, time.Now()).SetID(entry.SharedFolderId)
+			entries = append(entries, d)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if res.Cursor == "" {
+			break
+		}
+	}
+
+	return entries, nil
+}
+```
+* Use `started` as a flag to call first API
+* `entries` is named return value to store result
+* `res` contains entries result and cursor
+* Break loop if cursor is empty
