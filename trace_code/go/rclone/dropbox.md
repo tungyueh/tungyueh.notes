@@ -149,3 +149,21 @@ func (f *Fs) listSharedFolders(ctx context.Context) (entries fs.DirEntries, err 
 * `entries` is named return value to store result
 * `res` contains entries result and cursor
 * Break loop if cursor is empty
+``` go
+// findSharedFolder find the id for a given shared folder name
+// somewhat annoyingly there is no endpoint to query a shared folder by it's name
+// so our only option is to iterate over all shared folders
+func (f *Fs) findSharedFolder(ctx context.Context, name string) (id string, err error) {
+	entries, err := f.listSharedFolders(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range entries {
+		if entry.(*fs.Dir).Remote() == name {
+			return entry.(*fs.Dir).ID(), nil
+		}
+	}
+	return "", fs.ErrorDirNotFound
+}
+```
+* `entry.(*fs.Dir).Remote()` check `entry` is type of `fs.Dir` then call Remote()
