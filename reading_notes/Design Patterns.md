@@ -16,3 +16,49 @@
 * Decoupling objects 讓 objects 改動的時候不會需要改動一堆東西可以在 Observer design pattern 找的類似概念
 * MVC 的 Composite View 當成一般的 View 可以在 Composite design pattern 找到類似概念
 * MVC View 跟 Controller 的關係像是 Strategy design pattern 的一種例子
+### 1.3 Describing Design Patterns
+* Pattern Name and Classification: 好的名字可以從設計的字典裡很快的找到需要的設計
+* Intent: 設計的原理跟意圖，要解決哪種問題，如何解決
+* Also Known As: 關於 pattern 的其他名字
+* Motivation: class 跟 object 在 pattern 如何架構來解決問題，幫助以抽象化的方式來理解 pattern
+* Applicability: 哪些情境可以套用這個 pattern，辨認可以使用的情境
+* Structure: 圖像化的方式來表達 class 之間的關係
+* Participants: class 跟 object 在 design pattern 扮演的腳色跟責任
+* Collaborations: participants 之間如何溝通來達成他們的責任
+* Implementation: 實作的技巧
+* Sample Code: 使用 C++ 或 Smalltalk 的 code 片段來說明如何實作
+* Known Uses: 真實世界的範例
+* Related Pattern: 類似的 pattern
+### 1.4 The Catalog of Design Patterns
+* Abstract Factory: 提供一個介面可以不需要定義好 concrete class 就可以製造出一群 objects
+* Adapter: 把 class interface 轉換成 client 期待的 interface，讓 class 可以一起工作
+* Bridge: Decouple 實作跟 abstraction 讓兩者可以各自獨立
+* Builder: 把建立的步驟分離開來讓我們可以使用相同的建立步驟製造出不同東西
+* Chain of Responsibility: 只在需要處理 object 的時候才處理不然直接往下傳給其他人處理
+* Command: 封裝 request 成物件讓 client 可以對不同 request 做處理
+* Composite: 把 object 以樹狀結構組合再一起讓 client 可以當成一樣的 object 來使用
+* Decorator: 動態的增加 object 的行為
+* Facade: 提供一致性的介面讓 subsystem 容易使用
+* Factory Method: 定義如何建立 object 的介面但讓 subclass 自己決定要用哪種 class 初始化
+* Flyweight: 共享來有效率的管理大量類似 object
+* Interpreter: 定義語言跟文法來解析
+* Iterator: 提供讀取連續的 object 但不需要理解底下實作方式
+* Mediator: 定義一個 object 來與多個 object 互動而不需要一一對 object 作互動
+* Memento: 不知道 object 內部細節的情況下讀取目前狀態以便之後能回復跟狀態
+* Observer: 定義 one-to-many 的依賴關係讓一個 object 變動的時候相關的 object 都可以收到通知
+* Prototype: 使用已存在的 object 來建立新的 object
+* Proxy: 提供對於其他 object 的控制權限
+* Singleton: 確保 class 只有一個 instance 給予一個 global point 存取
+* State: 根據內部狀態改變 object 行為
+* Strategy: 將 algorithm 封裝起來並且可替換，讓不同 client 與 algorithm 彼此獨立
+* Template Method: 定義 algorithm 架構讓 subclass 決定其中步驟，讓 subclass 只需透過改寫步驟而不需改動整個架構
+* Visitor: 新增 operation 也不須改動 class 操作的地方
+### 1.5 Organizing the Catalog
+* Design pattern 有不同程度的 abstraction 所以分類可以幫助學習同個分類下的 pattern 更快速
+* Purpose 根據目的分為 creational, structural, behavioral
+    * Creational patterns 專注於 object 的建立過程
+    * Structural patterns 處理 class 跟 object 之間的關係
+    * Behavioral patterns 處理 class 跟 object 之間的責任
+* Scope 說明是針對 class 還是 object
+    * Class patterns 處理 class 跟 subclass 之間的關係
+    * Object patterns 處理 object 之間的關係
