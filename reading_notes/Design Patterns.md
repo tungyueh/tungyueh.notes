@@ -62,3 +62,8 @@
 * Scope 說明是針對 class 還是 object
     * Class patterns 處理 class 跟 subclass 之間的關係
     * Object patterns 處理 object 之間的關係
+### 1.6 How Design Patterns Solve Design Problems
+#### Finding Appropriate Objects
+* 用 object 組成系統需要考量很多面向所以很困難，encapsulation, granularity, dependency, flexibility, performance, evolution, reusability 之類的面向
+* 通常都透過分析 model 來產出需要的 object 但是 object-oriented Design 最後產出的 object 有些無法直接對應的真實世界
+* Desing pattern 幫助我們找出沒有這們明顯的 abstraction 例如 algorithm 跟 state 這種不然容易在早期設計發現的東西
