@@ -67,3 +67,16 @@
 * 用 object 組成系統需要考量很多面向所以很困難，encapsulation, granularity, dependency, flexibility, performance, evolution, reusability 之類的面向
 * 通常都透過分析 model 來產出需要的 object 但是 object-oriented Design 最後產出的 object 有些無法直接對應的真實世界
 * Desing pattern 幫助我們找出沒有這們明顯的 abstraction 例如 algorithm 跟 state 這種不然容易在早期設計發現的東西
+#### Determining Object Granularity
+* Design pattern 幫助判斷 object 的大小
+* Facade pattern 描述如何用 object 描述整個系統
+* Flyweight pattern 描述如何管理大量的 object
+* 把 object 切分成更小的 object
+* Abstract Factory 跟 Build pattern 切分出只負責產生 object 的 object
+* Visitor 跟 Command pattern 切分出只負責處理 request 的 object
+#### Specifying Object Interfaces
+* Operation signature 包含 object operation 的名字、參數跟回傳值
+* Object Interface 是該 object 所有的 operation signature
+* Type 是指 object 符合所有 interface，subtype 代表符合一部分的 interface
+* Dynamic binding 指送 request 給 object 要到 run-time 才能知道如何實作，這種可替代性稱為 polymorphism
+* Design pattern 幫助我們定好 interface 決定 object 如何溝通
