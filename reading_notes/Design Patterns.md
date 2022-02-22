@@ -80,3 +80,8 @@
 * Type 是指 object 符合所有 interface，subtype 代表符合一部分的 interface
 * Dynamic binding 指送 request 給 object 要到 run-time 才能知道如何實作，這種可替代性稱為 polymorphism
 * Design pattern 幫助我們定好 interface 決定 object 如何溝通
+#### Specifying Object Implementations
+* Class 定義 object 的實作，object 從 class 被初始化出來
+* class 可以使用繼承從已定義好的 class 產生，有 parent class 的 data 跟 operation
+* Abstract class 只定義好 interface 留給 subclass 定義實作，相反的為 concrete class
+* Mixin class 提供額外的 interface 跟功能
