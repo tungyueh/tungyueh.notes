@@ -85,3 +85,6 @@
 * class 可以使用繼承從已定義好的 class 產生，有 parent class 的 data 跟 operation
 * Abstract class 只定義好 interface 留給 subclass 定義實作，相反的為 concrete class
 * Mixin class 提供額外的 interface 跟功能
+#### Class versus Interface Inheritance
+* Object 的 class 定義實作方式跟內部狀態，Object 的 type 定義對外溝通的 interface
+* Class 繼承包含作用機制而 interface 繼承代表 object 可以用在哪些地方
