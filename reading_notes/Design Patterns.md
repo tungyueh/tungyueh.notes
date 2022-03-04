@@ -88,3 +88,13 @@
 #### Class versus Interface Inheritance
 * Object 的 class 定義實作方式跟內部狀態，Object 的 type 定義對外溝通的 interface
 * Class 繼承包含作用機制而 interface 繼承代表 object 可以用在哪些地方
+#### Programming to an Interface, not an Implementation
+* class 繼承可以讓我們很方便的從現有的 class 重用功能
+* 繼承實作外還有介面，要抱持一樣的介面因為 polymorphism 依賴於這個介面
+* 只對介面做事可以跟實作減少依賴，就可以不用知道實作方式，只要介面不變而 code 就不用動
+#### Inheritance versus Composition
+* class 繼承稱為 white-box reuse 因為 subclass 可以看到 parent class 的內部
+* object composition 稱為 black-box reuse 因為透過 object interface 組出更複雜的功能但不知道 object 內部的實作
+* 繼承缺點是只要 parent 有改動會影響到所有繼承的 class，會破壞 encasuplation
+* Composition 會有很多的 object 著重在彼此的互動關係
+* 盡量選擇 compostion 而不是繼承，但通常無法使用現有的 object 來組出需要的功能還是需要使用繼承來快速產生需要的 object
