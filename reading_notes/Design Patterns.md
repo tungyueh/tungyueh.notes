@@ -98,3 +98,28 @@
 * 繼承缺點是只要 parent 有改動會影響到所有繼承的 class，會破壞 encasuplation
 * Composition 會有很多的 object 著重在彼此的互動關係
 * 盡量選擇 compostion 而不是繼承，但通常無法使用現有的 object 來組出需要的功能還是需要使用繼承來快速產生需要的 object
+#### Delegation
+* Delegation 讓 composition 像是繼承一樣方便使用
+* Delegation 是有兩個 object 對 request 做處理，但繼承是透過 refer 到自己來做處理
+* Delegation 優點是可以在 run-time 改變組成的 object，缺點是 dynamic highly parameterized 的軟體不好理解
+* Delegation 是 composition 一個極端的例子用來說明永遠可以替換掉繼承來 reuse code
+#### Inheritance versus Parameterized Types
+* 透過 paremeterized type 可以重用功能，例如 List class 可以對 element 設定不同的 type 而不需要每種 type 都提供 List class
+* Paremeterized types 跟繼承一樣無法再 run-time 改變
+#### Relating Run-Time and Compile-Time Structures
+* Code 架構在 compile-time 就已經決定了，例如 class 的繼承關係，run-time 的架構是包含 object 之間的改變
+* Aggregation 是指 object 被其他 object 所需要
+* Acquaintance 是指 object 有可能被其他 object 用到，關係比 aggregation 弱
+* Aggregation 的關係比起 Acquaintance 固定，Acquaintance 比較 dynamic 所以會讓 code 更難讀懂
+* Run-time structure 主要受設計所影響，所以要好好設計才能友好的 run-time structure
+#### Designing for Change
+* 知道可能有哪些 change 才能設計出可以很好接受這些 change 的系統，沒有把 change 考量進去的 design 通常在未來需要重新 design
+* Design pattern 幫助系統可以接納以一定方式演化所需要的 change
+#### Application Programs
+* 可重用、維護性跟擴充性是撰寫 application program 最重要的事情，確保不需要做多餘的設計跟實作
+* Design pattern 幫助減少 dependencies 來提高可重用性
+* Design pattern 讓 application 更容易維護，減少coupling就可以提高extensibility
+#### Toolkits
+* Application 通常會使用其他的 library 的 predefined class 稱為 toolkit
+* Toolkit 以提供功能為目的而不是針對 application 所設計
+* Toolkit 比起 application 要難因為要提供足夠好用且泛用的功能
