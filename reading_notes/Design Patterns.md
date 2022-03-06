@@ -123,3 +123,26 @@
 * Application 通常會使用其他的 library 的 predefined class 稱為 toolkit
 * Toolkit 以提供功能為目的而不是針對 application 所設計
 * Toolkit 比起 application 要難因為要提供足夠好用且泛用的功能
+#### Frameworks
+* 可以對特定面向的軟體客製化成自己所需要的
+* 定義整個結構提供 design parameter 來讓人客製化，讓 design 可以 reuse 而不是 code reuse 但還是會提供 concrete subclasses 讓人可以快速使用
+* Toolkit 是寫好主要部分後呼叫，而 framework 是寫會被呼叫到的 code
+* Framework 缺點是少了一些自由因為都已經幫你做好 design decision
+* Framwork 相對於 toolkit 跟 application 更難因為需要對該領域的 application 設計好架構，需要設計的有彈性跟擴充性
+* Application 依賴於 framework 所以 framework 有改變就會影響到 application 需要跟著改變
+* 透過學習 pattern 可以更快了解 framework 稍微降低學習曲線
+### 1.7 How to Select a Design Pattern
+* 思考 design pattern 如何幫助找出適當的 object 跟 granularity 跟 interface
+* 看看 pattern 的目的可以找出跟現在問題有關的
+* 研究 pattern 之間的關係可以直接找到正確的 pattern
+* 研究三大類的 pattern 之間的異同
+* 檢視為何需要重新設計來找到 pattern 可以避免
+* 思考哪些是設計中可以變動的，
+### 1.8 How to Use a Design Pattern
+1. 快速研讀 pattern 的好壞處
+2. 回頭讀 class 跟 object 之間的關係
+3. 看 sample code 來幫助如何實作 pattern
+4. 挑選 pattern participants 合適的名字因為 pattern 通常太泛用
+5. 定義 classes，定好 interface、繼承關係
+6. 為 pattern operation 定好跟 application 相關的名字
+7. 實作 operation 來執行責任
