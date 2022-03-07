@@ -146,3 +146,12 @@
 5. 定義 classes，定好 interface、繼承關係
 6. 為 pattern operation 定好跟 application 相關的名字
 7. 實作 operation 來執行責任
+## 2 A Case Study: Designing a Document Editor
+### 2.1 Design Problems
+* Document structure 會影響到所有 application 其他的部分，決定如何在 application 中組織這些 document
+* Formatting 如何把圖片跟文字排好? 哪個 object 要負責各式各樣的 formatting? 如何跟 docuemen 溝通
+* User Interface 的細節要如何能夠保持不斷演化而不影響其他部分
+* 支援不同主題而不需修改太多
+* 支援多種 window system 讓 design 能與 window system 彼此獨立
+* User Operation 散落在各個畫面上，要如何提供一致的方式來存取或 undo 效果
+* 支援檢查錯字跟決定斷行
