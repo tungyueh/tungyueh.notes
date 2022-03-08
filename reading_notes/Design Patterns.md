@@ -155,3 +155,9 @@
 * 支援多種 window system 讓 design 能與 window system 彼此獨立
 * User Operation 散落在各個畫面上，要如何提供一致的方式來存取或 undo 效果
 * 支援檢查錯字跟決定斷行
+### 2.2 Document Structure
+* 把文字跟圖一視同仁
+* 把單一 element 跟多個 element 一視同仁
+#### Recursive Composition
+* 透過簡單的 element 組成複雜的 element
+* 透過把文字跟圖片當成一樣的 element 就可以不管怎麼呈現跟排版，未來加入新的字元也不影響其他功能
