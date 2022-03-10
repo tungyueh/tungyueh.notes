@@ -161,3 +161,8 @@
 #### Recursive Composition
 * 透過簡單的 element 組成複雜的 element
 * 透過把文字跟圖片當成一樣的 element 就可以不管怎麼呈現跟排版，未來加入新的字元也不影響其他功能
+#### Glyphs
+* Glyphs 是 abstract class 讓所有可能出現在 document 的人繼承
+* 知道如何畫出來、知道佔據多少空間、知道 parent 跟 child
+#### Composite Pattern
+* 遞迴的組成比起單純的 document 要來的好，因為可以對未來有可能變複雜且階層式的架構建立彈性
