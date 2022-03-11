@@ -166,3 +166,6 @@
 * 知道如何畫出來、知道佔據多少空間、知道 parent 跟 child
 #### Composite Pattern
 * 遞迴的組成比起單純的 document 要來的好，因為可以對未來有可能變複雜且階層式的架構建立彈性
+### 2.3 Formatting
+* 由於 formatting algorithm 有很多種變化，所以封裝起來方便替換不同 algorithm
+* 封裝 algorithm 也是為了 Strategy pattern，設計好 interface 跟 contextr 就可以支援多種 algorithm
