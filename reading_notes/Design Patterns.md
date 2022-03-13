@@ -169,3 +169,11 @@
 ### 2.3 Formatting
 * 由於 formatting algorithm 有很多種變化，所以封裝起來方便替換不同 algorithm
 * 封裝 algorithm 也是為了 Strategy pattern，設計好 interface 跟 contextr 就可以支援多種 algorithm
+### 2.4 Embellishing the User Interface
+* 修飾的部分不該讓 user interface object 才能夠隨時增加減少裝飾而不影響 user interface object
+* 使用繼承來實作會有一堆 classes，因為需要對所有可能的組合建立 class 所以也不可行
+* Composition 是比較有彈性跟可能性的作法，讓裝飾的 class 知道 Glyphs class 的存在才不需要修改原本的 Glyphs class
+* 裝飾的 class 需要跟 Glyphs 的 interface 一樣因為 client 不需要知道有沒有裝飾的 class
+* Transparent enclosure 有單一 child 跟相容性的 interface，可以直接 delegate operation 或者增加一些行為還可以增加狀態
+* 透過不同的 transparent enclosure 可以嘗試不同組合的效果
+* Decorator pattern 嘗試捕捉 transparent enclosure 的關係，為本來的 object 增加一點責任
