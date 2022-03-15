@@ -177,3 +177,7 @@
 * Transparent enclosure 有單一 child 跟相容性的 interface，可以直接 delegate operation 或者增加一些行為還可以增加狀態
 * 透過不同的 transparent enclosure 可以嘗試不同組合的效果
 * Decorator pattern 嘗試捕捉 transparent enclosure 的關係，為本來的 object 增加一點責任
+### 2.5 Supporting Multiple Look-and-Feel Standards
+* 軟體應該要能夠容易的在不同平台上移植並且根據平台有不同的呈現方式
+* 根據不同平台使用不同的 style 但是每次移植平台都需要確認各處初始化 style 很難開發
+* 需要有可以換掉整套風格的方法
