@@ -183,3 +183,8 @@
 * 需要有可以換掉整套風格的方法
 * 透過 facctory 可以隱藏初始化特定風格來減少對風格的 dependency
 * 從以上可以推導出 Abstract Factory Pattern，提出如何建立類似的東西但不需要直接初始化 class
+### 2.6 Supporting Multiple Window Systems
+* 無法使用 abstract factory 因為不同的 window system 都有不同的規格，需要有統一的 interface 才有辦法使用
+* 可以使用大家的交集定成 interface 缺點是需要捨棄大部分都有的功能，或者只要有的功能都納入缺點是 interface 會過於龐大跟雜亂
+* 根據不同 window system 實作會需要再編譯的時候選擇要用哪種版本，缺點是維護的時候會有一堆相同名稱但不同實作的 class，但如果加入 window system 在 class 名稱又會有太大量的 class 產生
+* 把不一樣的地方封裝起來，把不同的實作方式封裝起來
