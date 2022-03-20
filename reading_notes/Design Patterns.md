@@ -188,3 +188,15 @@
 * 可以使用大家的交集定成 interface 缺點是需要捨棄大部分都有的功能，或者只要有的功能都納入缺點是 interface 會過於龐大跟雜亂
 * 根據不同 window system 實作會需要再編譯的時候選擇要用哪種版本，缺點是維護的時候會有一堆相同名稱但不同實作的 class，但如果加入 window system 在 class 名稱又會有太大量的 class 產生
 * 把不一樣的地方封裝起來，把不同的實作方式封裝起來
+* 使用 Implement class 繼承原本的隱藏不同 window system 的實作，讓原本的 class 保持簡單的繼承關係不被關於不同實作方式所汙染
+* 實作 class 貼近於實際實作的東西而 Interface 就可以選擇要用那些 feature 提供給 application programmer 使用，這樣就有一定的彈性來選擇不同方式
+* Bridge Pattern 由此問題發展出來，藉由把不同的 class hierarchies 讓不同面向的 class 可以各自演化又能彼此合作，像是一個面向 window 的 logic notion 而另外一個面向 window 的實作
+### 2.7 User Operations
+* 需要支援各種 user operation 但不能把 interface 跟 operation 綁再一起因為會有多個 interface 對應到相同的 operation 而且 interface 也有可能會改變
+* 需要有 redo 跟 undo 功能在一部份的 operation 上面，還希望沒有限制次數的 redo 跟 undo
+* 下拉式選單也是一種 Glyph 只是用於回應 request，但如果為每個 operation 都去建立處理 request 的 subclass 會太 coupling
+* 使用 function 來 parameterize object 會無法支援 undo/redo、需要知道目前狀態跟不容易 reuse，所以應該要直接從 object parameterize
+* 把 request 封裝到 command object，只有一個 execute method 而 subclass 各自去實作來迎合不同 request
+* 需要 unexecute method 來支援 undo，為了處理沒有意義的 undo 再加入 reversible method 來判斷可不可以 undo
+* 需要紀錄 command history 來支援 undo 跟 redo
+* Command pattern 描述如何封裝 request 提供一個 common interface 根據設定來處理 request
