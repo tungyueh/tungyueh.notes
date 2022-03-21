@@ -200,3 +200,11 @@
 * 需要 unexecute method 來支援 undo，為了處理沒有意義的 undo 再加入 reversible method 來判斷可不可以 undo
 * 需要紀錄 command history 來支援 undo 跟 redo
 * Command pattern 描述如何封裝 request 提供一個 common interface 根據設定來處理 request
+### 2.8 Spelling Checking and Hyphenation
+* 檢查拼寫跟斷行方式可能會有不同 algorithm 來提供各種 trade-offs 的選擇
+* 不想要把功能綁在 document structure 上面因為會不斷的加入新功能
+* 問題在於要能在散落各處的 glyphs 存取資訊來分析
+* 存取機制要能套用在各種資料結構上面，加上會需要不同的存取方式
+* Glyphs interface 加上各種存取跟 traversal 的方式，缺點是無法支援新的 traversal
+* 把不同的地方封裝起來才是比較好的方法，使用 iterator class 來封裝 traversal 機制
+* Iterator pattern 捕捉這種支援各種 data structure 的 access 跟 traversal 的技巧
