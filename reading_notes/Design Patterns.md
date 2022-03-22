@@ -208,3 +208,9 @@
 * Glyphs interface 加上各種存取跟 traversal 的方式，缺點是無法支援新的 traversal
 * 把不同的地方封裝起來才是比較好的方法，使用 iterator class 來封裝 traversal 機制
 * Iterator pattern 捕捉這種支援各種 data structure 的 access 跟 traversal 的技巧
+* 文法檢查跟斷行在 traversal 中累績資訊來分析，把 traversal 跟之中所做的動作分開才方便 reuse
+* 針對不同 Glyphs 做分析但是如果在每種 Glyphs 都增加分析功能之後只要新增一種分析就需要去改每種 Glyphs，所以將分析的能力封裝到不同 object 比較好
+* 分析裡面要避免有一堆判斷哪種 Glyphs 的 code，為每個 Glyphs subclass 增加 CheckMe 就可以實作各種檢查的機制
+* 新的分析方法如果要獨立 class 則需要繼續新增類似 CheckMe 但是可以將所有分析方法放在同一個 class 提供統一的 interface
+* Visitor 指 traversal object 並做一些事情，之後新增加分析方法就只要新增 subclass 而不需要動到其他地方
+* Visitor pattern 提供在不改變 traversal class 的 code 可以有各種不同的分析方式，需要注意適合使用在對固定的東西做各種不同的事情，因為只要多新增 structure 就需要改動所有 visitor 的 operation
