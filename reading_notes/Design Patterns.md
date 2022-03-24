@@ -214,3 +214,12 @@
 * 新的分析方法如果要獨立 class 則需要繼續新增類似 CheckMe 但是可以將所有分析方法放在同一個 class 提供統一的 interface
 * Visitor 指 traversal object 並做一些事情，之後新增加分析方法就只要新增 subclass 而不需要動到其他地方
 * Visitor pattern 提供在不改變 traversal class 的 code 可以有各種不同的分析方式，需要注意適合使用在對固定的東西做各種不同的事情，因為只要多新增 structure 就需要改動所有 visitor 的 operation
+### 2.9 Summary
+* Composite 來表示文件結構
+* Strategy 允許有不同格式
+* Decorator 給 user interface 增加裝飾
+* Abstract Factory 支援各種平台外觀標準
+* Bridge 支援不同 window system
+* Command 支援 undoable 操作
+* Iterator 來讀取跟 traveral 文件
+* Visitor 可以有不同分析方法
