@@ -223,3 +223,25 @@
 * Command 支援 undoable 操作
 * Iterator 來讀取跟 traveral 文件
 * Visitor 可以有不同分析方法
+
+### 5 Behavioral Patterns
+### Chain of Responsibility
+### Command
+### Interpreter
+### Iterator
+### Mediator
+### Memento
+### Observer
+* 目的: 定義一對多的關係，當一個 object 改變狀態時候其他 object 要能被通知更新
+* 動機
+    * 不同 object 要維持一致性但不想讓 class 太過 coupled 導致 reusability 降低
+    * subject 會有很多 observer 當 subject 改變狀態所有 observer 會被通知，observer 會去查詢 subject 狀態達成同步，這種互動稱為 publish-subscribe
+* 適用情境
+    * 封裝不同的概念在不同 object
+    * 改變 object 狀態但不知道需要改變多少其他 object
+    * 不用知道需要通知的 object 的模樣就可以通知避免太過 coupled
+* 參與角色
+    * Subject: 知道所有 observer 提供 attach 跟 detach 的功能來讓任意數量的 observers observe
+    * Observer: 定義 update 的 interface 讓 subject 可以通知
+    * ConcreteSubject: 儲存 ConcreteObserver objects 需要同步的狀態，當狀態改變通知 observers
+    * ConcreteObserver: 儲存需要跟 subject 同步的狀態，實作 update interface 來與 subject 做同步
