@@ -245,3 +245,21 @@
     * Observer: 定義 update 的 interface 讓 subject 可以通知
     * ConcreteSubject: 儲存 ConcreteObserver objects 需要同步的狀態，當狀態改變通知 observers
     * ConcreteObserver: 儲存需要跟 subject 同步的狀態，實作 update interface 來與 subject 做同步
+* 合作方式
+    * ConcreteSubject 發生會跟 observers 的狀態不同的的改變時去通知 observers
+    * ConcreteObserver 被通知後去查詢 subject 狀態來同步狀態
+* 結果
+    * Subjects 跟 observers 可以分開 reuse，增加 observers 也不需要改動 subject 跟其他 observers
+    * Subject 跟 Observer 可以在不同的 layer 保持系統的 layer 完整
+    * Subject 不需要送給特定的 receiver 而是自動送給有來訂閱的 observers，而 observer 可以自行決定怎麼處理收到的通知
+    * Observer 不知道其他 observer 存在而盲目的改變 subject 狀態導致 observer 跟相關的 object 連鎖改變狀態，沒有額外的機制讓 observer 知道改變什麼東西會讓 observer 需要努力知道改變了什麼
+* 實作
+    * 對照 subject 跟 observer 的關係可以直接讓 subject 存好 observer 的位置但是如果當 subject 很多而 observer 比較少會浪費空間，這時候可以改用時間換空間使用 look-up 來記住關係但是會需要比較多的存取時間
+    * Observer 可能會訂閱多個 subject 因此改變 update interface 讓 observer 知道是哪個 subject 通知
+    * 有兩種做法來 trigger update，一個是當 subject 狀態改變就自動通知 observers 優點是 client 不需要主動要 subject 通知 observers 缺點是一連串的改變會導致一連串的通知沒有效率，另外可以讓 client 在適合的時間叫 subject 通知 observers
+    * 刪除 subject 要注意 observer 的 reference 也要跟著刪除，可以在刪除 subject 的時候通知 observers 讓他們可以重設 reference
+    * 確保 subject 自身狀態一致後才通知，可以使用 Template Method 把通知放在最後一行
+    * 避免太過特定 observer 的更新方式，Subject 傳太多更新資訊給 observer 會讓 observer 無法被 reuse 但如果什麼都不給會讓 observer 自己需要找到改變了什麼導致沒有效率
+    * 使用訂閱特定事件來增加效率
+    * 當 subject 跟 observer 的關係變很複雜就需要有 object 來處理，責任在於確保 observer 所需要的 subject 都以變更狀態完成在通知增加效率
+    * 在沒有多重繼承關係的語言裡把 subject 跟 observer 放在一起
