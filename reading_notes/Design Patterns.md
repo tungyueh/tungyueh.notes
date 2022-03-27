@@ -263,3 +263,38 @@
     * 使用訂閱特定事件來增加效率
     * 當 subject 跟 observer 的關係變很複雜就需要有 object 來處理，責任在於確保 observer 所需要的 subject 都以變更狀態完成在通知增加效率
     * 在沒有多重繼承關係的語言裡把 subject 跟 observer 放在一起
+### State
+### Strategy
+* 目的: 封裝類似的演算法可以互相替換，讓使用的人可以使用不同演算法
+* 動機
+    * 把演算法放進 class 後當要支援更多演算法的時候會變更複雜
+    * 不同演算法適合不同時機使用並不想全部塞進去 class 但都沒用到
+    * 增加演算法要跟現有的並存變得困難
+* 適用情境
+    * 很多相關的 class 只有行為不一樣，使用 strategies 提供設定 class 的方式來呈現不同行為
+    * 需要使用不同的演算法，使用 class 繼承關係來實作不同的演算法
+    * 演算法用到自己不該知道的資料，使用 Strategy pattern 來避免 expose 與演算法有關的資料結構
+    * Class 在不同情況有不同行為，把 conditional branch 放到自己的 Strategy class
+* 參與角色
+    * Strategy: 定義使用演算法的 common interface，Context 用 interface 來使用 ConcreteStrategy 實作的演算法
+    * ConcreteStrategy: 實作演算法
+    * Context: 被 ConcreteStrategy 設定好、reference 到 Strategy、可能定義 interface 讓 Strategy 可以取用資料
+* 合作方式
+    * Context 傳演算法所需要的資料給 Strategy，或者把 context 直接傳給 strategy 讓他自己取用
+    * Context 把 client 的 request 轉送給 Strategy，Client 會把 ConcreteStrategy 傳給 Context 之後就只對 Context 溝通
+* 結果
+    * 類似的演算法都放在繼承關係裡面
+    * 使用 subclass 的方法為原本class給予不同行為會讓原本 class 變得複雜，也無法動態改變演算法，把演算法獨立封裝會更容易替換、理解跟擴充
+    * Strategy 可以消除 conditional statements，當有不同行為在同一個 class 無可避免的需要使用 conditional statement，所以封裝行為到 Strategy class 可以消除 conditional statements
+    * 可以使用不同的實作方式
+    * Client 需要知道 Strategy 實作細節才知道要用哪個，所以只有不同行為跟 client 有關的時候才使用 Strategy pattern
+    * Strategy interface 被所有人共用但如果 ConcreteStrategy 不需要那些資料就造成浪費導致沒有效率，需要解決這個問題只能讓 Strategy 跟 Context 更 coupled 一點
+    * 增加 object 的數量，可以使用 stateless object 來共用，或者使用 Flyweight pattern
+* 實作
+    * Strategy 跟 Context 的 interface 要能夠讓 ConcreteStrategy 有效率的達到需要的資料
+        * Context 透過 Strategy paramter 傳資料，可以維持 decoupled 但可以會傳不需要的資料
+        * Context 直接把自己當成 arugment 讓 Strategy 去拿資料，可以獲取自己所需要的資料，但會造成 coupled
+    * 可以不需要 strategy，當沒有 strategy 就用預設的行為讓 client 可以不需要知道 strategy，只有在不想要預設的行為才去研究 strategy
+### Template Method
+### Visitor
+### Discussion of Behavioral Patterns
