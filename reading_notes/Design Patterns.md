@@ -296,5 +296,23 @@
         * Context 直接把自己當成 arugment 讓 Strategy 去拿資料，可以獲取自己所需要的資料，但會造成 coupled
     * 可以不需要 strategy，當沒有 strategy 就用預設的行為讓 client 可以不需要知道 strategy，只有在不想要預設的行為才去研究 strategy
 ### Template Method
+* 目的: 定義演算法的架構讓 subclass 可以自己替換某些步驟而不需要改變整個演算法架構
+* 動機:
+    * Application 有一定的步驟來處理 Document 而且有不同的 Application 可以處理不同 Document
+    * Template method 定義好抽象步驟讓 subclass 可以替換不同實作
+* 適用情境
+    * 實作演算法固定的部分把會變動的地方留給 subclass 實作
+    * Subclasses 有共同的部分可以抽出來形成 common class 避免 code duplication
+* 參與角色
+    * AbstractClass: 定義抽象步驟讓 subclass 實作步驟，實作演算法框架
+    * ConcreteClass: 實作抽象步驟
+* 合作方式
+    * ConcreteClass 依賴於 AbstractClass 來實作步驟
+* 結果
+    * 基本的 code reuse 技巧，通常在 class libraries 因為都把共同行為放到 library classes
+    * 提供 hook operation 給 subclass 用來擴充行為，hook 預設是不做任何事情
+* 實作
+    * 最小化需要實作的步驟，越多步驟需要實作越有可能產生詭異的行為
+    * 需要實作的步驟加上共同的 prefix
 ### Visitor
 ### Discussion of Behavioral Patterns
