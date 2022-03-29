@@ -223,8 +223,22 @@
 * Command 支援 undoable 操作
 * Iterator 來讀取跟 traveral 文件
 * Visitor 可以有不同分析方法
-
+## 4 Structural Patterns
+* Structural Patterns 關注於把 classes 跟 objects 組成更大的架構
+* Structural class patterns 使用繼承來組合不同的 interface 或實作
+* Structural object patterns 組合不同 object 做出新功能，可以在 run-time 改變組合的方式更有彈性
+### Adapter
+### Bridge
+### Composite
+### Decorator
+### Façade
+### Flyweight
+### Proxy
+### Discussion of Structural Patterns
 ### 5 Behavioral Patterns
+* Behavioral patterns 把複雜的 control flow 轉移到 object 如何互動
+* Behavioral class patterns 使用繼承把 classes 的行為分開
+* Behavioral object patterns 讓 object 互相合作達成獨自無法達成的功能
 ### Chain of Responsibility
 ### Command
 ### Interpreter
