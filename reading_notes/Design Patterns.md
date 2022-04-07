@@ -228,6 +228,31 @@
 * Structural class patterns 使用繼承來組合不同的 interface 或實作
 * Structural object patterns 組合不同 object 做出新功能，可以在 run-time 改變組合的方式更有彈性
 ### Adapter
+* 意圖: 把 class 的 interface 轉換成 client 希望的 interface 讓 classes 可以彼此合作
+* 動機
+    * 有時候 toolkit class 的 interface 不符合 domain-specific interface 所以無法 reuse
+    * Adapter 需要補上原本沒有的功能
+* 使用時機
+    * 想要使用現存的 class 但是 interface 不符合需求
+    * 想要建立 reusable class 可以跟不相關的 class 合作
+    * 需要使用現有的多個 subclasses 但無法使用 subclassing 統一介面，用 object adapter adapt parent class interface
+* 參與者
+    * Target: 定義 client 使用的 interface
+    * Client: 使用 Target interface 來合作
+    * Adaptee: 需要被 adapat 的現存 interface
+    * Adapter: adapt Adaptee 的 interface 到 Target 的 interface
+* 合作方式: Client 呼叫 Adapter 後 Adapter 呼叫 Adaptee 來處理 request
+* 後果
+    * Class adapter
+        * 如果想要 adapt 一個 class 跟他的所有 subclass 因為是藉由 implement Adapter class 的方式來 adapt
+        * Adatper override Adaptee 的行為
+        * 只有一個 object 不需要有額外的 pointer 去找到 adaptee
+    * Object adapter
+        * 一個 Adapter 跟多個 Adaptee 合作，可以一次加入新的功能到所有 adaptee 上面
+        * 難以去 override Adaptee 的行為
+    * Adapter 需要負多少責任
+    * Pluggable adapter: 當 client 有越少的假設則 class 越容易被 reuse，藉由把 interface adaption 放到 class 就可以消除其他 class 使用的假設
+    * Two-way adapter: 當 adaptee object 無法符合 adapter interface 就無法被使用，使用 Two-way adapter 來 adapt 彼此
 ### Bridge
 ### Composite
 ### Decorator
