@@ -253,6 +253,11 @@
     * Adapter 需要負多少責任
     * Pluggable adapter: 當 client 有越少的假設則 class 越容易被 reuse，藉由把 interface adaption 放到 class 就可以消除其他 class 使用的假設
     * Two-way adapter: 當 adaptee object 無法符合 adapter interface 就無法被使用，使用 Two-way adapter 來 adapt 彼此
+* 實作
+    * Adapter 是 Target 的 subtype 而非 Adaptee 因為繼承 Target 的 public 部分而 private 部分從 adaptee 繼承而來
+    * Pluggable adapter 先找到最小的 interface
+        * 定義 abstract operation 讓 subclass 實作後去 adapt
+        * 使用 Delegate object 來 adapt 可以替換 delegate 方式來做不同的 adapt
 ### Bridge
 ### Composite
 ### Decorator
