@@ -27,3 +27,6 @@
 ### 2.2.3 Defining services by applying the Decompose by sub-domain pattern
 * 從要解決的問題產生 sub-domain 對應成 service
 * Domain model 的 scope 稱為 bounded context 包含 code artifact 來實作 model，對應到一個或多個 services
+### 2.2.4 Decomposition guidelines
+* 應用 SRP 概念劃分 microservice 架構會得到很多小但有單一責任的 services，可以增加穩定性
+* 應用 CCP 可以讓改變所需要的 service 變少
