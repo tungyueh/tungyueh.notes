@@ -260,6 +260,14 @@
         * 使用 Delegate object 來 adapt 可以替換 delegate 方式來做不同的 adapt
 ### Bridge
 ### Composite
+* 意圖: 將 object 組成樹狀結構來表達 part-whole hierarchy，讓 client 可以將單一或組合的 object 視為相同的 object
+* 動機: Client 使用的時候都需要判斷是哪種 object 會使系統變得很複雜，composite pattern 使用 recursive composition 讓 client 不需要判斷 object 種類
+* 應用時機: 使用 objects 來做出 part-whole hierarchy、client 不需要判斷 object 種類可以直接使用
+* 參與者:
+    * Componet: 定義 composite object 的 interface 並實作預設動作、定義如何存取管理 child components
+    * Leaf: 定義基本 object 的行為，沒有 children
+    * Composite: 定義有 child 的行為、儲存 child componet、實作 child 相關的操作
+    * Client: 根據 component interface 使用 object
 ### Decorator
 ### Façade
 ### Flyweight
