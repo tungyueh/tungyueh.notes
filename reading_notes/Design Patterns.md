@@ -268,6 +268,16 @@
     * Leaf: 定義基本 object 的行為，沒有 children
     * Composite: 定義有 child 的行為、儲存 child componet、實作 child 相關的操作
     * Client: 根據 component interface 使用 object
+* 合作方式: Client 透過 Component interface 操作 object，Leaf 直接處理 request，Composite 轉傳給 child component
+* 結果: 定義基本 object 可以組成更複雜的 object 來遞迴下去、讓 client 變簡單、容易新增 component 不需改變 client、讓設計變得太通用導致需要再 run-time 檢查
+* 實作:
+    * 記住 parent references 來方便 traversal 跟 management 整個架構
+    * 共用 component 以節省空間，讓 childe 有多個 parent
+    * Component 定義夠多的 common interface 讓 client 更容易使用
+    * 定義 child management operation 
+    * 如果 child 順序有意義需要定義好存取跟管理 child 的 interface
+    * 使用 caching 增加 traverse 速度
+    * 沒有 GC 的語言要實作刪除 child
 ### Decorator
 ### Façade
 ### Flyweight
