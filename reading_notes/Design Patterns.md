@@ -279,6 +279,8 @@
     * 使用 caching 增加 traverse 速度
     * 沒有 GC 的語言要實作刪除 child
 ### Decorator
+* 意圖: 動態的增加新的行為到 object 上面，提供除了 subclassing 可以更彈性的擴充功能
+* 動機: 有時候只想對 object 增加責任，透過繼承無法動態的增加責任，把 object enclose 到另外的 object 來加上不同功能因為跟原本介面一樣所以 client 不需要修改也就可以 enclose 任意數量的 object
 ### Façade
 ### Flyweight
 ### Proxy
