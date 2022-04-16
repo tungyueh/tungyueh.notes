@@ -30,3 +30,10 @@
 ### 2.2.4 Decomposition guidelines
 * 應用 SRP 概念劃分 microservice 架構會得到很多小但有單一責任的 services，可以增加穩定性
 * 應用 CCP 可以讓改變所需要的 service 變少
+### 2.2.5 Obstacles to decomposing an application into services
+* 把 application 切分成 service 需要面對新的問題
+* Service 透過網路溝通就需要面對網路延遲的問題，可以藉由實作 batch API 或者把 service 合併
+* Synchronous 與 service 溝通會讓可用性降低，使用 asynchronous messaging 可以減少 tight coupling 跟增加可用性
+* 需要維持 service 之間的資料一致性，傳統有 two-phase, commit-based, distributed transaction management mechanism，新一點的有 Saga pattern 比起 ACID 更複雜一點但也能應付更多情境，限制是 eventually consistent，如果需要 atomically 更新則需要再 service 裡面
+* 無法在多個 database 的到一致的 data
+* God class 無法切分成 service，使用 DDD 把 subdomain 當成一個 service，每個 service 對於 God class 有不同的看法讓 God Class 形成自己的版本進而變成 service
