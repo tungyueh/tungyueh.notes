@@ -37,3 +37,15 @@
 * 需要維持 service 之間的資料一致性，傳統有 two-phase, commit-based, distributed transaction management mechanism，新一點的有 Saga pattern 比起 ACID 更複雜一點但也能應付更多情境，限制是 eventually consistent，如果需要 atomically 更新則需要再 service 裡面
 * 無法在多個 database 的到一致的 data
 * God class 無法切分成 service，使用 DDD 把 subdomain 當成一個 service，每個 service 對於 God class 有不同的看法讓 God Class 形成自己的版本進而變成 service
+### 2.2.6 Defining service APIs
+* Service API 的 operation 跟 event 需要被訂好，跟系統有關的 operation 會被外部的人或內部 service 呼叫，只跟 service 之間溝通的 oepration 只會被內部 service 呼叫
+* Service publish events 主要是為了與其他 service 合作
+* 先把 system operation 對應到 service 再來決定如何實作
+* 決定要把哪個 service 負責處理一開始的 request，可以選擇需要 opearation 資訊的 service 來負責處理，或者有足夠知識應付 operation 的 service 來負責處理
+* Service 之間為了達成 system operation 需要用 API 互相溝通，分析每個 system operation 所需要合作的 service 來定好 API
+### Summary
+* Architecture 定義好應用程式的能力包含可維護性、可測試性、可部屬性這些都對於開發速度很重要
+* Microservice architecture 讓開發速度變很快
+* Service 跟 business concerns 有關跟 technical concerns 無關
+* 用 Business capability 切分 service 或者用 subdomain
+* 使用 DDD 來切分 god classes
