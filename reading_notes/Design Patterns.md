@@ -223,6 +223,13 @@
 * Command 支援 undoable 操作
 * Iterator 來讀取跟 traveral 文件
 * Visitor 可以有不同分析方法
+## 3 Creational Patterns 
+### Abstract Factory
+### Builder
+### Factory Method
+### Prototype
+### Singleton
+### Discussion of Creational Patterns
 ## 4 Structural Patterns
 * Structural Patterns 關注於把 classes 跟 objects 組成更大的架構
 * Structural class patterns 使用繼承來組合不同的 interface 或實作
@@ -281,6 +288,25 @@
 ### Decorator
 * 意圖: 動態的增加新的行為到 object 上面，提供除了 subclassing 可以更彈性的擴充功能
 * 動機: 有時候只想對 object 增加責任，透過繼承無法動態的增加責任，把 object enclose 到另外的 object 來加上不同功能因為跟原本介面一樣所以 client 不需要修改也就可以 enclose 任意數量的 object
+* 使用時機: 
+    * 對特定 object 動態增加責任但保持原本的 interface
+    * 可以被抽換的責任
+    * 無法使用 subclassing 的時候
+* 參與者:
+    * Component: 定義可以動態增加能力的 object interface
+    * ConcreteComponent: 定義可以增加哪些能力
+    * Decorator: 定義跟 Component 一樣的 interface 並且參照 Component object
+    * ConcreteDecorator: 對 Component 增加能力
+* 合作: Decorator 轉送 request 給 Component object，可能在之前或之後做額外的操作
+* 結果:
+   * 比起繼承更有彈性
+   * 避免產出過度複雜的 feature class，可以簡單的使用 decorator object 來慢慢增加需要的功能
+   * Decorator 跟 Component 並不一樣，無法使用 object identity 分辨
+   * 很多小 objects 只在互相組合才不一樣而非在 class 本身可以看得到差異
+* 實作:
+   * 只增加一種能力就不需要有 abstract decorator
+   * 讓 Component class 簡單一點才不會讓 decorator 太複雜就無法簡單使用
+   * Decorator 只是會表層如果要會內在可以用 Strategy pattern
 ### Façade
 ### Flyweight
 ### Proxy
