@@ -223,7 +223,10 @@
 * Command 支援 undoable 操作
 * Iterator 來讀取跟 traveral 文件
 * Visitor 可以有不同分析方法
-## 3 Creational Patterns 
+## 3 Creational Patterns
+* 把初始化的過程抽象化讓系統對於 object 如何被產生跟組合獨立開來
+* 隨著系統演化會依賴更多 object 的組合，漸漸從 hard coding 的方式轉換成定義基礎的行為來組合成更複雜的方式
+* 都會把系統如何使用 concrete classes 的知識封裝起來，也會把 instances 如何產生跟組合也藏起來，讓系統只依賴 abstract class interface
 ### Abstract Factory
 ### Builder
 ### Factory Method
