@@ -227,6 +227,11 @@
 * 把初始化的過程抽象化讓系統對於 object 如何被產生跟組合獨立開來
 * 隨著系統演化會依賴更多 object 的組合，漸漸從 hard coding 的方式轉換成定義基礎的行為來組合成更複雜的方式
 * 都會把系統如何使用 concrete classes 的知識封裝起來，也會把 instances 如何產生跟組合也藏起來，讓系統只依賴 abstract class interface
+* Factory Method pattern: 使用 virtual function 建立 objects，藉由建立 subclass redefine virtual function 來替換建立內容
+* Abstract Factory pattern: 把 object 當成 parameter 傳入來建立，藉由傳入不同 object 替換建立的 object
+* Builder pattern: 傳入一個可以建立東西的 object，藉由繼承來改變建立的方式
+* Prototype pattern: 用各種 prototypical object 參數化，替換 prototypical object 改變建立方式
+* Singleton: 確保有唯一的 object 其餘 object 都可以存取，但不是用 global variable 或 function 的方式
 ### Abstract Factory
 ### Builder
 ### Factory Method
