@@ -233,6 +233,8 @@
 * Prototype pattern: 用各種 prototypical object 參數化，替換 prototypical object 改變建立方式
 * Singleton: 確保有唯一的 object 其餘 object 都可以存取，但不是用 global variable 或 function 的方式
 ### Abstract Factory
+* 意圖: 提供 interface 來建立相關聯的 object 而不需要指定 concrete classes
+* 動機: user interface 提供不同風格套用在所有元件，所以不能 hard-code 特定風格在元件上面，使用 abstract factory class 宣告建立各種元件的 interface，concrete subclass 實作特定風格的元件，client 不需要知道實際的元件是什麼只用 interface 來使用
 ### Builder
 ### Factory Method
 ### Prototype
