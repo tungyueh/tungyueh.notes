@@ -235,6 +235,29 @@
 ### Abstract Factory
 * 意圖: 提供 interface 來建立相關聯的 object 而不需要指定 concrete classes
 * 動機: user interface 提供不同風格套用在所有元件，所以不能 hard-code 特定風格在元件上面，使用 abstract factory class 宣告建立各種元件的 interface，concrete subclass 實作特定風格的元件，client 不需要知道實際的元件是什麼只用 interface 來使用
+* 應用時機:
+    * 系統要獨立於 product 如何建立、組合跟表達
+    * 系統能夠被多個類似的 product 的其中一個來做設定
+    * product object 需要被一起使用
+    * 提供 class library
+* 參與者:
+    * AbstractFactory: 宣告建立 abstract product objects interface
+    * ConcreteFactory: 實作建立 product objects 的操作
+    * AbstractProduct: 宣告 product object 的 interface
+    * ConcreteProduct: 定義 product 該如何被建立出來跟實作 AbstractProduct interface
+    * Client: 只使用 AbstractFactory 跟 AbstractProduct 所宣告的 interface 來操作
+* 合作方式:
+    * ConcreteFactory 在 run-time 時候建立然後建立 product objects，client 要建立不同 product object 就使用不同 factory
+    * AbstractFactory 把建立 object 的決定推遲到 ConcreteFactory
+* 結果
+    * Client 跟實作的 class 分離
+    * 容易替換 product family 因為 concrete factory 只出現在一個地方
+    * 確保需要一起使用的 product 會被一起使用
+    * 難以支援新種類的 product
+* 實作
+    * Factories 只有一個
+    * 用 factory method 讓 concrete factory 去 overriding 實作自己建立過程
+    * 增加 parameter 在 operation 來增加彈性，避免 abstract factory 改變 interface 就要改所有 concrete factory
 ### Builder
 ### Factory Method
 ### Prototype
