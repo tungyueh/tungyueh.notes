@@ -260,6 +260,17 @@
     * 增加 parameter 在 operation 來增加彈性，避免 abstract factory 改變 interface 就要改所有 concrete factory
 ### Builder
 ### Factory Method
+* 意圖: 定義建立 object 的 interface 但把要初始化哪種 object 留給 subclass 決定
+* 動機: 只知道何時後該建立 object 但不知道要建立哪種 object
+* 應用時機: 
+    * class 無法參與建立的過程
+    * class 想讓 subclass 決定怎麼建立
+    * class 把責任轉移到 helper subclasses 且想要把相關知識封裝在 helper subclasses 裡面
+* 參與者
+    * Product: 定義 factory 產生 object 的 interface
+    * ConcreteProduct: 實作 Product interface
+    * Creator: 宣告會回傳 Product factory method，可能會回傳預設的 ConcreteProduct object
+    * ConcreteCreator: override factory method 為傳 ConcreteProduct
 ### Prototype
 ### Singleton
 ### Discussion of Creational Patterns
