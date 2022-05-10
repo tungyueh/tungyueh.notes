@@ -271,6 +271,11 @@
     * ConcreteProduct: 實作 Product interface
     * Creator: 宣告會回傳 Product factory method，可能會回傳預設的 ConcreteProduct object
     * ConcreteCreator: override factory method 為傳 ConcreteProduct
+* 合作方式: Creator 靠 subclass 定義好 factory method 回傳合適的 ConcreteProduct
+* 結果
+    * Factory methods 移除了跟 application-specific classes 的關聯，讓 code 只需要依照 Product interface 互動
+    * Client 都需要 subclass Creator class 來建立特定的 ConcreteProduct object
+    * 可以連結平行 class hierarchies，讓 Figure class 的 factory method 建立出可以操作該 Figure 的 Manipulator 來連結這兩個有關係的 class 但又把相關知識放在各自的 class 裡面
 ### Prototype
 ### Singleton
 ### Discussion of Creational Patterns
