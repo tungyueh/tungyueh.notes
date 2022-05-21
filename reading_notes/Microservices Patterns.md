@@ -49,3 +49,31 @@
 * Service 跟 business concerns 有關跟 technical concerns 無關
 * 用 Business capability 切分 service 或者用 subdomain
 * 使用 DDD 來切分 god classes
+
+## Chapter 3 Interprocess communication in a microservice architecture
+### 3.1 Overview of interprocess communication in a microservice architecture
+* 有分為以 request 跟 response 為主的同步溝通機制跟以 message 為主的非同步溝通機制，溝通用的媒介有分為人類看的懂的格式跟有效率的 binary 格式
+* client 跟 service 溝通方式要與技術無關、以 API 為優先的設計方式、API 如何演化、message 格式如何適應 API 演化
+#### 3.1.1 Interaction styles
+* clien 的 request 由多個或一個 service 來處理跟訊息處理世同步還是非同步可以切出基本風格
+* 一對一的有
+    * Request/Response: client 送 request 給 service 並且等待回應，client 預期會很即時的回應，缺點是 coupling
+    * Asynchronous request/respsonse: client 送 request 之後並不等待因為 service 可能會花很久的時間才回應
+    * One-way notification: clieny 送 request 之後並不會收到回應
+* 一對多的有
+    * Publish/subscribe: client 送出通知讓有興趣的 service 去處理
+    * Publish/async responses: client 送出 request 然後等待有興趣的 service 給予回應
+#### 3.1.2 Defining APIs in a microservice architecture
+* Module 的 interface 可以提供完整的功能並且隱藏實作讓實作改變不影響到 client
+* Monolithic application 的 interface 通常是使用特定語言的 interface
+* API 跟 interface 是 client 跟 service 之前溝通的橋樑，API 定義提供的功能讓 client 使用
+* Service API 跟語言無關所以到 runtime 才會發現錯誤
+* 先定義好 interface 後讓 client review 可以訂出更符合 client 需求的 API
+#### 3.1.3 Evolving APIs
+* Microservice-based application 改動 API 都要讓新舊 client 都可以使用，因為無法強迫 client 做出改動
+* 將 API 加上版本，使用 MAJOR.MINOR.PACH 的方式，MAJOR 代表作出不相容的 API、MINOR 代表有向後相容、PATCH 修正向後相容的問題
+* 盡力使用向後相容的方式: 增加 optional attribute、response 增加 attribute、增加新的 operation，service 提供預設的值而 client 要忽略多餘的回應
+#### 3.1.4 Message formats
+* 使用跨語言的格式
+* 文字格式例如 JSON 跟 XML，優點是人類看的懂而且具備自我描述能力，能讓 consumer 只用自己想要的值，所以很容易向後相容，缺點是太過詳細有很多不必要的東西，parsing 沒有效率
+* Binary 格式例如 Protocol Buffers 跟 Avro，compiler 會 serializes 跟 deserialize 訊息，如果使用靜態語言還可以檢查是否正確
