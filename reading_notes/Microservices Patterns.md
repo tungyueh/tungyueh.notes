@@ -77,3 +77,32 @@
 * 使用跨語言的格式
 * 文字格式例如 JSON 跟 XML，優點是人類看的懂而且具備自我描述能力，能讓 consumer 只用自己想要的值，所以很容易向後相容，缺點是太過詳細有很多不必要的東西，parsing 沒有效率
 * Binary 格式例如 Protocol Buffers 跟 Avro，compiler 會 serializes 跟 deserialize 訊息，如果使用靜態語言還可以檢查是否正確
+### 3.2 Communicating using the synchronous Remote procedure invocation pattern
+* Client 的 business logic 呼叫 proxy interface 而 RPI proxy 送 request 給 RPI server 轉送給 service business logic 處理
+* Proxy interface 隱藏了使用何種 protocol 溝通
+#### 3.2.1 Using REST
+* REST 是一種 IPC 機制通常用 HTTP 實作
+* Resource 代表一個 business object，GET 可以取得 resource、POST 可以建立 resource、PUT 可以修改 resource
+* 使用 Interface Define Language 定義好 REST API，最有名的是 Open API Specification 從 Swagger open source project 演化而來
+* 使用 query parameter 定義需要多回傳的 resource 達成一個 API 回傳多個 resource 的需求
+* 多定義 subresource 或在 query parameter 定義不同修改的方式
+* 好處是簡單且熟悉、容易測試、直接支援 request/respsonse 機制、firewall friendly、不需要中間的 broker
+* 壞處是只支援 request/respsonse 機制、減少可用性、client 需要知道 URL、很難一個 request 獲得多個 resource、不容易對應 HTTP verb 到實際的操作
+#### 3.2.2 Using gRPC
+* binary message-based protocol
+* 支援 streaming RPC
+* 使用 Protocol Buffers 當成 messge format，收到的人可以只解出自己需要的東西因此可以支援向後相容
+* 好處是可以很直覺的設計 API 因為有很多 operation、很有效率的解開 message
+* 壞處是 JavaScript client 要花更多時間處理、舊的 firewall 可能不支援 HTTP/2
+#### 3.2.3 Handling partial failure using the Circuit breaker pattern
+* 分散式系統需要考慮當 server 無法回應的情況，client 如果無限等待回應會造成整個系統失效
+* 設計 RPI proxy 要考慮當 service 沒有回應不能因為 thread 用完而無法繼續處理 request，還要思考如何從失效的情況回復
+* 不要永遠的等待回應需要設定 timeout
+* 限制 client 可以發出的 request，當超過上限就馬上回應失敗
+* 觀察失敗的比率太多就啟動 circuit breaker 讓後續的 request 馬上失敗讓 client 知道 server 失效繼續送 request 也沒用
+* Server 失敗就直接回傳失敗給 client 或者回傳預設的值或暫存的值
+#### 3.2.4 Using service discovery
+* Service 的位置會常常變動所以 client 需要 service discovery 來找到 service 的位置
+* Service registry 使用 database 紀錄 service 的位置，當 service 啟動或關掉就來更新，當 client 使用 service 就找出位置轉送 request
+* 應用程式層級的 service discovery 會讓 service 會去註冊位置而 client 查詢位置後送 reqeust 給 service，好處是 service 可以部署在不同平台，壞處是每個語言都需要 service discovery library
+* 平台提供的 service discovery 會讓每個 service 有 DNS name 跟虛擬 IP，client 對 DNS name 或虛擬 IP 發送 request 就可以自動送到可用的 service，好處是平台都處理好還有不跟語言綁定，壞處是只能用該平台部屬 service
