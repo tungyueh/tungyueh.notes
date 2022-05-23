@@ -276,6 +276,11 @@
     * Factory methods 移除了跟 application-specific classes 的關聯，讓 code 只需要依照 Product interface 互動
     * Client 都需要 subclass Creator class 來建立特定的 ConcreteProduct object
     * 可以連結平行 class hierarchies，讓 Figure class 的 factory method 建立出可以操作該 Figure 的 Manipulator 來連結這兩個有關係的 class 但又把相關知識放在各自的 class 裡面
+* 實作: 
+    * 沒有合理的預設行為就難以做出 subclass，有預設行為就可以讓 subclass 自行 override 步驟
+    * 參數化 factory method 做出不同種類的 product
+    * 使用 template 避免 subclassing
+    * 規定好使用 factory method 的命名方式
 ### Prototype
 ### Singleton
 ### Discussion of Creational Patterns
