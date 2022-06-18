@@ -106,3 +106,40 @@
 * Service registry 使用 database 紀錄 service 的位置，當 service 啟動或關掉就來更新，當 client 使用 service 就找出位置轉送 request
 * 應用程式層級的 service discovery 會讓 service 會去註冊位置而 client 查詢位置後送 reqeust 給 service，好處是 service 可以部署在不同平台，壞處是每個語言都需要 service discovery library
 * 平台提供的 service discovery 會讓每個 service 有 DNS name 跟虛擬 IP，client 對 DNS name 或虛擬 IP 發送 request 就可以自動送到可用的 service，好處是平台都處理好還有不跟語言綁定，壞處是只能用該平台部屬 service
+
+## Chapter 4 Managing transactions with sagas
+* 如何在不同 service 之間維持 transaction 是很重要的考量之一
+* Saga 可以維持資料一致性但缺少 Isolation 的功能所以 service 需要考量這點做設計
+### 4.1 Transaction management in a microservice architecture
+* 利用 framework 或 library 可以簡單的管理 transacation
+* 在多個 database 情況底下要管理 transaction 是很有挑戰性的事情
+#### 4.1.1 The need for distributed transactions in a microservice architecture
+* 每個 service 都有自己的 database 因此需要一個方法來維持跨 database 的資料一致性
+#### 4.1.2 The trouble with distributed transactions
+* 基本用 distributed transaction 來維持資料一致性但不能用 NoSQL database 而且流行的 message broker 都不支援
+* Distributed transaction 會降低可用性因為使用 synchronous IPC，現代傾向於維持可用性而非一致性
+#### 4.1.3 Using the Saga pattern to maintain data consistency
+* Saga pattern 使用 local transaction 跟 asynchronous messaging 來讓不同 service 之前資料保持一致
+* local transaction 是導致失去 isolation 的原因
+* Asynchronous messaging 確保當有些參與者失效的時候仍然能夠持續運作
+* 使用 compensating transaction 來 roll back
+### 4.2 Coordinating sagas
+#### 4.2.1 Choreography-based sagas
+* 沒有 coordinator 由參與者自行決定要做什麼，自己要去 subscribe 其他人的 event 跟回應
+* 參與者需要更新資訊到自己的 DB 然後 publish 訊息通知大家自己更新 DB 的資訊
+* 參與者要能更把 event 對應到自己的 data
+* 優點
+    * 只要把自己更新的資訊 publish 出去就好
+    * 使用 event 來同步而不需要知道其他參與者可以達到 loose coupling
+* 缺點
+    * 比較難理解整體怎麼運作
+    * 造成 cyclic dependencies
+    * 需要 subscribe 所有對於自己有影響的 event 造成 tight coupling 
+#### 4.2.2 Orchestration-based sagas
+* 由一個 coordinator 指揮參與者該做什麼指令將所有責任集中化
+* 可以想成 state machine，由 event 驅動轉換成不同 state
+* 優點
+    * 簡單的依賴關係，只有 corordinator 依賴於參與者
+    * 參與者不需要了解 saga pattern
+* 缺點
+    * 集中太多 business logic
