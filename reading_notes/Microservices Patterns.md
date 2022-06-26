@@ -143,3 +143,16 @@
     * 參與者不需要了解 saga pattern
 * 缺點
     * 集中太多 business logic
+### 4.3 Handling the lack of isolation
+* Isolation 的特性可以簡單寫出同時執行的 business logic
+* 缺少 isolation 造成 anomalies 也就是當 transcation 讀寫資料順序不同導致結果不同
+* 之前 RMDB 有提供為了 high performance 而捨棄 isolation 的功能所以還是有些對於缺少 isolation 的解法
+#### Overview of anomalies
+* Lost update: 複寫其他 sagas 做的 change
+* Dirty reads: 讀取更新到一半的資料
+* Fuzzy/nonreapeatable reads: 不同步驟讀取資料會有不同的結果
+#### Countermeasures for handling the lack of isolation
+* Saga transaction type
+    * Compensatable transaction: 可以被 rollback
+    * Pivot transaction: 只有這個 commit 後才會跑完，可以是 compensatable 或 retriable transaction
+    * Retriable transaction: pivot transaction 之後保證會做完
