@@ -259,6 +259,29 @@
     * 用 factory method 讓 concrete factory 去 overriding 實作自己建立過程
     * 增加 parameter 在 operation 來增加彈性，避免 abstract factory 改變 interface 就要改所有 concrete factory
 ### Builder
+* 意圖: 把建立複雜object的過程分離出來，可以利用香圖的步驟建立不同的object
+* 動機: 有很多 convertor 負責把一種 object 轉換成不同 object
+* 應用時機:
+    * 建立 object 的邏輯需要跟 object 的部分如何組成分開
+    * 同樣的建立過程需要產生不同 object
+* 參與者:
+    * Builder: 定義 Product object part 的 interface
+    * ConcreateBuilder: 藉由實作 Builder interface 來建立跟組裝 object，提供得到結果的 method
+    * Director: 使用 Builder interface 建立 object
+    * Product: 建立出來的複雜 object
+* 合作方式:
+    * Client 設定特定 Builder 讓 Director 來建立出想要的 Product
+    * Director 通知 Builder 哪些部分需要被建立
+    * Builder 接收 Director 的需求建立對應的部分
+    * Client 從 Builder 拿到完成的 object
+* 結果:
+    * Product 的內部可以非常不一樣，因為都是透過 interface 所建立的可以不管內部實作
+    * 把建立過程跟內部結構邏輯分開，讓 code 更模組化
+    * 更容易控制建立的過程，不像其他 creational pattern 都是一次性建立好，而非慢慢一步一步建立
+* 實作:
+    * Abstract Builder class 會定義好 director 可能會呼叫的 interface，預設 operation 都是不做事，由 ConcreteBuilder override operations
+    * 建立過程的步驟都要是對於原本的 object 做 append，有時候需要存取之前建立好的東西在建立
+    * Product 無法有 abstract 因為建立出來的都很不一樣無法有共同的 interface
 ### Factory Method
 * 意圖: 定義建立 object 的 interface 但把要初始化哪種 object 留給 subclass 決定
 * 動機: 只知道何時後該建立 object 但不知道要建立哪種 object
