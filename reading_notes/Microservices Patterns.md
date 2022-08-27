@@ -156,3 +156,17 @@
     * Compensatable transaction: 可以被 rollback
     * Pivot transaction: 只有這個 commit 後才會跑完，可以是 compensatable 或 retriable transaction
     * Retriable transaction: pivot transaction 之後保證會做完
+
+## Chapter 6 Developing business logic with event sourcing
+### 6.1 Developing business logic using event sourcing
+* Event sourcing 用 events 來保存狀態，每個 event 代表狀態的變更，藉由這些 event 來知道現在的狀態
+* 好處是可以有歷史紀錄方便做稽核或其他用途，缺點是學習曲線較高而且查詢 event store 需要用到 CQRS pattern
+#### The trouble with traditional persistence
+* 圖形化的 domain model 很難對應到表格式的資料庫
+* 缺少歷史紀錄
+* 實作稽核紀錄容易產生錯誤
+* Event publishing 跟 business logic coupling
+#### Overview of event sourcing
+* 用存在 event store 的 event 保存 aggregate 狀態
+* Event 需要含有變動狀態需要的資訊
+* Command 先檢查輸入資訊是否有誤，然後決定要改變成哪種狀態但還不會改變狀態，產生會改變狀態的 event，之後另外 method 接收 event 並且改變狀態
