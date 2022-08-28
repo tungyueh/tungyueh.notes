@@ -170,3 +170,33 @@
 * 用存在 event store 的 event 保存 aggregate 狀態
 * Event 需要含有變動狀態需要的資訊
 * Command 先檢查輸入資訊是否有誤，然後決定要改變成哪種狀態但還不會改變狀態，產生會改變狀態的 event，之後另外 method 接收 event 並且改變狀態
+#### Handling concurrent updates using optimistic locking
+* 多個 requests 需要更新同樣的 aggregate 通常使用 version 來判斷在讀取之後有沒有被改變
+* 只有當 version 沒有變 update 才會成功
+#### Event sourcing and publishing events
+* 需要將所有 events 推給有興趣的 consumer
+* Event publisher 拿到新的 event 然後 publish 給 message broker，困難點在於要知道哪些是新的 events
+    * 如果 event id 是不斷遞增的話可以記住處理到哪個 event id 之後搜尋就找記住的 event id 之後當成新的 events 但 transaction 發生的順序不一定跟 commit 的順序一樣就有可能漏掉 events
+    * 多一個 published flag 代表已經被處理過了來避免漏掉 events
+#### Using snapshots to improve performance
+* 有大量的 event 會使處理 events 變得沒有效率
+* 定期儲存狀態來避免需要處理所有 events 只需要處理之後的 events 就好
+* 使用快照來儲存狀態則重建過程會從快照的狀態開始而非從頭開始
+#### Idempotent message processing
+* 處理 domain event 需要確保就算處理多次結果也是一樣，因為有可能收到好幾次
+* RMDB-based event store 把 message id 放進 table 紀錄處理過的 message
+* NoSQL-based event store 把產生的 events 的 message id 記錄下來
+#### Evolving domain events
+* 把 event 存下來需要面對 event 格式會不斷變動需要做到 backward compatible
+* Schema 改變可以用 migration 來處理
+#### Benefits of event sourcing
+* 不管 aggregate 的狀態是什麼 event 都可以被 publish
+* 保存 aggregate 的歷史紀錄
+* Event 結構簡單，可以藉由 event 重建 aggregate 狀態
+* 提供開發者 time machine 來將新的功能套用到舊的狀態
+#### Drawbacks of event sourcing
+* 不容易學習
+* 需要偵測 event 是否處理過
+* Event 版本會不斷變動
+* Delete 只是一個標記而已並不是真正 delete，但有時候資料需要真正被刪除，可以用加密的方式來解決，只要把加密金鑰刪除代表沒人可以存取資料也就等於刪除了
+* 不容易查詢資料
