@@ -305,6 +305,25 @@
     * 使用 template 避免 subclassing
     * 規定好使用 factory method 的命名方式
 ### Prototype
+* 意圖: 建立 object 複製定義好的 prototypical instance
+* 動機: Class 不知道怎麼建立各自定義的 instance，雖然可以用 subclassing 但 framework 要能 parameterize 這些 instance，所以用複製的方式建立
+* 應用時機: 系統需要跟建立的東西彼此獨立
+* 參與者
+    * Prototype: 複製自己的 interface
+    * ConcretePrototype: 實作如何複製自己
+    * Client: 藉由要求 prototype 複製自己來建立 object
+* 合作方式: client 請 prototype 複製自己
+* 結果
+    * 可以在 run-time 新增減少 product
+    * 使用不同 values 建立新的 object
+    * 使用不同結構建立新的 object
+    * 減少 subclassing，直接複製該 object 就不需要再請 factory 建立出來
+    * 可以動態的設定 application，因為可以動態載入 class
+    * 每個 prototype 都要實作 clone
+* 實作: Prototype 在靜態語言中很有用處
+    * Prototype manager: 當 prototype 在系統不是固定就用 registry 來管理 prototype
+    * 實作 clone operation: shallow copy 簡單且迅速但指標是共用，複雜的結構需要 deep copy
+    * 初始化 clone 如果有狀態需要跟著初始化
 ### Singleton
 ### Discussion of Creational Patterns
 ## 4 Structural Patterns
