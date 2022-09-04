@@ -325,7 +325,29 @@
     * 實作 clone operation: shallow copy 簡單且迅速但指標是共用，複雜的結構需要 deep copy
     * 初始化 clone 如果有狀態需要跟著初始化
 ### Singleton
+* 意圖: 確保 class 只有一個 instance 作為 global access point
+* 動機: manager 只能有一個，global variable 雖然可以提供統一存取但無法阻止產生新的 instance，讓 class 自己管理 instance 是比較好的方式
+* 應用時機: 只能有一個 class 的 instance 讓 client 存取
+* 參與者: 定義 Instance operation 讓 client 可以存取單一的 instance
+* 合作方式: client 只用 Instance operation 存取 instance
+* 結果
+    * 控管讀取單一 instance
+    * 避免用 global variable 汙染 name space
+    * 允許改變 operation 因為 class 可以 subclassing
+    * 允許有更多的 instance
+    * 比起 class operation 更加彈性
+* 實作
+    * 確保只有一個 instance: 利用 class operation 隱藏初始化的操作來確保只有一個 instance 會被初始化
+    * Subclassing Singleton class
+        * 使用變數決定要用哪個 Instance operation
+        * 把 parent class 實作 instance 的部分移到 subclass
+        * 使用 registry 使用 name 讓人註冊
 ### Discussion of Creational Patterns
+* 有常見的兩種方式參數化建立 object
+    * 第一種是用 subclass 像是 Factory Method，缺點是要建立新的 object 就要有新的 subclass
+    * 第二種是用 object 組合的方式，像是 Abstract Factory Method, Builder, Prototype
+* Factory Method 更客制化更複雜一點，如果產生的東西都不變就不需要使用會增加複雜度的方式
+* Abstract Factory Method, Builder, Prototype 更有彈性也更複雜，通常先演化成 factory method 在演化到這三種
 ## 4 Structural Patterns
 * Structural Patterns 關注於把 classes 跟 objects 組成更大的架構
 * Structural class patterns 使用繼承來組合不同的 interface 或實作
