@@ -200,3 +200,26 @@
 * Event 版本會不斷變動
 * Delete 只是一個標記而已並不是真正 delete，但有時候資料需要真正被刪除，可以用加密的方式來解決，只要把加密金鑰刪除代表沒人可以存取資料也就等於刪除了
 * 不容易查詢資料
+
+## Chapter 7 Implementing queries in a microservice architecture
+### 7.1 Querying using the API composition pattern
+#### The findOrder() query operation
+#### Overview of the API composition pattern
+* API 負責去個別 service 獲取需要得資料組合好再回傳
+#### Implementing the findOrder() query operation using the API composition pattern
+#### API composition design issues
+* 可以由 client 自行去問 service 得到想要的結果
+* 可以用 API gateway 來讓 client 查詢結果
+* 多一個 service 來讓 client 查詢結果
+* 要能同時對多個 service 查詢以降低 respsonse time
+#### The benefits and drawbacks of the API composition pattern
+* 用了更多 computing resource 跟 network resource 所以會增加成本
+* 越多的 service 會降低可用性因為需要同時所有 service 都可用才能組出結果
+    * 使用暫存機制，如果 service 不可用就回傳上次的結果
+    * 允許缺少部分資料，將可用的資料回傳
+* 資料可能會不一致
+### 7.2 Using the CQRS pattern
+#### Motivations for using CQRS
+* 當 service 沒有儲存需要 filter 的屬性就需要透過 API 來做 in-memory 的 join 這不只能效率而且可能會佔用龐大的記憶體
+* 有時候擁有資料的 service 不適合實作查詢功能，或者無法有效率的查詢
+* service 也要實作查詢功能會讓它的責任太多
