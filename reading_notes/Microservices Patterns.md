@@ -223,3 +223,18 @@
 * 當 service 沒有儲存需要 filter 的屬性就需要透過 API 來做 in-memory 的 join 這不只能效率而且可能會佔用龐大的記憶體
 * 有時候擁有資料的 service 不適合實作查詢功能，或者無法有效率的查詢
 * service 也要實作查詢功能會讓它的責任太多
+#### Overview of CQRS
+* 把 persistent data model 分成 command side 跟 query side，command side 負責 create, update, delete 操作而 query side 負責 queries
+* Command side 當資料有變動就 publish domain events
+* Query side subscribe domain events 後同步到自己的 database，不需要實作 business rules 所以相對簡單也不受 database 限制可以查詢的方式
+* 可以用 CQRS 的概念在 service 上面，Query service 就是只提供查詢功能的 service 可以提供需要的 view，由於不屬於任何 service 所以可以是 standalone service
+#### The benefits of CQRS
+* 可以更有效率實作需要從多個 service 拿資料的查詢功能
+* 可以支援各種類型的查詢而不受到 database 先天上的限制
+* 在 event sourcing 的 application 可以支援查詢功能
+* 讓 data model 可以專注於維持資料而不需支援查詢功能，可以在合適的 service 做查詢功能即時需要的資料在別的 service
+#### The drawbacks of CQRS
+* 更複雜的架構
+* 需要處理 command-side 跟 query-side view 不一致的情況
+    * 查詢結果加入 version 讓 client 辨別是否是過期的資訊
+    * 直接使用 command side 回傳的結果
