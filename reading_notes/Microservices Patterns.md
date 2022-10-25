@@ -238,3 +238,18 @@
 * 需要處理 command-side 跟 query-side view 不一致的情況
     * 查詢結果加入 version 讓 client 辨別是否是過期的資訊
     * 直接使用 command side 回傳的結果
+### 7.3 Designing CQRS views
+* CQRS view model 從 DB 搜尋結果，訂閱不同 service 的 event
+* Data access module 實作存取 DB 的邏輯，Event handler 跟 Query API module 使用 data access module 更新跟查詢 DB
+#### Choosing a view datastore
+* 選擇何種 DB 跟 schema 的設計會直接影響到後續實作查詢功能的困難與否
+* NoSQL DB 適合 CQRS view 因為可以受益於 NoSQL 多樣化的 schema 跟效能又不會被NoSQL受限的查詢功能影響到
+* Event handler 會使用 primary key 更新或刪除 view DB
+#### Data access module design
+* Data Access Object (DAO) 複雜把 high-level code 對應到 DB API
+* DAO 有時候需要處理同時更新的問題但如果 event 都是按照順序就不會需要同時處理
+* 要讓 client 知道現在有不一致的情況，可以利用 client 更新後回傳的 token 包含 event id ，client 查詢帶著 token 讓 server 發現有不一致就會傳錯誤
+#### Adding and updating CQRS views
+* 增加或修改 view 可以先開發好 query module 然後設置好 data store 最後 deploy service，讓 event handler 處理完所有 event 就可以讓 view 到最終一致的狀態
+* CQRS 不會有所有的 event 所以必須要 archive event 才能重建 view
+* 隨著 event 越來越多會讓建立 view 的時間越來越長，可以分成兩階段，第一階段先定期處理 snapshot，第二階段使用 snapshot 加上後續的 events
