@@ -253,3 +253,13 @@
 * 增加或修改 view 可以先開發好 query module 然後設置好 data store 最後 deploy service，讓 event handler 處理完所有 event 就可以讓 view 到最終一致的狀態
 * CQRS 不會有所有的 event 所以必須要 archive event 才能重建 view
 * 隨著 event 越來越多會讓建立 view 的時間越來越長，可以分成兩階段，第一階段先定期處理 snapshot，第二階段使用 snapshot 加上後續的 events
+### 7.4 Implementing a CQRS view with AWS DynamoDB
+* AWS DynamoDB 是 scalable NoSQL DB
+#### The OrderHistoryEventHandlers module
+#### Data modeling and query design with DynamoDB
+* 要定義好 table 的 primary key 才能用來找到需要的資料
+* 使用 composite primary key 來找另一個 table 的資料，第一個是 partition key 是 Z-axis scaling 第二個是 sort key
+* Put 用來建立或替換掉整個 item 而 update 用來更新現有 item
+* 不處理重複的 event 會造成暫時性的資料不即時會把資料設回原本舊狀態
+* 紀錄上次處理到哪邊就可以偵測重複的 event
+#### The OrderHistoryDaoDynamoDb class
