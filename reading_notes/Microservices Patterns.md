@@ -263,3 +263,20 @@
 * 不處理重複的 event 會造成暫時性的資料不即時會把資料設回原本舊狀態
 * 紀錄上次處理到哪邊就可以偵測重複的 event
 #### The OrderHistoryDaoDynamoDb class
+
+## Chapter8 External API patterns
+* 設計 application external API 困難點在於有各種不同的 client，每種 client 有不同的環境需求跟資料需求
+* 無法有一種 API 適合所有 client 使用
+### 8.1 External API design issues
+* Web application 直接在 firewall 裡面所以有 low-latency 跟 high-bandwith 的環境
+* Browser 裡的 JavaScript application、Mobile application、third-party application 在 firewall 之外，所以存取 service 會有lower-bandwidth, higher-latency
+* Client 直接使用 service API 但很少這樣因為有以下缺點
+    * Client 需要打很多次 API 才能拿到需要的資料
+    * API 沒有被封裝好很容易讓 client 跟 service 太過黏導致以後無法改變架構
+    * Service 可能是使用 IPC 就無法讓 client 簡單使用
+#### API design issues for the FTGO mobile client
+* 原本 monolithic 版本只需要打一個 API 就可以收集到所有資料但改成 microservice 需要打好幾個 API 才能收集完所有資料
+* Mobile client 等於是 API composer 但有以下缺點
+    * 使用者體驗變差，因為當網路環境不穩定的時候太常與 service 溝通會看起來沒有回應的樣子
+    * Mobile application 把 service 的知識放進去會導致之後 service 架構無法變更
+    * Service 可能使用對於 client 不友善的 IPC mechanisms
