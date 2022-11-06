@@ -280,3 +280,22 @@
     * 使用者體驗變差，因為當網路環境不穩定的時候太常與 service 溝通會看起來沒有回應的樣子
     * Mobile application 把 service 的知識放進去會導致之後 service 架構無法變更
     * Service 可能使用對於 client 不友善的 IPC mechanisms
+#### API design issues for other kinds of clients
+* Server-side web application 通常跟 service 同一個 LAN 而且與開發 service 人員合作密切所以適合直接呼叫 service
+* Browser-based JavaScript applications 雖然很容易跟著 service API 做變更但會跟 mobile application 一樣遇到網路問題
+* Third-party applications 需要穩定的 API 所以需要注意 API 的版本問題
+### 8.2 The API gateway pattern
+* API gateway 是一個 service 當作外部的 entry point 負責 request routing, API composition 跟其他一些功能例如 authentication
+#### Overview of the API gateway pattern
+* 跟 object-oriented design 的 Facade pattern 很像
+* 把 request 導向對應的 service
+* 對不同 service 收集 client 需要的所有資料組合好
+* Service 可能有不同 protocol 需要轉換成對應的 protocol
+* 提供不同 client 有不同的 API，針對 client 去做 API 設計
+* 實作 edge function 確認 client 有權限跟資格使用 API、限制 API 呼叫速率、暫存結果避免過多呼叫、收集 API 數據跟 log，可以實作在 backend service、edge service或在 API gateway
+* API layer 有各種 API 的實作而 common layer 實作 edge function
+* API layer 由負責的 client team 實作，API gateway team 只負責 common layer
+* 每個 client 需要的 API 都有獨立的 API gateway 避免分工不明確
+#### Benefits and drawbacks of an API gateway
+* 封裝 application 內部架構，減少 round-trip 次數
+* 需要有高可用性，可能成為開發瓶頸
