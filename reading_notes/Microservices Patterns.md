@@ -299,3 +299,20 @@
 #### Benefits and drawbacks of an API gateway
 * 封裝 application 內部架構，減少 round-trip 次數
 * 需要有高可用性，可能成為開發瓶頸
+#### Netflix as an example of an API gateway
+* Netflix 一開始用 one-size-fits-all API 但發現不好用就改成 API gateway 方式由 client team 負責開發自己需要的 API
+* 第一個版本使用 script 處理 routing 跟 composition 的工作但很快就有上千個 script，統計結果每天會有幾十億的 API request 平均一個會打 6-7 個 backend service
+* 從單一 API gateway 轉移到 BFF pattern 由 client team 實作各自的 API gateway 但不直接打 backend service 而是第二個 API gateway，讓 client 可以用一個 request 組出想要的結果
+#### API gateway design issues
+* Performance and scalability: synchronous or asynchronous I/O 是影響 performance 跟 scalability 重要的選擇
+    * Synchronous I/O 每個 request 由一個 thread 處理，所以 request 數量受到系統 thread 的限制
+    * Asynchronous I/O 使用 event loop thread 分配 request 給 handler 處理，容易 scalable 因為沒有使用多個 thread 缺點是用 callback 會讓系統更複雜
+* Writing maintainable code by using reactive programming abstractions
+    * Backend Service 要回傳的結果有時候會依賴其他 service 的結果，造成需要照順序呼叫讓回應時間增加
+    * 避免需要照順序呼叫 service 的邏輯才能同時呼叫 service 讓回應時間減少
+* Handling partial failure
+    * 增加 instance 放在 load balancer 後面增加可用性
+    * 處理好失敗或高延遲的 request 呼叫 service 要用 circuit breaker
+* Being a good citizen in the application’s architecture
+    * Service discovery pattern 讓 service client 可以是 API gateway
+    * API gateway 也要能被 monitor
