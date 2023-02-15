@@ -316,3 +316,64 @@
 * Being a good citizen in the application’s architecture
     * Service discovery pattern 讓 service client 可以是 API gateway
     * API gateway 也要能被 monitor
+## Chapter 13 Refactoring to microservices
+* 開發部署 application 都很慢又痛苦就是個好機會轉換到 microservice
+* 有一些策略可以幫助我們不必重寫整個 application 而是可以慢慢的轉換成 microservice 稱為 strangler pattern
+### 13.1 Overview of refactoring to microservices
+* 開發功能的速度變慢又不穩定是否該分散資源到轉換成 microserice 上面?
+#### Why refactor a monolith?
+* 當 application release 的速度慢又有很多問題也無法 scale 就可能 monolithic 架構已經不敷使用
+* 如果以上原因是因為軟體開發流程的問題需要先改善流程
+#### Strangling the monolith
+* 從過去經驗來說不要整個重寫 application 會比較好
+* 使用 strangler application 包含 microservice 跟 monolithic application，之後慢慢增加 microservice 的比重最終替換成 microservice 架構
+* 整個重寫需要等到完成才能看到效益但使用 strangler pattern 可以馬上看到效果更容易說服其他人採用 microservice
+    * 新的功能就可以用新的方式開發
+    * 先轉移核心的功能
+* Migrate 到 microservice 要避免廣泛的修改，因為要花很時間跟成本但風險又很高
+* 不用馬上決定要採用何種技術可以先從 up-front 開始建立架構，像是先從部屬跟測試開始，等之後有更多經驗在決定要採用何種技術
+### 13.2 Strategies for refactoring a monolith to microservices
+* 新功能就用 service 實作阻止 monolith 繼續長大
+* 把 presentation tier 跟 backend 分離
+* 把 monolith 的功能分出 service
+#### Implement new features as services
+* 作為變成 microservice 是很好的第一步，可以阻止原本的成長到無法管理地步又可以增加開發速度
+* API gateway 負責將舊功能導向 monolith 新功能導向 microservice
+* Integration glue code 讓 service 可以使用 monolith 的功能
+* 原則上新功能就用 service 實作但不是所有新功能都可以，因為新功能可能跟 monolith 太 coupling 需要很多溝通，遇到這種情形就先做在 monolith
+#### Separate presentation tier from the backend
+* 要將 monolith 瘦身要從 business logic 跟 data access layer 分離 presentation layer 出來
+    * Presentation logic: 處理 HTTP requests 跟產生 HTML 網頁
+    * Business logic: 實作 business rules
+    * Data access logic: 存取 database 跟 message brokers
+* Presentation layer 放在一個 application 而 business logic 跟 data access layer 放在另外一個 application 彼此用 rest API 溝通
+* 開發、部署跟 scale 都可以分開獨立，像是 presentation layer 可以快速改版跟做 A/B 測試
+#### Extract business capabilities into services
+* 慢慢將 business capabilities 移出 monolith 才能讓 monolith 慢慢變小而 service 慢慢變大
+* 將功能垂直的切出來，從 API endpoints, domain logic, database access logic 一起切出來
+* 從最有重要最常改變的功能開始切
+* 先把 domain model 切開，使用 DDD aggregate 消除 object reference
+* Domain model 滿多都是對應到 database schema 所以也需要將 database table 轉移到新 service，使用複製資料後在慢慢更新的方式到新的 schema
+* 避免廣泛的修改，先保留原本的 schema 在用 trigger 同步到新的 schema，藉由時間分散風險
+* 先從常開發或解決performance, scaling, reliability 或可以解決相依性的功能開始
+### 13.3 Designing how the service and the monolith collaborate
+* 分離因為破壞原本的 ACID transactions 所以要注意資料一致性
+#### Designing the integration glue
+* 根據 IPC mechanism 決定 integration 架構
+    * REST: REST client(service) + web controllers(monolith)
+    * Domain events: event-publishing adapter(service) +  event handler(monolith)
+* 定義好 service interface 隱藏細節給 monolith 使用
+* 可以設計 API 給 service 查詢 monolith 的資料，好處是簡單但缺點是沒有效率
+* 可以讓 service subscribe monolith event 維持資料一致性，好處可以避免重複處理資料缺點是 monolith 需要實作 publish events
+* Anti-corruption layer(ACL) 避免不同 model 彼此污染各自的概念使用 translation layer 轉換 domain model
+* Monolith 用跟 service 一樣的 event publish 方式會需要到處改 code，可以在 database level 才 publish event
+#### Maintaining data consistency across a service and a monolith
+* Monolith 使用 sagas 需要修改很多才能支援 compensating transaction
+* 設計好 service 能夠讓 monolith 不需要支援 compensating transaction
+* 功能變成 service 的順序可以避免需要時做 compensating transaction
+#### Handling authentication and authorization
+* 要將 monolith 關於資安的機制也在 microservice 實作
+    * Monolith 使用 in-memory session state
+    * Microservice 可以用 JWT
+* Monlith 的 login request handler 驗證 user credentials 的 request 回傳 session cookie 跟 JWT
+* API gateway 檢查 USERINFO cookie 放在 Authorization header 傳給 service
