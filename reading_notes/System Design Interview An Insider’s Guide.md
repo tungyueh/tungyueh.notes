@@ -65,3 +65,49 @@
 ### Database scaling
 * Vertical scaling: 增加 RAM, CPU，增加 SPOF 風險
 * Horizontal scaling: sharding 把 database 分成多個 shard 每個都是相同的 schema
+
+## CHAPTER 4: DESIGN A RATE LIMITER
+* 限制 client 或 service 需求的速度
+* 避免 Denial of Service 造成 resource starvation
+* 減少花費，限制過度 request 代表有機會處理優先度較高的 API
+* 避免 server overloaded
+### Step 1 - Understand the problem and establish design scope
+* 有分為 client side 跟 server 的 rate limiter
+* 根據 IP, user ID 或其他來限制
+* 是否會運行在分散式系統
+* 是否需要通知 user 正在被 throttled
+* 需求: 準確的限制過度的 requests, low latency, memory 使用量越低越好，能在多個 server 或 process 使用，user 可以清楚知道被 throttled，rate limiter 壞掉時系統能夠持續運作
+### Step 2 - Propose high-level design and get buy-in
+#### Where to put the rate limiter?
+* 在 client-side 做 rate limit 容易被假造而解除限制
+* 在 server-side 做 rate limit
+* 在 client 與 server 之前做 rate limit
+* Cloud microservice 有 API gateway 有 rate limiting 功能
+#### Algorithms for rate limiting
+* Token bucket: 一定的速度把 token 放入 bucket，當 request 通過就拿一個 token 沒有 token 就丟棄
+* Leaking bucket: request 進入 queue 當 queue 已經滿了就丟棄，然後以一定的速度拿 request 出來
+* Fixed window counter: 每個 window 有固定時間大小，request 會增加 counter 超過 counter 就丟棄
+* Sliding window log: 紀錄 request 的時間當 log size 超過就丟棄，等到時間經過把之前的 outdated 才能繼續收 request
+* Sliding window counter
+#### High-level architecture
+* 使用 in-memory cache 比較推薦因為可以比較快又可以支援 time-based expiration strategy
+### Step 3 - Design deep dive
+#### Exceeding the rate limit
+* Request 被限制時可以回傳 429 根據不同情況先存下來之後再處理
+* 使用 rate limiter headers 讓 client 知道被 throttled
+#### Detailed design
+* Rules 存在 disk
+* client 送 request 會先給 rate limiter middleware
+* Rate limiter 從 cache 拿 rule 判斷是否要轉送給 API server
+#### Rate limiter in a distributed environment
+* 需要處理 race condition 跟 synchronization issue
+* 同時讀取 counter 後存進 cache 實際上增加大於一
+* lock 可以解決 race condition 但檢查效能，通城用 Lua script 跟 sorted sets data structure in Redis
+* 多台 rate limiter 沒有紀錄上次 client 連到其他 rate limiter 的紀錄，可以用 readis 讓所有 rate limiter 都把狀態存進去
+### Monitoring
+* 需要數據知道 rate limit 是否運作的有效率
+### Step 4 - Wrap up
+* 有 token bucket, leaking bucket, fixed window, sliding window log, sliding window counter 可以選擇
+* 可以允不允許短暫超過 threshold
+* 針對 application level 或 IP address 來限速
+* 使用 client cache 避免過多的 API 呼叫，避免很短時間內送出大量 request
