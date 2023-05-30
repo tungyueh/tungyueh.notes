@@ -111,3 +111,12 @@
 * 可以允不允許短暫超過 threshold
 * 針對 application level 或 IP address 來限速
 * 使用 client cache 避免過多的 API 呼叫，避免很短時間內送出大量 request
+## CHAPTER 5: DESIGN CONSISTENT HASHING
+* 根據 server 數量把 hash 除上數量對應到該放哪個 server，但如果 server 有減少不只是減少的會重新分配而是全部都重新分配造成大量 cache miss
+* Consistent hashing 是指當 hash table 改變大小後只會有 k/n 的 key 需要重新分配，k 是指 key 的數量、n 是指 slot 數量
+## CHAPTER 6: DESIGN A KEY-VALUE STORE
+## CHAPTER 7: DESIGN A UNIQUE ID GENERATOR IN DISTRIBUTED SYSTEMS
+* Multi-master replication: ID 每次增加跟總共的 database server 數量一致，不同 server 的時間會不照順序，server 增加減少無法 scale
+* UUID: server 之間不需要溝通就能產生 ID，但不合規定沒有只包含數字也跟時間無關
+* Ticket Server: 將 auto_increment feature 放在一台 database server，會遇到 SPOF
+* Twitter snowflake approach: 將 ID 分成不同部分，分為 timestamp, datacenter ID, machind ID, sequence number
