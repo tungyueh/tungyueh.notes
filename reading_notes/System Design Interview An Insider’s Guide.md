@@ -115,6 +115,33 @@
 * 根據 server 數量把 hash 除上數量對應到該放哪個 server，但如果 server 有減少不只是減少的會重新分配而是全部都重新分配造成大量 cache miss
 * Consistent hashing 是指當 hash table 改變大小後只會有 k/n 的 key 需要重新分配，k 是指 key 的數量、n 是指 slot 數量
 ## CHAPTER 6: DESIGN A KEY-VALUE STORE
+* 沒有最好得設計，每種設計都是為解決特定問題而對於 read, write, memory usage 做出取捨，還有 consistency 跟 availability 的取捨
+### Single server key-value store
+* 使用 hash table 將所有東西存在 memory，雖然 memory 存取很快但會受到記憶體空間的限制
+* 使用壓縮減少資料大小
+* 將頻繁存取的資料放在記憶體其他放在硬碟
+### Distributed key-value store
+#### Data partition
+* 既然資料無法完整放在一個 server 就需要分散到多個 server 上面，但會面臨到需要將資料平均分散到多個 server 還有當 server 加入活移除需要減少資料移動的數量
+* 使用 Consistent hashing 可以解決問題，還可以自動增減 server，使用 virtual nodes 平均分散資料
+#### Data replication
+* 為了提升可靠性需要將資料複製到其他 server，通常資料中心的 server 會一起壞掉所以需要把資料放在不同的資料中心
+#### Consistency
+* 資料複製的數量跟寫入需要等待的 ACK 個數還有讀取需要等待的 ACK 個數主要是對於 latency 跟 consistency 的 tradeoff
+##### Consistency models
+* Strong consistency: read 不會拿到過期的資料
+* Weak consistency: read 可能不會拿到最新的資料
+* Eventual consistency: 屬於 weak consistency 但一定時間後所有更新都會 propagate 讓所有 replicas 的資料都是一致的
+#### Inconsistency resolution: versioning
+* Versioning 將修改的資料當成一個不可改動的新版本
+* Vector clock 紀錄資料修改的 server 跟版本判斷先後順序
+### Handling failures
+#### Failure detection
+* 在分散式系統中只靠一個 server 說另外一個 server 已經失效是不可靠的，但如果要求大家都說會沒有效率
+* Gossip protocol: 使用 heart beat 跟 member list 紀錄各個 node 的狀態，如果太久沒有 heart beat 就判斷為失效
+#### Handling temporary failures
+* Sloppy quorum 選擇一些 server 負責 write 跟 read 並忽略 offline server
+#### Handling permanent failures
 ## CHAPTER 7: DESIGN A UNIQUE ID GENERATOR IN DISTRIBUTED SYSTEMS
 * Multi-master replication: ID 每次增加跟總共的 database server 數量一致，不同 server 的時間會不照順序，server 增加減少無法 scale
 * UUID: server 之間不需要溝通就能產生 ID，但不合規定沒有只包含數字也跟時間無關
