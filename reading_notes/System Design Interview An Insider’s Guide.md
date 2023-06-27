@@ -147,3 +147,53 @@
 * UUID: server 之間不需要溝通就能產生 ID，但不合規定沒有只包含數字也跟時間無關
 * Ticket Server: 將 auto_increment feature 放在一台 database server，會遇到 SPOF
 * Twitter snowflake approach: 將 ID 分成不同部分，分為 timestamp, datacenter ID, machind ID, sequence number
+
+## CHAPTER 8: DESIGN A URL SHORTENER
+### API Endpoints
+* POST api/v1/data/shorten: request 給 long URL return short URL
+* GET api/v1/shortUrl return long URL for HTTP redrection
+### URL redirecting
+* 301 redirect 代表網址永遠移走了，下次相同 URL 會直接到 long URL 而不會先去問 service 減少負擔
+* 302 redirect 代表網址暫時移走，每次都會問 service 可以做數據統計
+### URL shortening
+* 使用 hash table 紀錄 short URL 跟 long URL 的對應
+* Hash function 可以把 long URL hash 出一個 value，每個 hash value 可以推回原本的 long URL
+* Hash + collision resolution: 使用常見的 hash function 只取前面幾位數，當重複的時候加上不同字串重新 hash
+* Base 62 conversion: 用 unique ID generator 產生數字後用 base 64 轉換
+### Wrap up
+* Rate limiter: 根據 IP address 做 filter
+* Web server scaling: 因為 web tier 是 statelss 所以可以動態增加減少 web server
+* Database scaling: 使用 replication 跟 sharding
+* Analytic: 整合統計分析的功能進去
+* Availability, consistency, and reliability
+
+## CHAPTER 10: DESIGN A NOTIFICATION SYSTEM
+### Different types of notifications
+* iOS 用 Apple Push Notification Service
+* Android 用 Firebase Cloud Messaging
+* SMS message
+* Email 用 email servers
+### Contact info gathering flow
+* User 有一組 Email address 跟 phone number 但有多個 device
+### Notification sending/receiving flow
+* Service 1 to N: 使用 event 觸發通知
+* Notification system: 提供 API 給 service 然後請 third-party service 送 notification 給 user
+* Third-party services: 需要有良好的擴充性
+* 只有一台 notification server 會有 SPOF, 難以增加 databases, caches 跟變成效能瓶頸的問題
+### High-level design (improved)
+* 把 database 跟 cache 移出 notification server 後增加 notification servers 數量在使用 message queus 去解開送 notification 的 couple
+* Notification servers 驗證資料、查詢 database 跟把 notification data 送到 message queues
+* Message queue 可以處理不同 notification type 讓彼此不互相干擾
+* Workers 負責從 message queue 拿出資料送給 third-party services
+### Design deep dive
+#### Reliability
+* Notification 只能允許延遲或亂序但不能沒送，所以將 notification data 存在 persistent 的地方然後 retry 確保都有送 notification
+* Distributed 系統天生無法避免重複送 notification 所以需要好好處理，例如看 event ID 判斷是否送過
+#### Additional components and considerations
+* Notification template: 提供基本格式讓人只填可能變動的部分可以維持一致性、減少格式問題跟節省時間
+* Notification template: 收到通知後要根據 setting 判斷 user 想不想收到這種類型的通知
+* Rate limiting: user 可能會因為太過頻繁的通知而關閉所以需要限制一定的數量
+* Retry mechanism: 在 message queue 增加 retry 機制
+* Security in push notifications 讓受過驗證的人才能發送 notification
+* Monitor queued notifications 藉由監測 queued notification 的數量來判斷 worker 是否足夠來處理通知
+* Events tracking: 收集通知是否有被打開跟點擊的數據讓通知的人有數據可以改進
