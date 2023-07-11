@@ -167,6 +167,50 @@
 * Analytic: 整合統計分析的功能進去
 * Availability, consistency, and reliability
 
+## CHAPTER 9: DESIGN A WEB CRAWLER
+* Web crawler 用於搜尋引擎來找出網路上新增或更新的內容包含網頁、圖片、影片、文件等等，不斷的 follow link 找到新的內容
+* Web cralwer 被用來做搜尋引擎的 index 、網頁保存、找尋有價值的資料跟監控網路上的版權資料
+### Step 1 - Understand the problem and establish design scope
+* Purpose: search engine indexing
+* 每月需要收集十億網頁
+* 只包含 HTML
+* 需要考量新增跟編輯的網頁
+* 需要存至少五年
+* 有重複的內容需要被忽略
+### Step 2 - Propose high-level design and get buy-in
+* Seed URLs: 起點的網頁，好的起點要有多個可以 follow 的 link，可以依據地區或類別去選擇要如何 follow
+* URL Frontier: 暫存需要下載的 URL
+* HTML Downloader: 負責使用 URL Frontier 提供的 URL 下載網頁
+* DNS Resolver: 將 URL 轉換成 IP address 提供給 HTML Downloader
+* Content Parser: 分析下載回來的網頁，處理 malformed 的網頁避免浪費空間
+* Content Seen?: 判斷是否已經下載過，最好使用 hash 比較兩個網頁
+* Content Storage: 儲存網頁，大部分存在硬碟，熱門的存在記憶體
+* URL Extractor: 找出網頁中的 link
+* URL Filter: 去掉不想 follow 的 link
+* URL Seen?: 紀錄看過了哪些 URL 避免重複增加 URL 到 URL Forntier
+* URL Storage: 儲存已經看過的 URL
+### Step 3 - Design deep dive
+* DFS vs BFS: DFS 不是好選擇因為可能會非常深所以 BFS 是一般採用的方法，使用 FIFO queue 來實作
+* URL frontier: 確保不會對網頁打太多 reqeust 跟負責 URL 之間的優先順序
+    * 每隔一段時間才去相同 host 做下載
+        * Queue router 確保每個 queue 的 URL 是相同的 host
+        * Queue selector 讓每個 worker thread 對應到 queue，包含選擇的邏輯
+    * 官網訊息比其他論壇更重要所以要優先處理，可以用 PageRank, website traffix, update frequency 來決定優先順序
+    * 由於網頁會重新編輯所以需要定期去更新，根據網頁的 update history 跟讓優先順序高的先 refresh
+* HTML Downloader
+    * 下載之前需要看 Robots.txt 知道哪些可以下載哪些不行
+    * 分散在不同 server 提高效率
+    * 暫存 DNS resolver 的結果
+    * 讓 crawl server 靠近網站的位置可以有更快的下載速度
+    * 避免等網頁回應太久
+### Step 4 - Wrap up
+* Server-side rendering: 很多網頁都是用 JavaScript, AJAX 所以要先 server-side rendering 才能找出動態產生的 link
+* Filter out unwanted pages: 因為資源有限所以去掉低品質跟垃圾網頁
+* Data replication and sharding: 確保資料可靠性
+* Horizontal scaling: 可以使用很多 server 來下載，讓 server 是 stateless 是關鍵
+* Availability, consistency, and reliability
+* Analytics: 收集分析資料
+
 ## CHAPTER 10: DESIGN A NOTIFICATION SYSTEM
 ### Different types of notifications
 * iOS 用 Apple Push Notification Service
