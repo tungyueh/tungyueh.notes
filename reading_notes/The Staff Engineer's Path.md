@@ -39,3 +39,13 @@
 * 基礎能力、產品管理、時程管理、人員管理是需要具備的能力
 * 如果想要維持 coding 能力不要做太重要的事情只要做一點簡單工作就好
 * coding 的成果可以很快在每個 compile 或測試成功看到但組織的改變是需要好幾個月的，藉由定期詢問信任的 manager 知道成果或者負責時程較短的project
+* Tech lead manager 同時有技術跟管理的工作，所以也比較難同時兼顧兩種技能的發展，有些人會接管理職位幾年在改去技術就可以一段時間內專精所需技能
+* Staff engineer有一些型態
+    * Tech Leads: 跟 manager 合作負責執行面
+    * Architects: 負責跨領域的方向跟品質
+    * Solvers: 解決單一困難的問題
+    * Right hands: 協調複雜組織間的問題
+* 在 staff engineer level 做事的機會成本很高要找重要但沒人發現的事情
+* 不要選擇出意見的人比實際做事的人多的案子，選擇需要自己才能解決的問題
+### Aligning on Scope, Shape, and Primary Focus
+* 寫下自己對於該職位的目標、執行方式跟預期成果跟 manager 對齊目標才能符合其他人的期待
