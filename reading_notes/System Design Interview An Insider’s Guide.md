@@ -241,3 +241,27 @@
 * Security in push notifications 讓受過驗證的人才能發送 notification
 * Monitor queued notifications 藉由監測 queued notification 的數量來判斷 worker 是否足夠來處理通知
 * Events tracking: 收集通知是否有被打開跟點擊的數據讓通知的人有數據可以改進
+
+## CHAPTER 12: DESIGN A CHAT SYSTEM
+* 如何知道有沒有訊息要傳給 reciever
+    * Polling: client 定期去問 server 有沒有訊息，根據頻率決定成本，大部分時間都是沒有訊息的
+    * Long polling: clinet 維持連線直到有新訊息或者 timeout，但 server 沒有好的方式通知 client 可以斷線，會有很多 connection 維持著
+    * WebSocket: client 使用 HTTP connection 建立連線後轉換成 WebSocket connection，透過 persistent connection server 跟 client 可以雙向溝通，但 server 需要處理好大量的連線
+* Stateless Services: 處理登入、註冊、用戶資訊等等，會在 load balancer 之後
+* Stateful Service: chat service 需要管理連線所以是 stateful
+* Third-party integration: 當 app 沒有在跑時通知用戶有新訊息
+* Scalability: 連線需要記憶體，過多連線最終導致 server 記憶體不足無法管理所有連線勢必需要有多台 server 來觀禮連線
+    * Real time service 包含 chat servers 跟 presence servers
+    * Chat server 負責接收跟送出訊息
+    * Presence server 管理連線狀態
+* Storage
+    * 用戶資訊跟設定跟朋友名單應該要存在 relation databases 確保不會遺失
+    * Chat history 因為會很多而且只有最近的訊息比較會被存取，但也有可能需要搜尋或跳到特定訊息，所以使用 key-value stores，
+    * Key-value stores 可以 scaling 處理大量資料，也提供存取資料的 low latency，相較於 relational database 會隨著資料越大而 index 越慢讓 random access 變很久
+* Online presence
+    * 登入後建立 WebSocket connection 修改上線狀態跟 last_active_at 的 timestamp 存到 KV store
+    * 網路連線不穩不能讓狀態在短時間開開關關造成使用者體驗不好，用 heartbeat 定期檢查狀態，讓 client 定期發送 heartbeat event 給 presencee server
+    * 上線後把狀態 publish 到跟朋友的 channel，讓朋友去 subscribe channel 就知道上線狀態，但只適用在小群組
+* 若要支援圖片跟影片因為大小比起文字大很多會需要壓縮還有支援縮圖
+* 支援 end-to-end encryption 只有 sender 跟 recipient 能夠知道訊息內容
+* Client side 暫存 message 減少資料傳輸
