@@ -265,3 +265,37 @@
 * 若要支援圖片跟影片因為大小比起文字大很多會需要壓縮還有支援縮圖
 * 支援 end-to-end encryption 只有 sender 跟 recipient 能夠知道訊息內容
 * Client side 暫存 message 減少資料傳輸
+
+## CHAPTER 13: DESIGN A SEARCH AUTOCOMPLETE SYSTEM
+### Step 1 - Understand the problem and establish design scope
+* 要能快速顯示結果
+* 結果要跟輸入的有相關
+* 比較常被搜尋的要排在越上面
+* 系統要能承受大量需求
+* 系統在部分失效要能持續提供服務
+### Step 2 - Propose high-level design and get buy-in
+* Data gathering service: 收集搜尋的頻率
+* Query service: 根據輸入回傳最常被搜尋的前五個單字
+### Step 3 - Design deep dive
+* Trie data structure
+    * trie 是類似 tree 的資料結構
+    * root 代表空字串
+    * 每個 node 存一個字元底下有26個children代表可能的字母
+    * 最底下的 tree node 代表一個單字
+    * 將最常出現的 cache 起來減少搜尋時間
+* Data gathering service
+    * 每次輸入都更新搜尋頻率會讓 query service 變慢
+    * 熱門搜尋不太會變
+    * 通常是由數據收集每日或每周更新 trie 
+* Query service
+    * 通常熱搜不太會變所以可以請 browser cache 結果避免過於忙碌
+    * 不用所有搜尋都記起來，每個幾個在記起來就可以達到類似功能
+* Scale the storage
+    * 根據字母出現的 pattern 分散存在不同 DB
+    * shard map manager 負責讓 web server 知道要去哪個 DB 找
+* Trie operations
+    * Create: 使用整理好的資料新增
+    * Update: 每周更新
+    * Delete: 刪除有害內容
+### Step 4 - Wrap up
+* 使用 unicode 支援不同語言
