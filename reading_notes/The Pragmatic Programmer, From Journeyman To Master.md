@@ -1,9 +1,16 @@
 # 1. A Pragmatic Philosophy
 ## The Cat Ate My Source Code
+* 犯錯就承認後提供解法選項來補救而非責怪他人
 ## Software Entropy
+* 當發現問題就盡早修復而非讓洞越破越大
 ## Stone Soup and Boiled Frogs
+* 提供催化劑讓大家樂於進步
+* 記住目標不被周而復始功能所迷惑
 ## Good-Enough Software
+* 越早讓使用者嘗試可以盡早得到回饋而非花很長時間做出完美的產品後發現沒人要用
 ## Your Knowledge Portfolio
+* 規律的累積知識的廣度與深度
+* 用批判性的思考去檢視學習到的東西
 ## Communicate!
 ## Summary
 
