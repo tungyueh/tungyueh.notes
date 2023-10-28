@@ -16,7 +16,22 @@
 
 # 2. A Pragmatic Approach
 ## The Evils of Duplication
+* 維護並非 release 才開始而是面對不斷變動的現況採去維護知識完整的樣貌
+* 有多種語言代表相同一俟可以用 code generator 產生 code
+* 先寫文件在寫 code 在緊急的時候就會跳過文件，可以用規格產生測試 code 確保程式符合規格
+* 讓東西容易使用才會讓人想用
 ## Orthogonality
+* 彼此獨立可以增加工程師的生產力
+    * 可以減少開發跟測試時間
+    * 更容易 reuse
+    * 可以組合成更多功能的結果
+* 減少風險
+    * 壞掉的部分不回影響其他部分
+    * 受損部分會被侷限
+    * 容易被測試就可以更完整測試
+    * 不被特定第三方綁住
+* 合作可以明確分工不須開會討論如何處理 overlay 的地方
+* 可以根據當改變需要開會有多少人要參加來判斷系統各部分獨立的程度
 ## Reversibility
 ## Tracer Bullets
 ## Prototypes and Post-it Notes
