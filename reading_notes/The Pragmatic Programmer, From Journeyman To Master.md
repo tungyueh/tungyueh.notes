@@ -33,7 +33,12 @@
 * 合作可以明確分工不須開會討論如何處理 overlay 的地方
 * 可以根據當改變需要開會有多少人要參加來判斷系統各部分獨立的程度
 ## Reversibility
+* 不該假設某項東西不會變而當成基礎去設計
+* 採用的技術之後可能因為效能或成本因素而被要求替換，所以沒有任何決定是永久的
 ## Tracer Bullets
+* 盡快弄出一個完整的產品可以讓使用者回饋需求、開發者有環境可以開發整合、可以 demo 給人看跟對於掌握進度更有感覺
+* Prototype 用來摸索產品可能的樣貌，過程中產出的 code 是可以被丟棄的
+* Tracer code 用來找出系統的架構
 ## Prototypes and Post-it Notes
 ## Domain Languages
 ## Estimating
