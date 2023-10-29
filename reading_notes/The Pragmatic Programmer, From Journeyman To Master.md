@@ -40,8 +40,13 @@
 * Prototype 用來摸索產品可能的樣貌，過程中產出的 code 是可以被丟棄的
 * Tracer code 用來找出系統的架構
 ## Prototypes and Post-it Notes
+* Prototype 不一定需要寫 code 才能做也可以用便利貼的方式來思考，目的只是回答產品需求的問題
+* 使用 prototype 來學習不確定的事物
 ## Domain Languages
+* 讓程式語言貼近問題的語言
 ## Estimating
+* 能夠預估程式的能力才有辦法知道可以處理多大維度的問題
+* 不同的問題有不同的精確程度
 
 # 3. The Basic Tools
 ## The Power of Plain Text
