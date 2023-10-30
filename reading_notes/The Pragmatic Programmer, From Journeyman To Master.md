@@ -50,7 +50,11 @@
 
 # 3. The Basic Tools
 ## The Power of Plain Text
+* 直接將知識用基本格式保留起來後續可以持續使用
 ## Shell Games
+* 使用 GUI 雖然很方便但也被限制在設計者的思考下，通常想要更多功能就無法達到
+* Shell 可以提供更快速的方法達成需求
+* 熟悉 shell 的各項指令的用法可以使生產力大增
 ## Power Editing
 ## Source Code Control
 ## But My Team Isn't Using Source Code Control
