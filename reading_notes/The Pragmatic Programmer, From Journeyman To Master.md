@@ -56,8 +56,15 @@
 * Shell 可以提供更快速的方法達成需求
 * 熟悉 shell 的各項指令的用法可以使生產力大增
 ## Power Editing
+* 徹底了解一種editor套用在所有不同需要處理文字的東西上面
+* 只使用鍵盤來做基本編輯操作是最有效率的因為手都不會離開鍵盤
+* Editor 能夠支援程式語言，像是如果需要 sort import vim 可以直接用 `:.,+3!sort` 來完成，可以提供基本 template
+* 想辦法盡量減少鍵盤敲擊的次數達成相同工作
 ## Source Code Control
+* 永遠使用 source code control 來處理就算只有一個人一個星期的 project 也是
+* Source code control 可以用來自動化 release 流程
 ## But My Team Isn't Using Source Code Control
+* 先自己使用後當問題發生時提出答案讓其他人知道 source code control 的重要性
 ## Source Code Control Products
 ## Debugging
 ## Text Manipulation
